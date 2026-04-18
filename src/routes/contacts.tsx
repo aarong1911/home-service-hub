@@ -25,6 +25,9 @@ import { formatDistanceToNow } from "date-fns";
 import { Mail as MailIcon, Phone as PhoneIcon, MessageSquare, FileText, CheckCircle2, StickyNote, ArrowRight } from "lucide-react";
 import { formatMoney, formatDateShort } from "@/lib/format";
 
+const TAG_FILTERS = ["All", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
+type TagFilter = (typeof TAG_FILTERS)[number];
+
 type ContactsSearch = { contactId?: string };
 
 export const Route = createFileRoute("/contacts")({
