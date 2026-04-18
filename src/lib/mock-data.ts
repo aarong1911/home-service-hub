@@ -35,6 +35,73 @@ export type Project = {
   nextMilestone: string;
 };
 
+export type Task = {
+  id: string;
+  projectId: string;
+  title: string;
+  assignee: string;
+  assigneeInitials: string;
+  due: string;
+  status: "todo" | "in_progress" | "review" | "done";
+  priority: "low" | "med" | "high";
+};
+
+export type Conversation = {
+  id: string;
+  contactId: string;
+  contactName: string;
+  channel: "email" | "sms" | "voice";
+  preview: string;
+  unread: boolean;
+  lastAt: string;
+};
+
+export type Message = {
+  id: string;
+  conversationId: string;
+  channel: "email" | "sms" | "voice";
+  direction: "in" | "out";
+  body: string;
+  at: string;
+};
+
+export type Workflow = {
+  id: string;
+  name: string;
+  status: "active" | "paused" | "draft";
+  trigger: string;
+  lastRun: string;
+  successRate: number;
+  runs: number;
+};
+
+export type Estimate = {
+  id: string;
+  number: string;
+  client: string;
+  amount: number;
+  status: "Draft" | "Sent" | "Viewed" | "Accepted" | "Declined";
+  issued: string;
+};
+
+export type Invoice = {
+  id: string;
+  number: string;
+  client: string;
+  amount: number;
+  status: "Draft" | "Sent" | "Viewed" | "Paid" | "Overdue";
+  due: string;
+};
+
+export type Payment = {
+  id: string;
+  invoice: string;
+  client: string;
+  amount: number;
+  method: "ACH" | "Card" | "Check" | "Wire";
+  receivedAt: string;
+};
+
 const owners = ["Alex Romero", "Priya Shah", "Jamal Burke", "Mei Lin", "Sara Holt"];
 const ownerInitials = ["AR", "PS", "JB", "ML", "SH"];
 
@@ -59,9 +126,9 @@ function pick<T>(arr: T[], i: number): T {
 }
 
 function isoDaysAgo(d: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - d);
-  return date.toISOString();
+  // Use a stable epoch-rounded base to avoid SSR/CSR drift
+  const base = Date.UTC(2026, 3, 18); // April 18, 2026 (matches current date)
+  return new Date(base - d * 86_400_000).toISOString();
 }
 
 export const mockContacts: Contact[] = Array.from({ length: 25 }, (_, i) => ({
@@ -117,6 +184,103 @@ export const mockProjects: Project[] = Array.from({ length: 12 }, (_, i) => ({
   budget: 18000 + ((i * 4321) % 80000),
   spent: 6000 + ((i * 2113) % 60000),
   nextMilestone: ["Demo complete", "Cabinet install", "Final inspection", "Punch list", "Client walkthrough"][i % 5],
+}));
+
+const taskTitles = [
+  "Demo existing cabinets", "Order quartz countertops", "Schedule electrical rough-in",
+  "Drywall + skim coat", "Tile backsplash install", "Paint walls + trim",
+  "Final plumbing connections", "Punch list walkthrough", "Permit submission",
+  "Cabinet delivery coordination", "Subfloor inspection", "Lighting fixture selection",
+];
+
+export const mockTasks: Task[] = Array.from({ length: 30 }, (_, i) => {
+  const ownerIdx = i % owners.length;
+  return {
+    id: `t_${i + 1}`,
+    projectId: mockProjects[i % mockProjects.length].id,
+    title: pick(taskTitles, i),
+    assignee: owners[ownerIdx],
+    assigneeInitials: ownerInitials[ownerIdx],
+    due: isoDaysAgo(-((i * 2) % 21) - 1),
+    status: (["todo", "in_progress", "review", "done"] as const)[i % 4],
+    priority: (["low", "med", "high"] as const)[i % 3],
+  };
+});
+
+export const mockConversations: Conversation[] = Array.from({ length: 14 }, (_, i) => {
+  const contact = mockContacts[i];
+  const channels: Conversation["channel"][] = ["email", "sms", "voice"];
+  const previews = [
+    "Thanks — looking forward to the site visit on Thursday.",
+    "Could we push the kitchen demo back one day?",
+    "Approved the cabinet selections, please proceed.",
+    "Quick question about the tile sample you sent.",
+    "Sounds good. I'll wire the deposit today.",
+    "Voicemail: 1m 12s — call me back when you can.",
+  ];
+  return {
+    id: `cv_${i + 1}`,
+    contactId: contact.id,
+    contactName: contact.name,
+    channel: channels[i % 3],
+    preview: pick(previews, i),
+    unread: i < 4,
+    lastAt: isoDaysAgo(i % 7),
+  };
+});
+
+export const mockMessages: Message[] = mockConversations.flatMap((cv, ci) => {
+  const channels: Message["channel"][] = ["email", "sms", "voice"];
+  return Array.from({ length: 5 }, (_, mi) => ({
+    id: `m_${ci}_${mi}`,
+    conversationId: cv.id,
+    channel: channels[(ci + mi) % 3],
+    direction: mi % 2 === 0 ? "in" : "out",
+    body: [
+      "Hi — wanted to confirm next steps on the kitchen scope.",
+      "Sure, I can have the updated estimate over by EOD.",
+      "Perfect. Also, can we add the pantry build-out?",
+      "Yes — adds about $4,200. I'll revise and resend.",
+      "Approved. Let's lock in the start date.",
+    ][mi],
+    at: isoDaysAgo(7 - mi),
+  }));
+});
+
+export const mockWorkflows: Workflow[] = [
+  { id: "w_1", name: "New lead → Welcome SMS + Email", status: "active", trigger: "Lead created", lastRun: isoDaysAgo(0), successRate: 98, runs: 1247 },
+  { id: "w_2", name: "Estimate sent → Follow-up in 3 days", status: "active", trigger: "Estimate sent", lastRun: isoDaysAgo(0), successRate: 94, runs: 612 },
+  { id: "w_3", name: "Project won → Create project + kickoff tasks", status: "active", trigger: "Deal moved to Won", lastRun: isoDaysAgo(1), successRate: 100, runs: 89 },
+  { id: "w_4", name: "Invoice overdue → Reminder + late fee", status: "active", trigger: "Invoice 7d overdue", lastRun: isoDaysAgo(0), successRate: 88, runs: 142 },
+  { id: "w_5", name: "Project complete → Review request", status: "paused", trigger: "Project status: Completed", lastRun: isoDaysAgo(4), successRate: 76, runs: 64 },
+  { id: "w_6", name: "Cold lead → Re-engagement drip", status: "draft", trigger: "Lead inactive 30d", lastRun: "—", successRate: 0, runs: 0 },
+];
+
+export const mockEstimates: Estimate[] = Array.from({ length: 14 }, (_, i) => ({
+  id: `e_${i + 1}`,
+  number: `EST-${4200 + i}`,
+  client: mockContacts[i].name,
+  amount: 8400 + ((i * 3217) % 70000),
+  status: (["Draft", "Sent", "Viewed", "Accepted", "Declined"] as const)[i % 5],
+  issued: isoDaysAgo((i * 2) % 30),
+}));
+
+export const mockInvoices: Invoice[] = Array.from({ length: 16 }, (_, i) => ({
+  id: `i_${i + 1}`,
+  number: `INV-${7800 + i}`,
+  client: mockContacts[i].name,
+  amount: 5200 + ((i * 2891) % 60000),
+  status: (["Draft", "Sent", "Viewed", "Paid", "Paid", "Overdue"] as const)[i % 6],
+  due: isoDaysAgo(-((i * 3) % 30) + 5),
+}));
+
+export const mockPayments: Payment[] = Array.from({ length: 12 }, (_, i) => ({
+  id: `pay_${i + 1}`,
+  invoice: `INV-${7800 + i}`,
+  client: mockContacts[i].name,
+  amount: 4200 + ((i * 1987) % 30000),
+  method: (["ACH", "Card", "Check", "Wire"] as const)[i % 4],
+  receivedAt: isoDaysAgo(i % 20),
 }));
 
 export const pipelineVelocityData = Array.from({ length: 12 }, (_, i) => ({
