@@ -146,7 +146,7 @@ function ReportsPage() {
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8 }}
                 formatter={(v) => [formatMoney(Number(v ?? 0))]}
-                labelFormatter={(l) => `Week of ${l}`}
+                labelFormatter={(l) => `${bucket === "weekly" ? "Week of" : "Month of"} ${l}`}
               />
               <Legend
                 verticalAlign="top"
