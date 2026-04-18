@@ -359,14 +359,29 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-background px-5 py-3">
         {isInvoice ? (
           <>
-            <Button size="sm" className="h-8 gap-1.5" onClick={handleMarkPaid} disabled={localStatus === "Paid"}>
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {localStatus === "Paid" ? "Paid" : "Mark as paid"}
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleReminder}>
-              <Send className="h-3.5 w-3.5" />
-              Send reminder
-            </Button>
+            {isDraft ? (
+              <Button
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={handleSend}
+                disabled={!scheduleBalanced}
+                title={scheduleBalanced ? undefined : "Schedule must total 100% before sending"}
+              >
+                <Send className="h-3.5 w-3.5" />
+                Send invoice
+              </Button>
+            ) : (
+              <Button size="sm" className="h-8 gap-1.5" onClick={handleMarkPaid} disabled={localStatus === "Paid"}>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {localStatus === "Paid" ? "Paid" : "Mark as paid"}
+              </Button>
+            )}
+            {!isDraft && (
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleReminder}>
+                <Send className="h-3.5 w-3.5" />
+                Send reminder
+              </Button>
+            )}
           </>
         ) : (
           <>
