@@ -363,11 +363,15 @@ function ContactDrawer({ contact, onOpenChange }: { contact: Contact | null; onO
                 </div>
               </TabsContent>
 
-              <TabsContent value="activity" className="mt-4 text-sm text-muted-foreground">
-                Activity timeline coming next.
+              <TabsContent value="activity" className="mt-4">
+                <ActivityTab contact={contact} />
               </TabsContent>
-              <TabsContent value="deals" className="mt-4 text-sm text-muted-foreground">No open deals.</TabsContent>
-              <TabsContent value="projects" className="mt-4 text-sm text-muted-foreground">No active projects.</TabsContent>
+              <TabsContent value="deals" className="mt-4">
+                <DealsTab contact={contact} />
+              </TabsContent>
+              <TabsContent value="projects" className="mt-4">
+                <ProjectsTab contact={contact} />
+              </TabsContent>
               <TabsContent value="notes" className="mt-4 text-sm text-muted-foreground">No notes yet.</TabsContent>
               <TabsContent value="files" className="mt-4 text-sm text-muted-foreground">No files attached.</TabsContent>
             </Tabs>
