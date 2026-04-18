@@ -69,12 +69,14 @@ function PipelinePage() {
   }, [deals, search, ownerFilter, valueFilter]);
 
   const stats = useMemo(() => {
-    const open = filtered.filter((d) => d.stage !== "won");
+    const open = filtered.filter((d) => d.stage !== "won" && d.stage !== "lost");
     const won = filtered.filter((d) => d.stage === "won");
+    const lost = filtered.filter((d) => d.stage === "lost");
     const pipelineValue = open.reduce((s, d) => s + d.value, 0);
     const wonValue = won.reduce((s, d) => s + d.value, 0);
+    const decided = won.length + lost.length;
+    const winRate = decided > 0 ? Math.round((won.length / decided) * 100) : 0;
     const total = filtered.length;
-    const winRate = total > 0 ? Math.round((won.length / total) * 100) : 0;
     const avgDeal = total > 0 ? Math.round(filtered.reduce((s, d) => s + d.value, 0) / total) : 0;
     const avgAge = open.length > 0 ? Math.round(open.reduce((s, d) => s + d.ageDays, 0) / open.length) : 0;
     return { pipelineValue, wonValue, winRate, avgDeal, avgAge, openCount: open.length };
