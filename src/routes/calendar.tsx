@@ -106,6 +106,14 @@ function CalendarPage() {
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(new Date(today.getTime() - 1000 * 60 * 4));
   const [selectedDay, setSelectedDay] = useState<string>(ymd(today));
+  const [nowTick, setNowTick] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const update = () => setNowTick(new Date());
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const events = useMemo(() => buildMockEvents(cursor), [cursor]);
   const filtered = useMemo(
