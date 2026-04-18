@@ -285,7 +285,7 @@ function CompaniesPage() {
 
       <CompanyDetailSheet
         company={selected}
-        onOpenChange={(o) => !o && setSelected(null)}
+        onOpenChange={(o) => { if (!o) navigate({ search: { companyId: undefined }, replace: true }); }}
         onEdit={(c) => setEditing(c)}
       />
 
