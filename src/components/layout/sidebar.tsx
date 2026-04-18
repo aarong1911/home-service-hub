@@ -93,6 +93,19 @@ export function Sidebar({
           collapsed ? "w-16" : "w-60",
         )}
       >
+        <div className="border-b border-sidebar-border p-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggle}
+            className="w-full justify-start text-muted-foreground"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
+            {!collapsed && <span className="ml-2 text-xs">Collapse</span>}
+          </Button>
+        </div>
+
         <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-3">
           {!collapsed && (
             <div className="mb-3 px-2">
@@ -132,16 +145,6 @@ export function Sidebar({
             active={isActive("/settings")}
             collapsed={collapsed}
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggle}
-            className="mt-1 w-full justify-start text-muted-foreground"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
-            {!collapsed && <span className="ml-2 text-xs">Collapse</span>}
-          </Button>
         </div>
       </aside>
     </TooltipProvider>
