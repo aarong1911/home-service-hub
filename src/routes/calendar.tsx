@@ -78,9 +78,12 @@ function buildMockEvents(anchor: Date): CalEvent[] {
   ];
 }
 
+type ViewMode = "month" | "week" | "day";
+
 function CalendarPage() {
   const today = new Date();
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [view, setView] = useState<ViewMode>("month");
   const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(new Date(Date.now() - 1000 * 60 * 4));
