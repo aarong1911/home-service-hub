@@ -168,6 +168,8 @@ function PaymentsPage() {
           <tbody>
             {rows.map((p) => {
               const isScheduled = p.status === "Scheduled";
+              const overdue = isPastDue(p);
+              const lastReminder = overdue ? lastReminderByPayment.get(p.id) : undefined;
               const dateLabel = isScheduled
                 ? scheduledDateLabel(p.dueDate ?? p.receivedAt)
                 : formatDate(p.receivedAt);
@@ -188,7 +190,18 @@ function PaymentsPage() {
                     )}
                   </td>
                   <td className="px-4">
-                    <StatusBadge status={isPastDue(p) ? "Past due" : (p.status ?? "Received")} />
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={overdue ? "Past due" : (p.status ?? "Received")} />
+                      {lastReminder && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          title={`Last reminder ${formatDate(lastReminder.sentAt)} by ${lastReminder.actor}`}
+                        >
+                          <BellRing className="h-2.5 w-2.5" />
+                          Reminded {timeAgo(lastReminder.sentAt)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4">
                     <MethodBadge method={p.method} />
@@ -204,7 +217,7 @@ function PaymentsPage() {
                   </td>
                   <td className="px-4 text-xs text-muted-foreground">{dateLabel}</td>
                   <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    {isPastDue(p) ? (
+                    {overdue ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -217,7 +230,7 @@ function PaymentsPage() {
                         }}
                       >
                         <BellRing className="h-3 w-3" />
-                        Remind
+                        {lastReminder ? "Remind again" : "Remind"}
                       </Button>
                     ) : (
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
