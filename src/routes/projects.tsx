@@ -234,9 +234,10 @@ function Kpi({
 }
 
 function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r: DropResult) => void }) {
+  const navigate = useNavigate();
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-scroll overflow-y-hidden px-6 pb-3" style={{ scrollbarGutter: "stable" }}>
+      <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-scroll overflow-y-hidden px-6 pb-3">
         <div className="flex h-full min-w-max gap-3">
           {projectStages.map((stage) => {
             const stageProjects = projects.filter((p) => p.stage === stage.id);
@@ -275,7 +276,11 @@ function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r
                               ref={prov.innerRef}
                               {...prov.draggableProps}
                               {...prov.dragHandleProps}
-                              className={snap.isDragging ? "rotate-1" : ""}
+                              onClick={() => {
+                                if (snap.isDragging) return;
+                                navigate({ to: "/projects/$clientSlug", params: { clientSlug: p.slug } });
+                              }}
+                              className={`cursor-pointer ${snap.isDragging ? "rotate-1" : ""}`}
                             >
                               <ProjectCard project={p} />
                             </div>
