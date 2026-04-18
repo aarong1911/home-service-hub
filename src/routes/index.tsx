@@ -247,16 +247,7 @@ function DashboardPage() {
             </div>
             <div className="divide-y divide-border">
               {recentActivity.map((a) => (
-                <div key={a.id} className="flex items-start gap-3 py-3">
-                  <ActivityIcon type={a.type} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px]">
-                      <span className="font-medium">{a.who}</span>
-                      <span className="text-muted-foreground"> {a.what}</span>
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">{a.when}</div>
-                  </div>
-                </div>
+                <ActivityRow key={a.id} activity={a} link={activityLinks[a.id]} />
               ))}
             </div>
           </CardContent>
