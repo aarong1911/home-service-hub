@@ -79,16 +79,22 @@ export function DealDetailDrawer({
   deal,
   onOpenChange,
   onStageChange,
+  onMarkLost,
 }: {
   deal: Deal | null;
   onOpenChange: (open: boolean) => void;
   onStageChange?: (dealId: string, newStage: string) => void;
+  onMarkLost?: (dealId: string, reason: LostReason, notes: string) => void;
 }) {
   const contact = useMemo(
     () => (deal ? mockContacts.find((c) => c.id === deal.contactId) : null),
     [deal],
   );
   const activity = useMemo(() => (deal ? buildActivity(deal) : []), [deal]);
+
+  const [lostOpen, setLostOpen] = useState(false);
+  const [lostReason, setLostReason] = useState<LostReason | null>(null);
+  const [lostNotes, setLostNotes] = useState("");
 
   const handleWon = () => {
     if (!deal) return;
@@ -99,16 +105,24 @@ export function DealDetailDrawer({
     onOpenChange(false);
   };
 
-  const handleLost = () => {
-    if (!deal) return;
-    onStageChange?.(deal.id, "new"); // there's no "lost" stage; reset for demo
+  const openLost = () => {
+    setLostReason(null);
+    setLostNotes("");
+    setLostOpen(true);
+  };
+
+  const confirmLost = () => {
+    if (!deal || !lostReason) return;
+    onMarkLost?.(deal.id, lostReason, lostNotes);
     toast(`${deal.name} marked as Lost`, {
-      description: "Reason logged. Deal archived.",
+      description: `Reason: ${lostReason}${lostNotes ? ` · ${lostNotes.slice(0, 60)}` : ""}`,
     });
+    setLostOpen(false);
     onOpenChange(false);
   };
 
   return (
+    <>
     <Sheet open={!!deal} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         {deal && (
@@ -129,11 +143,24 @@ export function DealDetailDrawer({
                   <div className="text-[11px] text-muted-foreground">Expected {formatDateShort(deal.expectedClose)}</div>
                 </div>
               </div>
+              {deal.lostReason && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                  <div className="min-w-0">
+                    <div className="font-medium text-destructive">Lost · {deal.lostReason}</div>
+                    {deal.lostAt && (
+                      <div className="text-[11px] text-muted-foreground">
+                        {formatDistanceToNow(new Date(deal.lostAt), { addSuffix: true })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button size="sm" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleWon}>
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark as Won
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1" onClick={handleLost}>
+                <Button size="sm" variant="outline" className="flex-1" onClick={openLost}>
                   <XCircle className="mr-1.5 h-3.5 w-3.5" /> Mark as Lost
                 </Button>
               </div>
