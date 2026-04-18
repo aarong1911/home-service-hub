@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           collapsed ? "pl-16" : "pl-60",
         )}
       >
-        <div className="mx-auto max-w-screen-2xl p-6">{children}</div>
+        <div className="p-6">{children}</div>
       </main>
     </div>
   );
