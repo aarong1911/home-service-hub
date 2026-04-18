@@ -499,6 +499,7 @@ function TimeGrid({
             const dayEvents = (eventsByDay.get(key) ?? [])
               .slice()
               .sort((a, b) => a.start.localeCompare(b.start));
+            const showNow = nowMinutes !== null && key === todayKey;
             return (
               <div
                 key={key}
@@ -534,6 +535,18 @@ function TimeGrid({
                     </div>
                   );
                 })}
+                {showNow && (
+                  <div
+                    className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                    style={{ top: nowTop }}
+                  >
+                    <span className="-ml-1 h-2 w-2 rounded-full bg-destructive shadow-[0_0_0_2px_var(--background)]" />
+                    <span className="h-px flex-1 bg-destructive" />
+                    <span className="ml-1 rounded bg-destructive px-1 py-0.5 text-[9px] font-semibold text-destructive-foreground">
+                      {nowLabel}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}
