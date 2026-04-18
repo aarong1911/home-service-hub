@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as FinancialsRouteImport } from './routes/financials'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
@@ -52,6 +53,11 @@ const FinancialsRoute = FinancialsRouteImport.update({
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompaniesRoute = CompaniesRouteImport.update({
+  id: '/companies',
+  path: '/companies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/calendar': typeof CalendarRoute
+  '/companies': typeof CompaniesRoute
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/calendar': typeof CalendarRoute
+  '/companies': typeof CompaniesRoute
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/calendar': typeof CalendarRoute
+  '/companies': typeof CompaniesRoute
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/calendar'
+    | '/companies'
     | '/contacts'
     | '/financials'
     | '/inbox'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/calendar'
+    | '/companies'
     | '/contacts'
     | '/financials'
     | '/inbox'
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/calendar'
+    | '/companies'
     | '/contacts'
     | '/financials'
     | '/inbox'
@@ -319,6 +331,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   CalendarRoute: typeof CalendarRoute
+  CompaniesRoute: typeof CompaniesRoute
   ContactsRoute: typeof ContactsRoute
   FinancialsRoute: typeof FinancialsRouteWithChildren
   InboxRoute: typeof InboxRoute
@@ -361,6 +374,13 @@ declare module '@tanstack/react-router' {
       path: '/contacts'
       fullPath: '/contacts'
       preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/companies': {
+      id: '/companies'
+      path: '/companies'
+      fullPath: '/companies'
+      preLoaderRoute: typeof CompaniesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -557,6 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   CalendarRoute: CalendarRoute,
+  CompaniesRoute: CompaniesRoute,
   ContactsRoute: ContactsRoute,
   FinancialsRoute: FinancialsRouteWithChildren,
   InboxRoute: InboxRoute,
