@@ -833,7 +833,7 @@ export const mockWorkflowRuns: WorkflowRun[] = Array.from({ length: 40 }, (_, i)
     id: `run_${i + 1}`,
     workflowId: wf.id,
     contact: mockContacts[i % mockContacts.length].name,
-    startedAt: isoDaysAgo(i % 14, (i * 17) % 60),
+    startedAt: isoDaysAgo(i % 14),
     durationMs: 800 + ((i * 1313) % 9000),
     status: statuses[i % statuses.length],
     failedAtNodeId: statuses[i % statuses.length] === "failed" ? wf.nodes[1]?.id : undefined,
