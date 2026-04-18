@@ -45,6 +45,15 @@ import {
   type Conversation,
   type Message,
 } from "@/lib/mock-data";
+import {
+  messageTemplates,
+  resolveMergeTags,
+  type MergeContext,
+  type SharedMessageTemplate,
+} from "@/lib/message-templates";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FileText } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/inbox")({
   component: InboxPage,
@@ -78,8 +87,11 @@ function InboxPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [activeId, setActiveId] = useState<string | undefined>(mockConversations[0]?.id);
   const [draft, setDraft] = useState("");
+  const [subject, setSubject] = useState("");
   const [composeChannel, setComposeChannel] = useState<ComposeChannel>("sms");
   const [search, setSearch] = useState("");
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplSearch, setTplSearch] = useState("");
 
   const conversations = useMemo(() => {
     return mockConversations.filter((c) => {
@@ -113,6 +125,57 @@ function InboxPage() {
   const thread = active ? mockMessages.filter((m) => m.conversationId === active.id) : [];
   const contact = active ? mockContacts.find((c) => c.id === active.contactId) : undefined;
   const contactProjects = contact ? mockProjects.filter((p) => p.client === contact.name) : [];
+
+  const mergeCtx: MergeContext = useMemo(() => {
+    const firstProject = contactProjects[0];
+    const [first_name = "", ...rest] = (contact?.name ?? "").split(" ");
+    const last_name = rest.join(" ");
+    const total = firstProject?.contractValue ?? 0;
+    const fmtMoney = (n: number) =>
+      new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    return {
+      first_name,
+      last_name,
+      project_address: firstProject?.address ?? "your project address",
+      project_type: firstProject?.type ?? "renovation",
+      owner_name: "Alex Rivera",
+      company_name: "Rivera Construction",
+      estimate_total: total ? fmtMoney(total) : "$—",
+      deposit_amount: total ? fmtMoney(Math.round(total * 0.5)) : "$—",
+      deposit_due: "Friday",
+      start_date: firstProject?.startDate
+        ? new Date(firstProject.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : "next Monday",
+    };
+  }, [contact, contactProjects]);
+
+  const visibleTemplates = useMemo(() => {
+    const channelMatch = (t: SharedMessageTemplate) =>
+      composeChannel === "note" ? true : t.channel === composeChannel;
+    const q = tplSearch.trim().toLowerCase();
+    return messageTemplates.filter((t) => {
+      if (!channelMatch(t)) return false;
+      if (!q) return true;
+      return (
+        t.name.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        t.body.toLowerCase().includes(q)
+      );
+    });
+  }, [composeChannel, tplSearch]);
+
+  const applyTemplate = (t: SharedMessageTemplate) => {
+    setDraft(resolveMergeTags(t.body, mergeCtx));
+    if (t.channel === "email" && t.subject) {
+      setSubject(resolveMergeTags(t.subject, mergeCtx));
+      if (composeChannel !== "email") setComposeChannel("email");
+    } else if (t.channel === "sms" && composeChannel !== "sms") {
+      setComposeChannel("sms");
+    }
+    setTplOpen(false);
+    setTplSearch("");
+    toast.success(`Inserted "${t.name}"`);
+  };
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
@@ -331,6 +394,63 @@ function InboxPage() {
                     <ComposeTab id="note" current={composeChannel} onSelect={setComposeChannel} icon={StickyNote} label="Note" />
                   </div>
                   <div className="ml-auto flex items-center gap-1">
+                    <Popover open={tplOpen} onOpenChange={setTplOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 text-[11px]">
+                          <FileText className="mr-1 h-3 w-3" /> Templates
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-80 p-0">
+                        <div className="border-b border-border p-2">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              autoFocus
+                              value={tplSearch}
+                              onChange={(e) => setTplSearch(e.target.value)}
+                              placeholder={`Search ${composeChannel === "email" ? "email" : composeChannel === "sms" ? "SMS" : ""} templates…`}
+                              className="h-8 pl-7 text-xs"
+                            />
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span>Merging for {contact?.name ?? "—"}</span>
+                            <Link to="/settings/templates" className="hover:text-primary">Manage</Link>
+                          </div>
+                        </div>
+                        <div className="max-h-72 overflow-y-auto p-1">
+                          {visibleTemplates.length === 0 ? (
+                            <div className="p-6 text-center text-[11px] text-muted-foreground">
+                              No templates match
+                            </div>
+                          ) : (
+                            visibleTemplates.map((t) => {
+                              const previewSrc = t.channel === "email" && t.subject ? t.subject : t.body;
+                              return (
+                                <button
+                                  key={t.id}
+                                  onClick={() => applyTemplate(t)}
+                                  className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-secondary"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    {t.channel === "email" ? (
+                                      <Mail className="h-3 w-3 text-muted-foreground" />
+                                    ) : (
+                                      <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                    <span className="truncate text-[12px] font-medium">{t.name}</span>
+                                    {t.starred && <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />}
+                                    <Badge variant="outline" className="ml-auto h-4 px-1 text-[9px]">{t.category}</Badge>
+                                  </div>
+                                  <div className="line-clamp-1 text-[10px] text-muted-foreground">
+                                    {resolveMergeTags(previewSrc, mergeCtx)}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <Button variant="ghost" size="sm" className="h-7 text-[11px] text-primary hover:text-primary">
                       <Sparkles className="mr-1 h-3 w-3" /> AI Draft
                     </Button>
@@ -340,6 +460,14 @@ function InboxPage() {
                     <Button variant="ghost" size="sm" className="h-7 px-2"><Paperclip className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
+                {composeChannel === "email" && (
+                  <Input
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Subject"
+                    className="mb-2 h-8 text-xs"
+                  />
+                )}
                 <div
                   className={`rounded-md border ${
                     composeChannel === "note"
