@@ -204,7 +204,7 @@ function ContactsPage() {
               {!isLoading && filtered.map((c) => (
                 <tr
                   key={c.id}
-                  onClick={() => setSelected(c)}
+                  onClick={() => navigate({ search: { contactId: c.id }, replace: true })}
                   className="cursor-pointer border-b border-border transition-colors hover:bg-secondary/40"
                 >
                   <td className="py-2.5 pl-4 pr-2" onClick={(e) => e.stopPropagation()}>
