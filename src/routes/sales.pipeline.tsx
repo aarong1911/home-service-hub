@@ -34,7 +34,15 @@ function PipelinePage() {
   const [selected, setSelected] = useState<Deal | null>(null);
 
   const handleStageChange = (dealId: string, newStage: string) => {
-    setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: newStage } : d)));
+    setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: newStage, lostReason: undefined, lostAt: undefined } : d)));
+  };
+
+  const handleMarkLost = (dealId: string, reason: LostReason, _notes: string) => {
+    setDeals((prev) =>
+      prev.map((d) =>
+        d.id === dealId ? { ...d, lostReason: reason, lostAt: new Date().toISOString() } : d,
+      ),
+    );
   };
 
   const onDragEnd = (result: DropResult) => {
