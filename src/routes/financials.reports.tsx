@@ -73,6 +73,66 @@ function ReportsPage() {
         <SummaryCard label="Collection rate" value={`${collectionRate}%`} delta="+3pp" tone="up" icon={TrendingUp} />
       </div>
 
+      {/* Cashflow forecast — Received vs Scheduled by week, next 90 days */}
+      <Card className="mb-4 p-4">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-primary" />
+              <div className="text-sm font-semibold">Cashflow forecast · next 90 days</div>
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Weekly inflows from received payments and scheduled milestones
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <Legendish color={SUCCESS} label="Received" value={formatMoney(cashflowTotals.received)} />
+            <Legendish color={PRIMARY} label="Scheduled" value={formatMoney(cashflowTotals.expected)} />
+            <div className="border-l border-border pl-4">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
+              <div className="text-sm font-semibold tabular-nums">{formatMoney(cashflowTotals.total)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={cashflow} margin={{ top: 8, right: 8, bottom: 0, left: -8 }} barCategoryGap="20%">
+              <defs>
+                <linearGradient id="schedFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={PRIMARY} stopOpacity={0.85} />
+                  <stop offset="100%" stopColor={PRIMARY} stopOpacity={0.55} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.005 250)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={0} />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+              />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(v: number, name) => [formatMoney(Number(v)), name]}
+                labelFormatter={(l) => `Week of ${l}`}
+              />
+              <Legend
+                verticalAlign="top"
+                height={0}
+                wrapperStyle={{ display: "none" }}
+              />
+              <Bar dataKey="received" stackId="cash" name="Received" fill={SUCCESS} radius={[0, 0, 0, 0]} />
+              <Bar dataKey="scheduled" stackId="cash" name="Scheduled" fill="url(#schedFill)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {cashflowTotals.expected === 0 && (
+          <div className="mt-2 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground">
+            No scheduled milestones yet. Send a draft invoice from <span className="font-medium text-foreground">/financials/invoices</span> to populate the forecast.
+          </div>
+        )}
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
