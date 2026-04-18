@@ -130,6 +130,11 @@ function InvoicesPage() {
           </tbody>
         </table>
       </Card>
+
+      <FinancialDetailDrawer
+        record={selected ? { kind: "invoice", ...selected } : null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </>
   );
 }
