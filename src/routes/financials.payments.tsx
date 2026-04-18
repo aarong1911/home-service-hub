@@ -3,12 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, DollarSign, Building2, CreditCard as CardIcon, Banknote, MoreHorizontal, CalendarClock, AlertTriangle } from "lucide-react";
+import { Search, DollarSign, Building2, CreditCard as CardIcon, Banknote, MoreHorizontal, CalendarClock, AlertTriangle, BellRing } from "lucide-react";
 import { mockPayments, type Payment } from "@/lib/mock-data";
 import { useScheduledPayments } from "@/lib/scheduled-payments";
+import { logReminder } from "@/lib/payment-reminders";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { PaymentDetailDrawer } from "@/components/financials/payment-detail-drawer";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/financials/payments")({
   component: PaymentsPage,
@@ -191,9 +193,26 @@ function PaymentsPage() {
                   </td>
                   <td className="px-4 text-xs text-muted-foreground">{dateLabel}</td>
                   <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </Button>
+                    {isPastDue(p) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-[11px]"
+                        onClick={() => {
+                          logReminder(p.id);
+                          toast.success(`Reminder sent to ${p.client}`, {
+                            description: `${p.milestoneLabel ?? "Milestone"} · ${formatMoney(p.amount)}`,
+                          });
+                        }}
+                      >
+                        <BellRing className="h-3 w-3" />
+                        Remind
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </td>
                 </tr>
               );
