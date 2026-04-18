@@ -60,6 +60,7 @@ function Body({ payment, onClose }: { payment: Payment; onClose: () => void }) {
     toast.success(`Downloading receipt-${payment.id}.pdf`);
   };
 
+  const isScheduled = payment.status === "Scheduled";
   return (
     <div className="flex h-full flex-col">
       <SheetHeader className="space-y-0 border-b border-border px-5 py-4">
@@ -68,25 +69,43 @@ function Body({ payment, onClose }: { payment: Payment; onClose: () => void }) {
             variant="secondary"
             className="h-5 rounded px-1.5 text-[10px] font-medium uppercase tracking-wide"
           >
-            Payment
+            {isScheduled ? "Scheduled" : "Payment"}
           </Badge>
           <span className="font-mono text-xs text-muted-foreground">{txnId}</span>
           <Badge
             variant="secondary"
             className={`ml-auto h-5 rounded px-1.5 text-[10px] ${
-              refunded ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"
+              refunded
+                ? "bg-destructive/15 text-destructive"
+                : isScheduled
+                  ? "bg-primary-soft text-primary"
+                  : "bg-success/15 text-success"
             }`}
           >
-            {refunded ? "Refunded" : "Received"}
+            {refunded ? "Refunded" : isScheduled ? "Scheduled" : "Received"}
           </Badge>
         </div>
         <SheetTitle className="mt-2 text-lg font-semibold">{payment.client}</SheetTitle>
+        {isScheduled && payment.milestoneLabel && (
+          <div className="mt-0.5 text-xs text-muted-foreground">{payment.milestoneLabel}</div>
+        )}
         <div className="mt-0.5 flex items-baseline justify-between">
-          <div className={`text-2xl font-semibold tabular-nums ${refunded ? "text-muted-foreground line-through" : "text-success"}`}>
-            +{formatMoney(payment.amount)}
+          <div
+            className={`text-2xl font-semibold tabular-nums ${
+              refunded
+                ? "text-muted-foreground line-through"
+                : isScheduled
+                  ? "text-primary"
+                  : "text-success"
+            }`}
+          >
+            {isScheduled ? "" : "+"}
+            {formatMoney(payment.amount)}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            Received {formatDate(payment.receivedAt)}
+            {isScheduled
+              ? `Expected ${formatDate(payment.dueDate ?? payment.receivedAt)}`
+              : `Received ${formatDate(payment.receivedAt)}`}
           </div>
         </div>
       </SheetHeader>

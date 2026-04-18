@@ -29,6 +29,7 @@ import {
   type DraftSchedule,
   type PaymentMilestone,
 } from "@/lib/draft-invoices";
+import { scheduleFromInvoice } from "@/lib/scheduled-payments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "@tanstack/react-router";
@@ -116,6 +117,25 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   const label = isInvoice ? "Invoice" : "Estimate";
   const handleSend = () => {
     setLocalStatus("Sent");
+    // For draft invoices with a payment schedule, push one Scheduled payment row per milestone
+    // so /financials/payments reflects expected cashflow.
+    if (isInvoice && draftId && currentSchedule.milestones.length > 0) {
+      updateDraftInvoice(draftId, { status: "Sent" });
+      scheduleFromInvoice({
+        invoiceNumber: record.number,
+        client: record.client,
+        total,
+        schedule: currentSchedule,
+      });
+      toast.success(`${label} ${record.number} sent to ${record.client}`, {
+        description: `Scheduled ${currentSchedule.milestones.length} payment${currentSchedule.milestones.length === 1 ? "" : "s"} on cashflow`,
+        action: {
+          label: "View payments",
+          onClick: () => navigate({ to: "/financials/payments" }),
+        },
+      });
+      return;
+    }
     toast.success(`${label} ${record.number} sent to ${record.client}`);
   };
   const handleReminder = () => {
