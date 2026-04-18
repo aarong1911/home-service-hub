@@ -14,11 +14,13 @@ import {
   Mail,
   Hash,
   Calendar,
+  BellRing,
 } from "lucide-react";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { mockInvoices, type Payment } from "@/lib/mock-data";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { logReminder, useReminders } from "@/lib/payment-reminders";
 
 export function PaymentDetailDrawer({
   payment,
@@ -61,6 +63,19 @@ function Body({ payment, onClose }: { payment: Payment; onClose: () => void }) {
   };
 
   const isScheduled = payment.status === "Scheduled";
+  const isPastDue =
+    isScheduled && daysFromNow(payment.dueDate ?? payment.receivedAt) < 0;
+  const allReminders = useReminders();
+  const reminders = useMemo(
+    () => allReminders.filter((r) => r.paymentId === payment.id),
+    [allReminders, payment.id],
+  );
+  const handleSendReminder = () => {
+    logReminder(payment.id);
+    toast.success(`Reminder sent to ${payment.client}`, {
+      description: `${payment.milestoneLabel ?? "Milestone"} · ${formatMoney(payment.amount)}`,
+    });
+  };
   return (
     <div className="flex h-full flex-col">
       <SheetHeader className="space-y-0 border-b border-border px-5 py-4">
@@ -192,20 +207,42 @@ function Body({ payment, onClose }: { payment: Payment; onClose: () => void }) {
           {/* Activity */}
           <Section title="Activity">
             <ol className="relative space-y-3 border-l border-border pl-4">
-              <Activity
-                title={`Payment received · ${formatMoney(payment.amount)}`}
-                actor={payment.client}
-                at={payment.receivedAt}
-                icon={CheckCircle2}
-                tone="text-success"
-              />
-              <Activity
-                title="Receipt emailed"
-                actor="System"
-                at={payment.receivedAt}
-                icon={Mail}
-                tone="text-primary"
-              />
+              {isScheduled ? (
+                <Activity
+                  title={`Milestone scheduled · ${formatMoney(payment.amount)}`}
+                  actor="System"
+                  at={payment.receivedAt}
+                  icon={Calendar}
+                  tone="text-primary"
+                />
+              ) : (
+                <>
+                  <Activity
+                    title={`Payment received · ${formatMoney(payment.amount)}`}
+                    actor={payment.client}
+                    at={payment.receivedAt}
+                    icon={CheckCircle2}
+                    tone="text-success"
+                  />
+                  <Activity
+                    title="Receipt emailed"
+                    actor="System"
+                    at={payment.receivedAt}
+                    icon={Mail}
+                    tone="text-primary"
+                  />
+                </>
+              )}
+              {reminders.map((r, i) => (
+                <Activity
+                  key={i}
+                  title="Payment reminder sent"
+                  actor={r.actor}
+                  at={r.sentAt}
+                  icon={BellRing}
+                  tone="text-warning"
+                />
+              ))}
               {refunded && (
                 <Activity
                   title={`Refund issued · ${formatMoney(payment.amount)}`}
@@ -221,24 +258,38 @@ function Body({ payment, onClose }: { payment: Payment; onClose: () => void }) {
       </ScrollArea>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-background px-5 py-3">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8 gap-1.5"
-          onClick={handleRefund}
-          disabled={refunded}
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          {refunded ? "Refunded" : "Refund"}
-        </Button>
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={handleReceipt}>
-          <Mail className="h-3.5 w-3.5" />
-          Email receipt
-        </Button>
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={handleDownload}>
-          <Download className="h-3.5 w-3.5" />
-          Receipt PDF
-        </Button>
+        {isScheduled ? (
+          <Button
+            size="sm"
+            variant={isPastDue ? "default" : "outline"}
+            className="h-8 gap-1.5"
+            onClick={handleSendReminder}
+          >
+            <BellRing className="h-3.5 w-3.5" />
+            Send reminder
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={handleRefund}
+              disabled={refunded}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {refunded ? "Refunded" : "Refund"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={handleReceipt}>
+              <Mail className="h-3.5 w-3.5" />
+              Email receipt
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={handleDownload}>
+              <Download className="h-3.5 w-3.5" />
+              Receipt PDF
+            </Button>
+          </>
+        )}
         <div className="ml-auto">
           <Button size="sm" variant="ghost" className="h-8" onClick={onClose}>
             Close
