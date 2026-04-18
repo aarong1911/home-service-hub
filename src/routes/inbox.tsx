@@ -112,7 +112,7 @@ function InboxPage() {
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0];
   const thread = active ? mockMessages.filter((m) => m.conversationId === active.id) : [];
   const contact = active ? mockContacts.find((c) => c.id === active.contactId) : undefined;
-  const contactProjects = contact ? mockProjects.filter((p) => p.clientName === contact.name) : [];
+  const contactProjects = contact ? mockProjects.filter((p) => p.client === contact.name) : [];
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
