@@ -75,12 +75,23 @@ function PipelinePage() {
     const lost = filtered.filter((d) => d.stage === "lost");
     const pipelineValue = open.reduce((s, d) => s + d.value, 0);
     const wonValue = won.reduce((s, d) => s + d.value, 0);
+    const lostValue = lost.reduce((s, d) => s + d.value, 0);
     const decided = won.length + lost.length;
     const winRate = decided > 0 ? Math.round((won.length / decided) * 100) : 0;
     const total = filtered.length;
     const avgDeal = total > 0 ? Math.round(filtered.reduce((s, d) => s + d.value, 0) / total) : 0;
     const avgAge = open.length > 0 ? Math.round(open.reduce((s, d) => s + d.ageDays, 0) / open.length) : 0;
-    return { pipelineValue, wonValue, winRate, avgDeal, avgAge, openCount: open.length };
+    return { pipelineValue, wonValue, lostValue, winRate, avgDeal, avgAge, openCount: open.length, wonCount: won.length, lostCount: lost.length };
+  }, [filtered]);
+
+  const lostBreakdown = useMemo(() => {
+    const lost = filtered.filter((d) => d.stage === "lost" && d.lostReason);
+    const totals = LOST_REASONS_ALL.map((reason) => {
+      const items = lost.filter((d) => d.lostReason === reason);
+      return { reason, count: items.length, value: items.reduce((s, d) => s + d.value, 0) };
+    });
+    const max = Math.max(1, ...totals.map((t) => t.count));
+    return { totals, max, totalLost: lost.length };
   }, [filtered]);
 
   return (
@@ -103,12 +114,59 @@ function PipelinePage() {
       />
 
       {/* KPIs */}
-      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Kpi label="Pipeline value" value={formatMoney(stats.pipelineValue)} sub={`${stats.openCount} open deals`} icon={DollarSign} tone="primary" />
         <Kpi label="Win rate" value={`${stats.winRate}%`} sub={`${formatMoney(stats.wonValue)} won`} icon={TrendingUp} tone="success" />
+        <Kpi label="Won / Lost" value={`${stats.wonCount} / ${stats.lostCount}`} sub={`${formatMoney(stats.wonValue)} vs ${formatMoney(stats.lostValue)}`} icon={Trophy} tone="success" />
         <Kpi label="Avg deal size" value={formatMoney(stats.avgDeal)} sub="Across all stages" icon={Target} tone="warning" />
         <Kpi label="Avg age" value={`${stats.avgAge}d`} sub="In current stage" icon={Clock} tone="muted" />
       </div>
+
+      {/* Lost-reason breakdown */}
+      <Card className="mb-3 p-3">
+        <div className="mb-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+              <XCircle className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Lost reasons</div>
+              <div className="text-[11px] text-muted-foreground">
+                {lostBreakdown.totalLost === 0
+                  ? "No lost deals yet"
+                  : `${lostBreakdown.totalLost} lost · ${formatMoney(stats.lostValue)} in value`}
+              </div>
+            </div>
+          </div>
+        </div>
+        {lostBreakdown.totalLost === 0 ? (
+          <div className="py-4 text-center text-[11px] text-muted-foreground">
+            Mark a deal as lost with a reason to see breakdown insights here.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {lostBreakdown.totals.map((t) => {
+              const pct = Math.round((t.count / lostBreakdown.max) * 100);
+              const sharePct = lostBreakdown.totalLost > 0 ? Math.round((t.count / lostBreakdown.totalLost) * 100) : 0;
+              return (
+                <div key={t.reason} className="rounded-md border border-border bg-secondary/30 p-2">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[11px] font-medium">{t.reason}</span>
+                    <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">{t.count}</span>
+                  </div>
+                  <div className="mb-1 h-1.5 overflow-hidden rounded-full bg-secondary">
+                    <div className="h-full rounded-full bg-destructive/70 transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+                    <span>{sharePct}% share</span>
+                    <span>{formatMoney(t.value)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {/* Filters */}
       <Card className="mb-3 p-2.5">
