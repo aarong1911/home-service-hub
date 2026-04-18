@@ -210,6 +210,36 @@ export type Message = {
   at: string;
 };
 
+export type WorkflowCategory = "Sales" | "Operations" | "Finance" | "Marketing" | "Client Care";
+
+export type WorkflowNodeKind =
+  | "trigger"
+  | "send-sms"
+  | "send-email"
+  | "wait"
+  | "condition"
+  | "create-task"
+  | "update-stage"
+  | "internal-note"
+  | "webhook";
+
+export type WorkflowNode = {
+  id: string;
+  kind: WorkflowNodeKind;
+  title: string;
+  subtitle?: string;
+};
+
+export type WorkflowRun = {
+  id: string;
+  workflowId: string;
+  contact: string;
+  startedAt: string;
+  durationMs: number;
+  status: "success" | "failed" | "running";
+  failedAtNodeId?: string;
+};
+
 export type Workflow = {
   id: string;
   name: string;
@@ -218,6 +248,23 @@ export type Workflow = {
   lastRun: string;
   successRate: number;
   runs: number;
+  category: WorkflowCategory;
+  folder: string;
+  owner: string;
+  ownerInitials: string;
+  description: string;
+  nodes: WorkflowNode[];
+};
+
+export type WorkflowTemplate = {
+  id: string;
+  name: string;
+  category: WorkflowCategory;
+  description: string;
+  steps: number;
+  installs: number;
+  trigger: string;
+  featured?: boolean;
 };
 
 export type Estimate = {
