@@ -394,6 +394,63 @@ function InboxPage() {
                     <ComposeTab id="note" current={composeChannel} onSelect={setComposeChannel} icon={StickyNote} label="Note" />
                   </div>
                   <div className="ml-auto flex items-center gap-1">
+                    <Popover open={tplOpen} onOpenChange={setTplOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 text-[11px]">
+                          <FileText className="mr-1 h-3 w-3" /> Templates
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-80 p-0">
+                        <div className="border-b border-border p-2">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              autoFocus
+                              value={tplSearch}
+                              onChange={(e) => setTplSearch(e.target.value)}
+                              placeholder={`Search ${composeChannel === "email" ? "email" : composeChannel === "sms" ? "SMS" : ""} templates…`}
+                              className="h-8 pl-7 text-xs"
+                            />
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span>Merging for {contact?.name ?? "—"}</span>
+                            <Link to="/settings/templates" className="hover:text-primary">Manage</Link>
+                          </div>
+                        </div>
+                        <div className="max-h-72 overflow-y-auto p-1">
+                          {visibleTemplates.length === 0 ? (
+                            <div className="p-6 text-center text-[11px] text-muted-foreground">
+                              No templates match
+                            </div>
+                          ) : (
+                            visibleTemplates.map((t) => {
+                              const previewSrc = t.channel === "email" && t.subject ? t.subject : t.body;
+                              return (
+                                <button
+                                  key={t.id}
+                                  onClick={() => applyTemplate(t)}
+                                  className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-secondary"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    {t.channel === "email" ? (
+                                      <Mail className="h-3 w-3 text-muted-foreground" />
+                                    ) : (
+                                      <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                    <span className="truncate text-[12px] font-medium">{t.name}</span>
+                                    {t.starred && <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />}
+                                    <Badge variant="outline" className="ml-auto h-4 px-1 text-[9px]">{t.category}</Badge>
+                                  </div>
+                                  <div className="line-clamp-1 text-[10px] text-muted-foreground">
+                                    {resolveMergeTags(previewSrc, mergeCtx)}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <Button variant="ghost" size="sm" className="h-7 text-[11px] text-primary hover:text-primary">
                       <Sparkles className="mr-1 h-3 w-3" /> AI Draft
                     </Button>
@@ -403,6 +460,14 @@ function InboxPage() {
                     <Button variant="ghost" size="sm" className="h-7 px-2"><Paperclip className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
+                {composeChannel === "email" && (
+                  <Input
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Subject"
+                    className="mb-2 h-8 text-xs"
+                  />
+                )}
                 <div
                   className={`rounded-md border ${
                     composeChannel === "note"
