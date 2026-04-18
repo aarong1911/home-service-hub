@@ -163,20 +163,36 @@ function CalendarPage() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8" onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))}>
+          <Button variant="outline" size="sm" className="h-8" onClick={goToday}>
             Today
           </Button>
           <div className="flex items-center rounded-md border border-border">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shift(-1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shift(1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <h2 className="text-base font-semibold">{monthLabel}</h2>
+          <h2 className="text-base font-semibold">{headerLabel}</h2>
         </div>
         <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(v) => v && setView(v as ViewMode)}
+            className="h-8 rounded-md border border-border p-0.5"
+          >
+            <ToggleGroupItem value="month" className="h-7 px-2.5 text-xs data-[state=on]:bg-secondary">
+              Month
+            </ToggleGroupItem>
+            <ToggleGroupItem value="week" className="h-7 px-2.5 text-xs data-[state=on]:bg-secondary">
+              Week
+            </ToggleGroupItem>
+            <ToggleGroupItem value="day" className="h-7 px-2.5 text-xs data-[state=on]:bg-secondary">
+              Day
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as EventType | "all")}>
             <SelectTrigger className="h-8 w-[160px] text-xs">
               <SelectValue />
