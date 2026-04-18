@@ -19,7 +19,11 @@ import { mockInvoices, mockPayments, pipelineVelocityData, type Payment } from "
 import { useScheduledPayments } from "@/lib/scheduled-payments";
 import { formatMoney } from "@/lib/format";
 import { TrendingUp, TrendingDown, ArrowUpRight, Wallet, CalendarClock } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
+type Bucket = "weekly" | "monthly";
+type Horizon = 30 | 90 | 180;
 
 export const Route = createFileRoute("/financials/reports")({
   component: ReportsPage,
