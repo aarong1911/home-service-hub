@@ -230,7 +230,7 @@ function CompaniesPage() {
               <TableRow
                 key={c.id}
                 className="cursor-pointer"
-                onClick={() => setSelected(c)}
+                onClick={() => navigate({ search: { companyId: c.id }, replace: true })}
               >
                 <TableCell>
                   <div className="flex items-center gap-2.5">
