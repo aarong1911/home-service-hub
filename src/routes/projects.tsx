@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { PageHeader } from "@/components/layout/app-shell";
@@ -234,9 +234,10 @@ function Kpi({
 }
 
 function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r: DropResult) => void }) {
+  const navigate = useNavigate();
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-scroll overflow-y-hidden px-6 pb-3" style={{ scrollbarGutter: "stable" }}>
+      <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-scroll overflow-y-hidden px-6 pb-3">
         <div className="flex h-full min-w-max gap-3">
           {projectStages.map((stage) => {
             const stageProjects = projects.filter((p) => p.stage === stage.id);
@@ -275,7 +276,11 @@ function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r
                               ref={prov.innerRef}
                               {...prov.draggableProps}
                               {...prov.dragHandleProps}
-                              className={snap.isDragging ? "rotate-1" : ""}
+                              onClick={() => {
+                                if (snap.isDragging) return;
+                                navigate({ to: "/projects/$clientSlug", params: { clientSlug: p.slug } });
+                              }}
+                              className={`cursor-pointer ${snap.isDragging ? "rotate-1" : ""}`}
                             >
                               <ProjectCard project={p} />
                             </div>
@@ -315,47 +320,45 @@ function ProjectCard({ project }: { project: Project }) {
     : project.banner === "stuck" ? "border-l-4 border-l-amber-500"
     : "";
   return (
-    <Link to="/projects/$clientSlug" params={{ clientSlug: project.slug }}>
-      <Card className={`group p-3 transition-shadow hover:shadow-[var(--shadow-elev-2)] ${accent}`}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 text-[13px] font-semibold text-foreground group-hover:text-primary">
-            {project.name}
-          </div>
-          <span className="shrink-0 text-[10px] font-medium text-muted-foreground tabular-nums">{project.ageDays}d</span>
+    <Card className={`group p-3 transition-shadow hover:shadow-[var(--shadow-elev-2)] ${accent}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 text-[13px] font-semibold text-foreground group-hover:text-primary">
+          {project.name}
         </div>
-        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          {project.client} · {project.address.split(",").pop()?.trim()}
+        <span className="shrink-0 text-[10px] font-medium text-muted-foreground tabular-nums">{project.ageDays}d</span>
+      </div>
+      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+        {project.client} · {project.address.split(",").pop()?.trim()}
+      </div>
+
+      {project.banner && project.bannerLabel && (
+        <div className={`mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium ${project.banner === "over-budget" ? "text-destructive" : "text-amber-600"}`}>
+          <AlertCircle className="h-3 w-3" /> {project.bannerLabel}
         </div>
+      )}
 
-        {project.banner && project.bannerLabel && (
-          <div className={`mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium ${project.banner === "over-budget" ? "text-destructive" : "text-amber-600"}`}>
-            <AlertCircle className="h-3 w-3" /> {project.bannerLabel}
+      {project.progress > 0 && project.progress < 100 && (
+        <>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>{project.progress}% complete</span>
+            <span>Due {new Date(project.targetEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</span>
           </div>
-        )}
-
-        {project.progress > 0 && project.progress < 100 && (
-          <>
-            <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{project.progress}% complete</span>
-              <span>Due {new Date(project.targetEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-            </div>
-            <div className="mt-1 h-1 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full bg-primary" style={{ width: `${project.progress}%` }} />
-            </div>
-          </>
-        )}
-
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-[12px] font-semibold tabular-nums">${project.budget.toLocaleString()}</span>
-          <div className="flex items-center gap-1.5">
-            <TypeChip type={project.type} />
-            <span className={`flex h-5 w-5 items-center justify-center rounded text-[9px] font-semibold ${project.ownerColor}`}>
-              {project.ownerInitials}
-            </span>
+          <div className="mt-1 h-1 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full bg-primary" style={{ width: `${project.progress}%` }} />
           </div>
+        </>
+      )}
+
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-[12px] font-semibold tabular-nums">${project.budget.toLocaleString()}</span>
+        <div className="flex items-center gap-1.5">
+          <TypeChip type={project.type} />
+          <span className={`flex h-5 w-5 items-center justify-center rounded text-[9px] font-semibold ${project.ownerColor}`}>
+            {project.ownerInitials}
+          </span>
         </div>
-      </Card>
-    </Link>
+      </div>
+    </Card>
   );
 }
 
