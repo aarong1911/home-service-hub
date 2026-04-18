@@ -443,7 +443,7 @@ function KpiCard({
       <CardContent className="flex flex-col gap-1 p-4">
         <span className="text-xs uppercase tracking-wider text-muted-foreground">{label}</span>
         <span className="text-2xl font-semibold tracking-tight">{value}</span>
-        <span className={cn("text-xs", tone === "warning" ? "text-amber-600" : "text-muted-foreground")}>
+        <span className={cn("text-xs", tone === "warning" ? "text-destructive" : "text-muted-foreground")}>
           {sub}
         </span>
       </CardContent>

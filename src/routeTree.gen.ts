@@ -27,6 +27,7 @@ import { Route as FinancialsPaymentsRouteImport } from './routes/financials.paym
 import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invoices'
 import { Route as FinancialsEstimatesRouteImport } from './routes/financials.estimates'
 import { Route as AutomationWorkflowsRouteImport } from './routes/automation.workflows'
+import { Route as AutomationTriggersRouteImport } from './routes/automation.triggers'
 import { Route as AutomationAgentsRouteImport } from './routes/automation.agents'
 import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
 import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
@@ -121,6 +122,11 @@ const AutomationWorkflowsRoute = AutomationWorkflowsRouteImport.update({
   path: '/automation/workflows',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AutomationTriggersRoute = AutomationTriggersRouteImport.update({
+  id: '/automation/triggers',
+  path: '/automation/triggers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AutomationAgentsRoute = AutomationAgentsRouteImport.update({
   id: '/automation/agents',
   path: '/automation/agents',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
+  '/automation/triggers': typeof AutomationTriggersRoute
   '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
+  '/automation/triggers': typeof AutomationTriggersRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
+  '/automation/triggers': typeof AutomationTriggersRoute
   '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/settings'
     | '/automation/agents'
+    | '/automation/triggers'
     | '/automation/workflows'
     | '/financials/estimates'
     | '/financials/invoices'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/settings'
     | '/automation/agents'
+    | '/automation/triggers'
     | '/financials/estimates'
     | '/financials/invoices'
     | '/financials/payments'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/settings'
     | '/automation/agents'
+    | '/automation/triggers'
     | '/automation/workflows'
     | '/financials/estimates'
     | '/financials/invoices'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   InboxRoute: typeof InboxRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   AutomationAgentsRoute: typeof AutomationAgentsRoute
+  AutomationTriggersRoute: typeof AutomationTriggersRoute
   AutomationWorkflowsRoute: typeof AutomationWorkflowsRouteWithChildren
   ProjectsClientSlugRoute: typeof ProjectsClientSlugRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
@@ -422,6 +435,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomationWorkflowsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/automation/triggers': {
+      id: '/automation/triggers'
+      path: '/automation/triggers'
+      fullPath: '/automation/triggers'
+      preLoaderRoute: typeof AutomationTriggersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/automation/agents': {
       id: '/automation/agents'
       path: '/automation/agents'
@@ -502,6 +522,7 @@ const rootRouteChildren: RootRouteChildren = {
   InboxRoute: InboxRoute,
   SettingsRoute: SettingsRouteWithChildren,
   AutomationAgentsRoute: AutomationAgentsRoute,
+  AutomationTriggersRoute: AutomationTriggersRoute,
   AutomationWorkflowsRoute: AutomationWorkflowsRouteWithChildren,
   ProjectsClientSlugRoute: ProjectsClientSlugRoute,
   SalesPipelineRoute: SalesPipelineRoute,
