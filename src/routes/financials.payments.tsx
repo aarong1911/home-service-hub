@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, DollarSign, Building2, CreditCard as CardIcon, Banknote, MoreHorizontal, CalendarClock } from "lucide-react";
+import { Search, DollarSign, Building2, CreditCard as CardIcon, Banknote, MoreHorizontal, CalendarClock, AlertTriangle } from "lucide-react";
 import { mockPayments, type Payment } from "@/lib/mock-data";
 import { useScheduledPayments } from "@/lib/scheduled-payments";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
@@ -15,7 +15,12 @@ export const Route = createFileRoute("/financials/payments")({
 });
 
 const METHODS: Payment["method"][] = ["ACH", "Card", "Check", "Wire"];
-type StatusFilter = "All" | "Received" | "Scheduled";
+type StatusFilter = "All" | "Received" | "Scheduled" | "Past due";
+
+function isPastDue(p: Payment): boolean {
+  if (p.status !== "Scheduled") return false;
+  return daysFromNow(p.dueDate ?? p.receivedAt) < 0;
+}
 
 function PaymentsPage() {
   const [query, setQuery] = useState("");
@@ -32,14 +37,10 @@ function PaymentsPage() {
   const stats = useMemo(() => {
     const received = allPayments.filter((p) => (p.status ?? "Received") === "Received");
     const sched = allPayments.filter((p) => p.status === "Scheduled");
+    const pastDue = sched.filter(isPastDue);
     const total = received.reduce((s, p) => s + p.amount, 0);
     const upcoming = sched.reduce((s, p) => s + p.amount, 0);
-    const next30 = sched
-      .filter((p) => {
-        const d = daysFromNow(p.dueDate ?? p.receivedAt);
-        return d >= 0 && d <= 30;
-      })
-      .reduce((s, p) => s + p.amount, 0);
+    const pastDueAmount = pastDue.reduce((s, p) => s + p.amount, 0);
     const byMethod: Record<string, number> = {};
     received.forEach((p) => {
       byMethod[p.method] = (byMethod[p.method] ?? 0) + p.amount;
@@ -48,7 +49,8 @@ function PaymentsPage() {
     return {
       total,
       upcoming,
-      next30,
+      pastDueAmount,
+      pastDueCount: pastDue.length,
       top,
       receivedCount: received.length,
       scheduledCount: sched.length,
@@ -60,7 +62,11 @@ function PaymentsPage() {
     return allPayments
       .filter((p) => {
         const status = p.status ?? "Received";
-        if (statusFilter !== "All" && status !== statusFilter) return false;
+        if (statusFilter === "Past due") {
+          if (!isPastDue(p)) return false;
+        } else if (statusFilter !== "All" && status !== statusFilter) {
+          return false;
+        }
         if (method !== "All" && p.method !== method) return false;
         if (!q) return true;
         return (
@@ -88,7 +94,13 @@ function PaymentsPage() {
           icon={CalendarClock}
           tone="primary"
         />
-        <Kpi label="Next 30 days" value={formatMoney(stats.next30)} sub="expected inflow" icon={Banknote} tone="warning" />
+        <Kpi
+          label="Past due"
+          value={formatMoney(stats.pastDueAmount)}
+          sub={`${stats.pastDueCount} milestone${stats.pastDueCount === 1 ? "" : "s"}`}
+          icon={AlertTriangle}
+          tone="danger"
+        />
         <Kpi label="Top method" value={stats.top?.[0] ?? "—"} sub={stats.top ? formatMoney(stats.top[1]) : ""} icon={CardIcon} tone="muted" />
       </div>
 
@@ -112,6 +124,9 @@ function PaymentsPage() {
             </FilterChip>
             <FilterChip active={statusFilter === "Scheduled"} onClick={() => setStatusFilter("Scheduled")}>
               Scheduled
+            </FilterChip>
+            <FilterChip active={statusFilter === "Past due"} onClick={() => setStatusFilter("Past due")}>
+              Past due{stats.pastDueCount > 0 ? ` (${stats.pastDueCount})` : ""}
             </FilterChip>
           </div>
           <div className="ml-auto flex flex-wrap gap-1">
@@ -160,7 +175,7 @@ function PaymentsPage() {
                     )}
                   </td>
                   <td className="px-4">
-                    <StatusBadge status={p.status ?? "Received"} />
+                    <StatusBadge status={isPastDue(p) ? "Past due" : (p.status ?? "Received")} />
                   </td>
                   <td className="px-4">
                     <MethodBadge method={p.method} />
@@ -209,11 +224,13 @@ function scheduledDateLabel(iso: string): string {
   return `${Math.abs(d)}d overdue · ${formatDate(iso)}`;
 }
 
-function StatusBadge({ status }: { status: "Received" | "Scheduled" }) {
+function StatusBadge({ status }: { status: "Received" | "Scheduled" | "Past due" }) {
   const cls =
-    status === "Scheduled"
-      ? "bg-primary-soft text-primary"
-      : "bg-success/15 text-success";
+    status === "Past due"
+      ? "bg-destructive/15 text-destructive"
+      : status === "Scheduled"
+        ? "bg-primary-soft text-primary"
+        : "bg-success/15 text-success";
   return (
     <Badge variant="secondary" className={`h-5 rounded px-1.5 text-[10px] ${cls}`}>
       {status}
@@ -256,13 +273,14 @@ function Kpi({
   value: string;
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "primary" | "success" | "warning" | "muted";
+  tone: "primary" | "success" | "warning" | "muted" | "danger";
 }) {
   const toneClass = {
     primary: "bg-primary-soft text-primary",
     success: "bg-success/15 text-success",
     warning: "bg-warning/15 text-warning",
     muted: "bg-secondary text-muted-foreground",
+    danger: "bg-destructive/15 text-destructive",
   }[tone];
   return (
     <Card className="p-4">
