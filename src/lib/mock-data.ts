@@ -345,6 +345,7 @@ export const pipelineStages = [
   { id: "proposal", name: "Proposal" },
   { id: "negotiation", name: "Negotiation" },
   { id: "won", name: "Won" },
+  { id: "lost", name: "Lost" },
 ] as const;
 
 const dealTypes = [

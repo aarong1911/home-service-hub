@@ -40,7 +40,9 @@ function PipelinePage() {
   const handleMarkLost = (dealId: string, reason: LostReason, _notes: string) => {
     setDeals((prev) =>
       prev.map((d) =>
-        d.id === dealId ? { ...d, lostReason: reason, lostAt: new Date().toISOString() } : d,
+        d.id === dealId
+          ? { ...d, stage: "lost", lostReason: reason, lostAt: new Date().toISOString() }
+          : d,
       ),
     );
   };
@@ -67,12 +69,14 @@ function PipelinePage() {
   }, [deals, search, ownerFilter, valueFilter]);
 
   const stats = useMemo(() => {
-    const open = filtered.filter((d) => d.stage !== "won");
+    const open = filtered.filter((d) => d.stage !== "won" && d.stage !== "lost");
     const won = filtered.filter((d) => d.stage === "won");
+    const lost = filtered.filter((d) => d.stage === "lost");
     const pipelineValue = open.reduce((s, d) => s + d.value, 0);
     const wonValue = won.reduce((s, d) => s + d.value, 0);
+    const decided = won.length + lost.length;
+    const winRate = decided > 0 ? Math.round((won.length / decided) * 100) : 0;
     const total = filtered.length;
-    const winRate = total > 0 ? Math.round((won.length / total) * 100) : 0;
     const avgDeal = total > 0 ? Math.round(filtered.reduce((s, d) => s + d.value, 0) / total) : 0;
     const avgAge = open.length > 0 ? Math.round(open.reduce((s, d) => s + d.ageDays, 0) / open.length) : 0;
     return { pipelineValue, wonValue, winRate, avgDeal, avgAge, openCount: open.length };
@@ -393,6 +397,7 @@ function stageColor(id: string) {
     proposal: "bg-warning",
     negotiation: "bg-chart-5",
     won: "bg-success",
+    lost: "bg-destructive",
   };
   return map[id] ?? "bg-muted-foreground";
 }
@@ -405,6 +410,7 @@ function stageProgress(id: string) {
     proposal: 70,
     negotiation: 85,
     won: 100,
+    lost: 100,
   };
   return map[id] ?? 0;
 }
