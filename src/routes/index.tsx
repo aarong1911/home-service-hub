@@ -385,3 +385,68 @@ function ActivityIcon({ type }: { type: string }) {
     </div>
   );
 }
+
+function ActivityRow({
+  activity,
+  link,
+}: {
+  activity: { id: number; who: string; what: string; when: string; type: string };
+  link?: ActivityLink;
+}) {
+  const content = (
+    <>
+      <ActivityIcon type={activity.type} />
+      <div className="min-w-0 flex-1 text-left">
+        <div className="text-[13px]">
+          <span className="font-medium">{activity.who}</span>
+          <span className="text-muted-foreground"> {activity.what}</span>
+        </div>
+        <div className="mt-0.5 text-[11px] text-muted-foreground">{activity.when}</div>
+      </div>
+    </>
+  );
+
+  const className =
+    "flex w-full items-start gap-3 py-3 text-left transition-colors -mx-2 px-2 rounded-md hover:bg-secondary/60 focus-visible:bg-secondary/60 focus-visible:outline-none";
+
+  if (!link) return <div className={className}>{content}</div>;
+
+  switch (link.kind) {
+    case "deal":
+      return (
+        <Link to="/sales/pipeline" search={{ dealId: link.dealId }} className={className}>
+          {content}
+        </Link>
+      );
+    case "contact":
+      return (
+        <Link to="/contacts" search={{ contactId: link.contactId }} className={className}>
+          {content}
+        </Link>
+      );
+    case "invoice":
+      return (
+        <Link to="/financials/invoices" className={className}>
+          {content}
+        </Link>
+      );
+    case "project":
+      return (
+        <Link to="/projects/$clientSlug" params={{ clientSlug: link.clientSlug }} className={className}>
+          {content}
+        </Link>
+      );
+    case "inbox":
+      return (
+        <Link to="/inbox" className={className}>
+          {content}
+        </Link>
+      );
+    case "workflows":
+      return (
+        <Link to="/automation/workflows" className={className}>
+          {content}
+        </Link>
+      );
+  }
+}
