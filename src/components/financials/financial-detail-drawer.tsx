@@ -60,6 +60,8 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   const activity = generateActivity(record);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [localStatus, setLocalStatus] = useState<string>(record.status);
+  const [convertedTo, setConvertedTo] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const label = isInvoice ? "Invoice" : "Estimate";
   const handleSend = () => {
@@ -79,6 +81,29 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   };
   const handleDownload = () => {
     toast.success(`Downloading ${record.number}.pdf`);
+  };
+  const handleConvertToInvoice = () => {
+    if (record.kind !== "estimate") return;
+    const today = new Date();
+    const due = new Date(today.getTime() + 30 * 86_400_000);
+    const number = nextDraftInvoiceNumber(mockInvoices.length);
+    const draft: Invoice = {
+      id: `inv-draft-${Date.now()}`,
+      number,
+      client: record.client,
+      amount: total,
+      status: "Draft",
+      due: due.toISOString().slice(0, 10),
+    };
+    addDraftInvoice(draft);
+    setConvertedTo(number);
+    toast.success(`Created Draft ${number} from ${record.number}`, {
+      description: `${items.length} line items · ${formatMoney(total)}`,
+      action: {
+        label: "Open Invoices",
+        onClick: () => navigate({ to: "/financials/invoices" }),
+      },
+    });
   };
 
   // Header status meta
