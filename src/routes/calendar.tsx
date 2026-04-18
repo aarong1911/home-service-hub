@@ -399,8 +399,8 @@ function buildMonthGrid(anchor: Date): Date[] {
   });
 }
 
-function formatRelative(d: Date): string {
-  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+function formatRelative(d: Date, now: Date): string {
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
   if (diff < 60) return "just now";
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
