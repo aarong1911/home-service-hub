@@ -246,6 +246,61 @@ export function DealDetailDrawer({
         )}
       </SheetContent>
     </Sheet>
+
+    <Dialog open={lostOpen} onOpenChange={setLostOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Mark deal as Lost</DialogTitle>
+          <DialogDescription>
+            Capture why this deal didn't close. This helps surface patterns in your pipeline.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Reason
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {LOST_REASONS.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setLostReason(r)}
+                  className={`h-9 rounded-md border px-3 text-left text-sm font-medium transition-colors ${
+                    lostReason === r
+                      ? "border-primary/40 bg-primary-soft text-primary"
+                      : "border-border bg-background text-foreground hover:bg-secondary/60"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Notes (optional)
+            </div>
+            <Textarea
+              value={lostNotes}
+              onChange={(e) => setLostNotes(e.target.value)}
+              placeholder="Add context — competitor name, timing details, etc."
+              rows={3}
+              className="resize-none text-sm"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={() => setLostOpen(false)}>Cancel</Button>
+          <Button variant="destructive" disabled={!lostReason} onClick={confirmLost}>
+            Mark as Lost
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
