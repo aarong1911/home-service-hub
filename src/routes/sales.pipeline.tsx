@@ -11,7 +11,7 @@ import {
   Plus, Search, ChevronDown, LayoutGrid, List as ListIcon, AlertTriangle,
   DollarSign, TrendingUp, Target, Clock, SlidersHorizontal,
 } from "lucide-react";
-import { mockDeals, pipelineStages, type Deal } from "@/lib/mock-data";
+import { mockDeals, pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 
