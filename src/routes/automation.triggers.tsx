@@ -652,6 +652,11 @@ function SubscriberRow({
 
 function TriggerDetail({ trigger }: { trigger: Trigger }) {
   const Icon = trigger.icon;
+  const fires = useMemo(
+    () => generateFires(trigger.id, trigger.payload, trigger.subscribers, 100),
+    [trigger.id, trigger.payload, trigger.subscribers],
+  );
+
   return (
     <>
       <SheetHeader className="space-y-3">
@@ -673,78 +678,181 @@ function TriggerDetail({ trigger }: { trigger: Trigger }) {
         </div>
       </SheetHeader>
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">Events / week</div>
-            <div className="text-xl font-semibold">{trigger.eventsThisWeek}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">Last fired</div>
-            <div className="text-xl font-semibold">{trigger.lastFired}</div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="overview" className="mt-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="log">Event log ({fires.length})</TabsTrigger>
+        </TabsList>
 
-      <section className="mt-6">
-        <h3 className="mb-2 text-sm font-semibold">Event payload</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {trigger.payload.map((field) => (
-            <code
-              key={field}
-              className="rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-xs"
-            >
-              {field}
-            </code>
-          ))}
-        </div>
-      </section>
+        <TabsContent value="overview" className="mt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-xs text-muted-foreground">Events / week</div>
+                <div className="text-xl font-semibold">{trigger.eventsThisWeek}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-xs text-muted-foreground">Last fired</div>
+                <div className="text-xl font-semibold">{trigger.lastFired}</div>
+              </CardContent>
+            </Card>
+          </div>
 
-      <section className="mt-6">
-        <h3 className="mb-2 text-sm font-semibold">
-          Subscribers ({trigger.subscribers.length})
-        </h3>
-        {trigger.subscribers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nothing is listening yet. Connect an agent or workflow to react to this event.
-          </p>
-        ) : (
-          <ul className="flex flex-col divide-y rounded-md border">
-            {trigger.subscribers.map((s) => (
-              <li key={s.name} className="flex items-center justify-between gap-2 p-3">
-                <div className="flex items-center gap-2">
-                  {s.kind === "agent" ? (
-                    <Bot className="size-4 text-muted-foreground" />
-                  ) : (
-                    <WorkflowIcon className="size-4 text-muted-foreground" />
-                  )}
-                  <span className="text-sm font-medium">{s.name}</span>
-                  <Badge variant="outline" className="text-[10px] capitalize">
-                    {s.kind}
-                  </Badge>
-                </div>
-                <Link
-                  to={s.href}
-                  className="text-xs text-muted-foreground hover:text-foreground"
+          <section className="mt-6">
+            <h3 className="mb-2 text-sm font-semibold">Event payload</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {trigger.payload.map((field) => (
+                <code
+                  key={field}
+                  className="rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-xs"
                 >
-                  Open →
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  {field}
+                </code>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-6">
+            <h3 className="mb-2 text-sm font-semibold">
+              Subscribers ({trigger.subscribers.length})
+            </h3>
+            {trigger.subscribers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing is listening yet. Connect an agent or workflow to react to this event.
+              </p>
+            ) : (
+              <ul className="flex flex-col divide-y rounded-md border">
+                {trigger.subscribers.map((s) => (
+                  <li key={s.name} className="flex items-center justify-between gap-2 p-3">
+                    <div className="flex items-center gap-2">
+                      {s.kind === "agent" ? (
+                        <Bot className="size-4 text-muted-foreground" />
+                      ) : (
+                        <WorkflowIcon className="size-4 text-muted-foreground" />
+                      )}
+                      <span className="text-sm font-medium">{s.name}</span>
+                      <Badge variant="outline" className="text-[10px] capitalize">
+                        {s.kind}
+                      </Badge>
+                    </div>
+                    <Link
+                      to={s.href}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Open →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="log" className="mt-4">
+          <EventLog fires={fires} />
+        </TabsContent>
+      </Tabs>
 
       <div className="mt-6 flex gap-2">
         <Button variant="outline" className="flex-1">
           Edit trigger
         </Button>
-        <Button variant="outline" className="flex-1">
-          View event log
-        </Button>
       </div>
     </>
+  );
+}
+
+function EventLog({ fires }: { fires: FireEvent[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const counts = useMemo(() => {
+    const c = { success: 0, failed: 0, skipped: 0 };
+    fires.forEach((f) => {
+      c[f.outcome] += 1;
+    });
+    return c;
+  }, [fires]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3 text-xs">
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-emerald-500" />
+          {counts.success} success
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-destructive" />
+          {counts.failed} failed
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-muted-foreground/50" />
+          {counts.skipped} skipped
+        </span>
+      </div>
+
+      <ScrollArea className="h-[480px] rounded-md border">
+        <ul className="divide-y">
+          {fires.map((fire) => {
+            const isOpen = openId === fire.id;
+            return (
+              <li key={fire.id}>
+                <button
+                  onClick={() => setOpenId(isOpen ? null : fire.id)}
+                  className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                    <span
+                      className={cn(
+                        "mt-1 size-2 shrink-0 rounded-full",
+                        fire.outcome === "success" && "bg-emerald-500",
+                        fire.outcome === "failed" && "bg-destructive",
+                        fire.outcome === "skipped" && "bg-muted-foreground/50",
+                      )}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-mono text-muted-foreground">
+                          {RELATIVE_FMT.format(new Date(fire.firedAt))}
+                        </span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground">{fire.durationMs}ms</span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs">
+                        {fire.handledBy ? (
+                          <>
+                            {fire.handledByKind === "agent" ? (
+                              <Bot className="size-3 text-muted-foreground" />
+                            ) : (
+                              <WorkflowIcon className="size-3 text-muted-foreground" />
+                            )}
+                            <span className="truncate font-medium">{fire.handledBy}</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground italic">
+                            {fire.outcome === "skipped" ? "Skipped (no match)" : "No subscriber"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{isOpen ? "−" : "+"}</span>
+                </button>
+                {isOpen && (
+                  <div className="border-t bg-muted/30 px-3 py-2">
+                    <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Payload
+                    </div>
+                    <pre className="overflow-x-auto rounded bg-background p-2 font-mono text-[11px] leading-relaxed">
+{JSON.stringify(fire.payload, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </ScrollArea>
+    </div>
   );
 }
