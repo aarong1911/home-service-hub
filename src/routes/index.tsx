@@ -195,7 +195,12 @@ function DashboardPage() {
             <div className="mb-2 text-sm font-semibold">Upcoming Tasks</div>
             <div className="space-y-2">
               {upcomingTasks.map((t) => (
-                <div key={t.id} className="flex items-start gap-2 rounded-md border border-border bg-card p-2.5">
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setActiveTaskId(t.id)}
+                  className="flex w-full items-start gap-2 rounded-md border border-border bg-card p-2.5 text-left transition-colors hover:border-border-strong hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <div className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
                     t.priority === "high" ? "bg-destructive" : t.priority === "med" ? "bg-warning" : "bg-muted-foreground/40"
                   }`} />
@@ -203,7 +208,7 @@ function DashboardPage() {
                     <div className="truncate text-[13px] font-medium">{t.title}</div>
                     <div className="text-[11px] text-muted-foreground">{t.time}</div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </CardContent>
