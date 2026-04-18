@@ -145,7 +145,7 @@ function DashboardPage() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    formatter={(v: number) => [`$${v.toLocaleString()}`, "Value moved"]}
+                    formatter={(v) => [`$${Number(v).toLocaleString()}`, "Value moved"]}
                   />
                   <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2} fill="url(#velocity)" />
                 </AreaChart>
