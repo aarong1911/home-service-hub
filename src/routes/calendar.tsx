@@ -232,64 +232,86 @@ function CalendarPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
-        <Card className="overflow-hidden p-0">
-          <div className="grid grid-cols-7 border-b border-border bg-secondary/40">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-              <div key={d} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {daysGrid.map((cell, i) => {
-              const inMonth = cell.getMonth() === cursor.getMonth();
-              const key = ymd(cell);
-              const dayEvents = eventsByDay.get(key) ?? [];
-              const isToday = ymd(today) === key;
-              const isSelected = selectedDay === key;
-              return (
-                <button
-                  key={i}
-                  onClick={() => setSelectedDay(key)}
-                  className={cn(
-                    "min-h-[96px] border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
-                    !inMonth && "bg-muted/30 text-muted-foreground",
-                    isSelected && "bg-primary/5 ring-1 ring-inset ring-primary/40",
-                    (i + 1) % 7 === 0 && "border-r-0",
-                    i >= daysGrid.length - 7 && "border-b-0",
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium",
-                        isToday && "bg-primary text-primary-foreground",
-                      )}
-                    >
-                      {cell.getDate()}
-                    </span>
-                    {dayEvents.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground">{dayEvents.length}</span>
+        {view === "month" && (
+          <Card className="overflow-hidden p-0">
+            <div className="grid grid-cols-7 border-b border-border bg-secondary/40">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                <div key={d} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {d}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {daysGrid.map((cell, i) => {
+                const inMonth = cell.getMonth() === cursor.getMonth();
+                const key = ymd(cell);
+                const dayEvents = eventsByDay.get(key) ?? [];
+                const isToday = ymd(today) === key;
+                const isSelected = selectedDay === key;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedDay(key)}
+                    className={cn(
+                      "min-h-[96px] border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
+                      !inMonth && "bg-muted/30 text-muted-foreground",
+                      isSelected && "bg-primary/5 ring-1 ring-inset ring-primary/40",
+                      (i + 1) % 7 === 0 && "border-r-0",
+                      i >= daysGrid.length - 7 && "border-b-0",
                     )}
-                  </div>
-                  <div className="space-y-0.5">
-                    {dayEvents.slice(0, 3).map((e) => (
-                      <div
-                        key={e.id}
-                        className={cn("truncate rounded border px-1 py-0.5 text-[10px] font-medium", TYPE_STYLES[e.type])}
+                  >
+                    <div className="mb-1 flex items-center justify-between">
+                      <span
+                        className={cn(
+                          "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium",
+                          isToday && "bg-primary text-primary-foreground",
+                        )}
                       >
-                        {e.start} {e.title}
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <div className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
+                        {cell.getDate()}
+                      </span>
+                      {dayEvents.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground">{dayEvents.length}</span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayEvents.slice(0, 3).map((e) => (
+                        <div
+                          key={e.id}
+                          className={cn("truncate rounded border px-1 py-0.5 text-[10px] font-medium", TYPE_STYLES[e.type])}
+                        >
+                          {e.start} {e.title}
+                        </div>
+                      ))}
+                      {dayEvents.length > 3 && (
+                        <div className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {view === "week" && (
+          <TimeGrid
+            days={weekDays}
+            today={today}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            eventsByDay={eventsByDay}
+          />
+        )}
+
+        {view === "day" && (
+          <TimeGrid
+            days={[selectedDate]}
+            today={today}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            eventsByDay={eventsByDay}
+          />
+        )}
 
         <Card className="p-3">
           <div className="mb-2 flex items-center gap-2">
