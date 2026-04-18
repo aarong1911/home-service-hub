@@ -16,7 +16,12 @@ const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 
+type PipelineSearch = { dealId?: string };
+
 export const Route = createFileRoute("/sales/pipeline")({
+  validateSearch: (raw: Record<string, unknown>): PipelineSearch => ({
+    dealId: typeof raw.dealId === "string" ? raw.dealId : undefined,
+  }),
   component: PipelinePage,
 });
 
