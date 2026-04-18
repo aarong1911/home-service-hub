@@ -80,13 +80,15 @@ function buildMockEvents(anchor: Date): CalEvent[] {
 
 type ViewMode = "month" | "week" | "day";
 
+const TODAY = new Date(2026, 3, 18); // Stable "now" for SSR — matches src/lib/format.ts
+
 function CalendarPage() {
-  const today = new Date();
+  const today = TODAY;
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [view, setView] = useState<ViewMode>("month");
   const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
   const [syncing, setSyncing] = useState(false);
-  const [lastSynced, setLastSynced] = useState<Date | null>(new Date(Date.now() - 1000 * 60 * 4));
+  const [lastSynced, setLastSynced] = useState<Date | null>(new Date(today.getTime() - 1000 * 60 * 4));
   const [selectedDay, setSelectedDay] = useState<string>(ymd(today));
 
   const events = useMemo(() => buildMockEvents(cursor), [cursor]);
