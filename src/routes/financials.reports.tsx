@@ -7,6 +7,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -14,9 +15,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { mockInvoices, mockPayments, pipelineVelocityData } from "@/lib/mock-data";
+import { mockInvoices, mockPayments, pipelineVelocityData, type Payment } from "@/lib/mock-data";
+import { useScheduledPayments } from "@/lib/scheduled-payments";
 import { formatMoney } from "@/lib/format";
-import { TrendingUp, TrendingDown, ArrowUpRight, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowUpRight, Wallet, CalendarClock } from "lucide-react";
+import { useMemo } from "react";
 
 export const Route = createFileRoute("/financials/reports")({
   component: ReportsPage,
@@ -30,6 +33,7 @@ const CHART2 = "oklch(0.65 0.16 220)";
 const CHART5 = "oklch(0.55 0.18 300)";
 
 function ReportsPage() {
+  const scheduled = useScheduledPayments();
   const collected = mockPayments.reduce((s, p) => s + p.amount, 0);
   const invoiced = mockInvoices.reduce((s, i) => s + i.amount, 0);
   const outstanding = mockInvoices
@@ -52,6 +56,14 @@ function ReportsPage() {
   ];
   const agingMax = Math.max(...aging.map((a) => a.amount));
 
+  // ----- 90-day weekly cashflow forecast -----
+  const cashflow = useMemo(() => buildCashflow(mockPayments, scheduled), [scheduled]);
+  const cashflowTotals = useMemo(() => {
+    const received = cashflow.reduce((s, w) => s + w.received, 0);
+    const expected = cashflow.reduce((s, w) => s + w.scheduled, 0);
+    return { received, expected, total: received + expected };
+  }, [cashflow]);
+
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -60,6 +72,66 @@ function ReportsPage() {
         <SummaryCard label="Outstanding" value={formatMoney(outstanding)} delta="-4%" tone="down" icon={TrendingDown} />
         <SummaryCard label="Collection rate" value={`${collectionRate}%`} delta="+3pp" tone="up" icon={TrendingUp} />
       </div>
+
+      {/* Cashflow forecast — Received vs Scheduled by week, next 90 days */}
+      <Card className="mb-4 p-4">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-primary" />
+              <div className="text-sm font-semibold">Cashflow forecast · next 90 days</div>
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Weekly inflows from received payments and scheduled milestones
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <Legendish color={SUCCESS} label="Received" value={formatMoney(cashflowTotals.received)} />
+            <Legendish color={PRIMARY} label="Scheduled" value={formatMoney(cashflowTotals.expected)} />
+            <div className="border-l border-border pl-4">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
+              <div className="text-sm font-semibold tabular-nums">{formatMoney(cashflowTotals.total)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={cashflow} margin={{ top: 8, right: 8, bottom: 0, left: -8 }} barCategoryGap="20%">
+              <defs>
+                <linearGradient id="schedFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={PRIMARY} stopOpacity={0.85} />
+                  <stop offset="100%" stopColor={PRIMARY} stopOpacity={0.55} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.005 250)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={0} />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+              />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(v) => [formatMoney(Number(v ?? 0))]}
+                labelFormatter={(l) => `Week of ${l}`}
+              />
+              <Legend
+                verticalAlign="top"
+                height={0}
+                wrapperStyle={{ display: "none" }}
+              />
+              <Bar dataKey="received" stackId="cash" name="Received" fill={SUCCESS} radius={[0, 0, 0, 0]} />
+              <Bar dataKey="scheduled" stackId="cash" name="Scheduled" fill="url(#schedFill)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {cashflowTotals.expected === 0 && (
+          <div className="mt-2 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-2 text-[11px] text-muted-foreground">
+            No scheduled milestones yet. Send a draft invoice from <span className="font-medium text-foreground">/financials/invoices</span> to populate the forecast.
+          </div>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="p-4 lg:col-span-2">
@@ -220,4 +292,69 @@ function SummaryCard({
       </div>
     </Card>
   );
+}
+
+function Legendish({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+type CashflowWeek = {
+  weekStart: string;
+  label: string;
+  received: number;
+  scheduled: number;
+};
+
+/**
+ * 13-week (~90d) bucketed series from the current week's Monday.
+ * Received: mockPayments with status omitted/"Received".
+ * Scheduled: cross-route scheduled-payments store, bucketed by dueDate.
+ */
+function buildCashflow(received: Payment[], scheduled: Payment[]): CashflowWeek[] {
+  const WEEKS = 13;
+  const dayMs = 86_400_000;
+  const start = startOfWeek(new Date());
+  const buckets: CashflowWeek[] = Array.from({ length: WEEKS }, (_, i) => {
+    const d = new Date(start.getTime() + i * 7 * dayMs);
+    return {
+      weekStart: d.toISOString().slice(0, 10),
+      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      received: 0,
+      scheduled: 0,
+    };
+  });
+  const end = new Date(start.getTime() + WEEKS * 7 * dayMs);
+
+  const indexOf = (iso: string): number => {
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t) || t < start.getTime() || t >= end.getTime()) return -1;
+    return Math.floor((t - start.getTime()) / (7 * dayMs));
+  };
+
+  for (const p of received) {
+    if ((p.status ?? "Received") !== "Received") continue;
+    const idx = indexOf(p.receivedAt);
+    if (idx >= 0) buckets[idx].received += p.amount;
+  }
+  for (const p of scheduled) {
+    if (p.status !== "Scheduled") continue;
+    const idx = indexOf(p.dueDate ?? p.receivedAt);
+    if (idx >= 0) buckets[idx].scheduled += p.amount;
+  }
+  return buckets;
+}
+
+function startOfWeek(d: Date): Date {
+  // UTC Monday-start week to keep SSR/CSR aligned.
+  const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dow = utc.getUTCDay();
+  const diff = (dow + 6) % 7;
+  utc.setUTCDate(utc.getUTCDate() - diff);
+  return utc;
 }
