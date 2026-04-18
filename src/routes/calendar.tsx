@@ -380,3 +380,145 @@ function formatRelative(d: Date): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
   return `${Math.floor(diff / 86400)} d ago`;
 }
+
+function parseYmd(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function buildWeekDays(anchor: Date): Date[] {
+  const day = anchor.getDay();
+  const offset = (day + 6) % 7;
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - offset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+const HOUR_PX = 44;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+function TimeGrid({
+  days,
+  today,
+  selectedDay,
+  onSelectDay,
+  eventsByDay,
+}: {
+  days: Date[];
+  today: Date;
+  selectedDay: string;
+  onSelectDay: (d: string) => void;
+  eventsByDay: Map<string, CalEvent[]>;
+}) {
+  return (
+    <Card className="overflow-hidden p-0">
+      <div
+        className="grid border-b border-border bg-secondary/40"
+        style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}
+      >
+        <div />
+        {days.map((d) => {
+          const key = ymd(d);
+          const isToday = ymd(today) === key;
+          const isSelected = selectedDay === key;
+          return (
+            <button
+              key={key}
+              onClick={() => onSelectDay(key)}
+              className={cn(
+                "border-l border-border px-2 py-1.5 text-left transition-colors hover:bg-secondary",
+                isSelected && "bg-primary/5",
+              )}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {d.toLocaleDateString("default", { weekday: "short" })}
+              </div>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium",
+                    isToday && "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {d.getDate()}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {(eventsByDay.get(key) ?? []).length} ev
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="max-h-[640px] overflow-y-auto">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}
+        >
+          <div className="relative border-r border-border" style={{ height: HOUR_PX * 24 }}>
+            {HOURS.map((h) => (
+              <div
+                key={h}
+                className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
+                style={{ top: h * HOUR_PX }}
+              >
+                {h === 0 ? "" : `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "AM" : "PM"}`}
+              </div>
+            ))}
+          </div>
+          {days.map((d) => {
+            const key = ymd(d);
+            const dayEvents = (eventsByDay.get(key) ?? [])
+              .slice()
+              .sort((a, b) => a.start.localeCompare(b.start));
+            return (
+              <div
+                key={key}
+                className="relative border-l border-border"
+                style={{ height: HOUR_PX * 24 }}
+              >
+                {HOURS.map((h) => (
+                  <div
+                    key={h}
+                    className="absolute inset-x-0 border-t border-border/60"
+                    style={{ top: h * HOUR_PX }}
+                  />
+                ))}
+                {dayEvents.map((e) => {
+                  const startMin = toMinutes(e.start);
+                  const endMin = Math.max(toMinutes(e.end), startMin + 30);
+                  const top = (startMin / 60) * HOUR_PX;
+                  const height = ((endMin - startMin) / 60) * HOUR_PX - 2;
+                  return (
+                    <div
+                      key={e.id}
+                      className={cn(
+                        "absolute left-1 right-1 overflow-hidden rounded border px-1.5 py-1 text-[10px] shadow-sm",
+                        TYPE_STYLES[e.type],
+                      )}
+                      style={{ top, height }}
+                    >
+                      <div className="truncate font-semibold">{e.title}</div>
+                      <div className="truncate opacity-80">
+                        {e.start}–{e.end}
+                        {e.project && ` · ${e.project}`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
