@@ -40,7 +40,9 @@ function PipelinePage() {
   const handleMarkLost = (dealId: string, reason: LostReason, _notes: string) => {
     setDeals((prev) =>
       prev.map((d) =>
-        d.id === dealId ? { ...d, lostReason: reason, lostAt: new Date().toISOString() } : d,
+        d.id === dealId
+          ? { ...d, stage: "lost", lostReason: reason, lostAt: new Date().toISOString() }
+          : d,
       ),
     );
   };
