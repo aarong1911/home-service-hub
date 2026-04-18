@@ -20,29 +20,33 @@ function InvoicesPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Invoice["status"] | "All">("All");
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const drafts = useDraftInvoices();
+
+  const allInvoices = useMemo(() => [...drafts, ...mockInvoices], [drafts]);
 
   const stats = useMemo(() => {
-    const total = mockInvoices.reduce((s, i) => s + i.amount, 0);
-    const paid = mockInvoices.filter((i) => i.status === "Paid");
-    const overdue = mockInvoices.filter((i) => i.status === "Overdue");
-    const outstanding = mockInvoices.filter((i) => i.status !== "Paid" && i.status !== "Draft");
+    const total = allInvoices.reduce((s, i) => s + i.amount, 0);
+    const paid = allInvoices.filter((i) => i.status === "Paid");
+    const overdue = allInvoices.filter((i) => i.status === "Overdue");
+    const outstanding = allInvoices.filter((i) => i.status !== "Paid" && i.status !== "Draft");
     return {
       total,
       paid: paid.reduce((s, i) => s + i.amount, 0),
       overdue: overdue.reduce((s, i) => s + i.amount, 0),
       overdueCount: overdue.length,
       outstanding: outstanding.reduce((s, i) => s + i.amount, 0),
+      count: allInvoices.length,
     };
-  }, []);
+  }, [allInvoices]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return mockInvoices.filter((i) => {
+    return allInvoices.filter((i) => {
       if (status !== "All" && i.status !== status) return false;
       if (!q) return true;
       return i.client.toLowerCase().includes(q) || i.number.toLowerCase().includes(q);
     });
-  }, [query, status]);
+  }, [allInvoices, query, status]);
 
   return (
     <>
