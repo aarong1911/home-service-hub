@@ -20,8 +20,10 @@ import {
   Plus, Search, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download,
   Users, UserPlus, Star, Activity,
 } from "lucide-react";
-import { mockContacts, type Contact } from "@/lib/mock-data";
+import { mockContacts, mockDeals, mockProjects, pipelineStages, type Contact, type Deal, type Project } from "@/lib/mock-data";
 import { formatDistanceToNow } from "date-fns";
+import { Mail as MailIcon, Phone as PhoneIcon, MessageSquare, FileText, CheckCircle2, StickyNote, ArrowRight } from "lucide-react";
+import { formatMoney, formatDateShort } from "@/lib/format";
 
 export const Route = createFileRoute("/contacts")({
   component: ContactsPage,
