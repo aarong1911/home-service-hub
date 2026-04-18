@@ -894,3 +894,98 @@ export const upcomingTasks = [
   { id: 4, title: "Order cabinets for Miller kitchen", time: "Wed · 11:00 AM", priority: "low" },
   { id: 5, title: "Review Q4 forecast", time: "Fri · 4:00 PM", priority: "low" },
 ];
+
+// ============= COMPANIES =============
+export type CompanyType = "Builder/GC" | "Architect" | "Designer" | "Vendor" | "Subcontractor";
+export type CompanyStatus = "active" | "prospect" | "inactive";
+
+export type Company = {
+  id: string;
+  slug: string;
+  name: string;
+  type: CompanyType;
+  status: CompanyStatus;
+  owner: string;
+  city: string;
+  state: string;
+  website: string;
+  phone: string;
+  email: string;
+  employees: number;
+  yearFounded: number;
+  rating: number; // 0-5
+  tags: string[];
+  contactsCount: number;
+  openDeals: number;
+  pipelineValue: number;
+  ytdRevenue: number;
+  lifetimeRevenue: number;
+  lastActivity: string;
+  createdAt: string;
+  notes: string;
+  trades?: string[]; // for subcontractors/vendors
+};
+
+const _companySeeds: Array<{ name: string; type: CompanyType; city: string; state: string; trades?: string[] }> = [
+  { name: "Beacon Hill Builders", type: "Builder/GC", city: "Boston", state: "MA" },
+  { name: "Northstar Construction", type: "Builder/GC", city: "Minneapolis", state: "MN" },
+  { name: "Granite Peak Homes", type: "Builder/GC", city: "Denver", state: "CO" },
+  { name: "Coastal Crafted", type: "Builder/GC", city: "San Diego", state: "CA" },
+  { name: "Foxwood Custom Homes", type: "Builder/GC", city: "Austin", state: "TX" },
+  { name: "Atelier Mira", type: "Architect", city: "Brooklyn", state: "NY" },
+  { name: "Studio Verre", type: "Architect", city: "Portland", state: "OR" },
+  { name: "Linework Architects", type: "Architect", city: "Chicago", state: "IL" },
+  { name: "Hewn & Hollow", type: "Architect", city: "Asheville", state: "NC" },
+  { name: "Form Field Design", type: "Designer", city: "Los Angeles", state: "CA" },
+  { name: "House of Marlow", type: "Designer", city: "Nashville", state: "TN" },
+  { name: "Tonic Interiors", type: "Designer", city: "Seattle", state: "WA" },
+  { name: "Apex Cabinetry Co.", type: "Vendor", city: "Grand Rapids", state: "MI", trades: ["Cabinets", "Millwork"] },
+  { name: "Sierra Stone & Tile", type: "Vendor", city: "Phoenix", state: "AZ", trades: ["Tile", "Stone"] },
+  { name: "Lumen Lighting Supply", type: "Vendor", city: "Dallas", state: "TX", trades: ["Lighting", "Fixtures"] },
+  { name: "Heritage Hardwoods", type: "Vendor", city: "Charlotte", state: "NC", trades: ["Flooring"] },
+  { name: "Northwind HVAC", type: "Subcontractor", city: "Madison", state: "WI", trades: ["HVAC"] },
+  { name: "Ironclad Electric", type: "Subcontractor", city: "Pittsburgh", state: "PA", trades: ["Electrical"] },
+  { name: "Riverbed Plumbing", type: "Subcontractor", city: "Sacramento", state: "CA", trades: ["Plumbing"] },
+  { name: "Trueline Drywall", type: "Subcontractor", city: "Salt Lake City", state: "UT", trades: ["Drywall", "Paint"] },
+  { name: "Cornerstone Masonry", type: "Subcontractor", city: "Richmond", state: "VA", trades: ["Masonry", "Stone"] },
+  { name: "Evergreen Landscaping", type: "Subcontractor", city: "Eugene", state: "OR", trades: ["Landscape", "Hardscape"] },
+];
+
+const _companyOwners = ["Maria Chen", "James Park", "Priya Shah", "David Liu"];
+const _statusCycle: CompanyStatus[] = ["active", "active", "active", "prospect", "active", "inactive"];
+
+export const mockCompanies: Company[] = _companySeeds.map((s, i) => {
+  const slug = slugify(s.name);
+  const status = _statusCycle[i % _statusCycle.length];
+  const baseRev = (s.type === "Builder/GC" ? 480 : s.type === "Architect" ? 240 : s.type === "Designer" ? 180 : 120) * 1000;
+  return {
+    id: `comp-${i + 1}`,
+    slug,
+    name: s.name,
+    type: s.type,
+    status,
+    owner: _companyOwners[i % _companyOwners.length],
+    city: s.city,
+    state: s.state,
+    website: `https://${slug}.com`,
+    phone: `(${200 + i}) 555-${String(1000 + i * 17).slice(-4)}`,
+    email: `hello@${slug}.com`,
+    employees: 4 + ((i * 7) % 80),
+    yearFounded: 1985 + ((i * 3) % 38),
+    rating: 3.4 + ((i * 0.31) % 1.6),
+    tags: s.trades ?? (s.type === "Builder/GC" ? ["Repeat", "Premium"] : s.type === "Architect" ? ["Modern", "Referral"] : ["Boutique"]),
+    contactsCount: 1 + ((i * 5) % 9),
+    openDeals: status === "inactive" ? 0 : (i % 4),
+    pipelineValue: status === "inactive" ? 0 : baseRev * (0.4 + ((i % 5) * 0.18)),
+    ytdRevenue: status === "prospect" ? 0 : baseRev * (0.6 + ((i % 6) * 0.2)),
+    lifetimeRevenue: baseRev * (1.2 + ((i % 8) * 0.4)),
+    lastActivity: isoDaysAgo((i * 2) % 28),
+    createdAt: isoDaysAgo(120 + i * 18),
+    notes: `${s.name} — ${s.type === "Builder/GC" ? "Strong repeat partner; refers high-end remodels." : s.type === "Architect" ? "Frequent collaborator on modern builds." : s.type === "Designer" ? "Specifies premium finishes." : "Reliable trade partner."}`,
+    trades: s.trades,
+  };
+});
+
+export function getCompanyBySlug(slug: string): Company | undefined {
+  return mockCompanies.find((c) => c.slug === slug);
+}
