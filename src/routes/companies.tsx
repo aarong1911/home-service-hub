@@ -64,6 +64,8 @@ const STATUS_TONE: Record<CompanyStatus, string> = {
 };
 
 function CompaniesPage() {
+  const { companyId } = useSearch({ from: "/companies" });
+  const navigate = useNavigate({ from: "/companies" });
   const [companies, setCompanies] = useState<Company[]>(mockCompanies);
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<"All" | CompanyType>("All");
@@ -71,6 +73,17 @@ function CompaniesPage() {
   const [selected, setSelected] = useState<Company | null>(null);
   const [editing, setEditing] = useState<Company | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Deep-link: open the matching company drawer when ?companyId=... is present.
+  useEffect(() => {
+    if (companyId) {
+      const found = companies.find((c) => c.id === companyId);
+      if (found && found.id !== selected?.id) setSelected(found);
+    } else if (selected) {
+      setSelected(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, companies]);
 
   const stats = useMemo(() => {
     const active = companies.filter((c) => c.status === "active");
