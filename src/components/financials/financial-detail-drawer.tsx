@@ -14,10 +14,13 @@ import {
   Mail,
   XCircle,
   Clock,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
-import type { Estimate, Invoice } from "@/lib/mock-data";
+import { mockInvoices, type Estimate, type Invoice } from "@/lib/mock-data";
+import { addDraftInvoice, nextDraftInvoiceNumber } from "@/lib/draft-invoices";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
