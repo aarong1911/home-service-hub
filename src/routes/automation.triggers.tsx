@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -30,7 +31,126 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+
+type FireOutcome = "success" | "failed" | "skipped";
+type FireEvent = {
+  id: string;
+  firedAt: string;
+  outcome: FireOutcome;
+  durationMs: number;
+  handledBy: string | null;
+  handledByKind: "agent" | "workflow" | null;
+  payload: Record<string, string | number>;
+};
+
+// Deterministic pseudo-random for SSR-safe mock data
+function seeded(seed: number) {
+  let x = seed;
+  return () => {
+    x = (x * 9301 + 49297) % 233280;
+    return x / 233280;
+  };
+}
+
+const SAMPLE_VALUES: Record<string, (i: number) => string | number> = {
+  name: (i) => ["Sarah Chen", "Mike Rivera", "Jordan Lee", "Pat Kim", "Alex Doe"][i % 5],
+  email: (i) => `lead${i}@example.com`,
+  phone: (i) => `(415) 555-0${100 + i}`,
+  project_type: (i) => ["Kitchen", "Bath", "Addition", "Whole home", "Deck"][i % 5],
+  zip: (i) => 94000 + (i % 99),
+  budget_range: (i) => ["$25–50k", "$50–100k", "$100–250k", "$250k+"][i % 4],
+  source_page: (i) => ["/kitchens", "/portfolio", "/contact", "/baths"][i % 4],
+  caller_number: (i) => `(415) 555-0${200 + i}`,
+  caller_name: (i) => ["Unknown", "Sarah Chen", "Mike Rivera"][i % 3],
+  duration: (i) => `${i % 60}s`,
+  voicemail_url: () => "vm_********.mp3",
+  transcript: () => "Hi, calling about a kitchen estimate…",
+  from: (i) => `+1415555${1000 + i}`,
+  to: () => "+14155550100",
+  body: (i) => ["Yes please", "What's the next step?", "Can we reschedule?"][i % 3],
+  media_urls: () => "[]",
+  contact_id: (i) => `ct_${1000 + i}`,
+  subject: (i) => ["Quote request", "Re: estimate", "Bathroom remodel"][i % 3],
+  body_html: () => "<p>…</p>",
+  attachments: () => "0 files",
+  thread_id: (i) => `th_${i}`,
+  marketplace: (i) => ["Angi", "Thumbtack", "Houzz", "Yelp"][i % 4],
+  lead_id: (i) => `lm_${2000 + i}`,
+  service_requested: (i) => ["Kitchen remodel", "Bathroom", "Addition"][i % 3],
+  lead_cost: (i) => 25 + (i % 40),
+  owner: (i) => ["Avery", "Sam", "Jordan"][i % 3],
+  start_time: () => "2026-04-22T14:00:00Z",
+  location: (i) => ["On-site", "Zoom", "Office"][i % 3],
+  deal_id: (i) => `dl_${3000 + i}`,
+  alert_type: (i) => ["Rain", "Wind", "Snow"][i % 3],
+  severity: (i) => ["moderate", "high", "extreme"][i % 3],
+  window_start: () => "2026-04-19T08:00:00Z",
+  window_end: () => "2026-04-19T18:00:00Z",
+  affected_projects: (i) => `${1 + (i % 4)} projects`,
+  po_number: (i) => `PO-${4000 + i}`,
+  supplier: (i) => ["Ferguson", "ProBuild", "Lowe's Pro"][i % 3],
+  original_eta: () => "2026-04-20",
+  new_eta: () => "2026-04-23",
+  project_id: (i) => `pj_${500 + i}`,
+  invoice_id: (i) => `inv_${6000 + i}`,
+  client_id: (i) => `cl_${700 + i}`,
+  balance: (i) => 1200 + i * 37,
+  days_overdue: (i) => 1 + (i % 30),
+  amount: (i) => 500 + i * 53,
+  method: (i) => ["card", "ach", "check"][i % 3],
+  milestone: (i) => ["Demo", "Rough-in", "Final"][i % 3],
+  completed_at: () => "2026-04-18T10:00:00Z",
+  completed_by: (i) => ["Avery", "Sam"][i % 2],
+  final_amount: (i) => 25000 + i * 250,
+  stage: (i) => ["Discovery", "Proposal", "Negotiation"][i % 3],
+  days_idle: (i) => 7 + (i % 14),
+  platform: (i) => ["Google", "Yelp", "Houzz"][i % 3],
+  rating: (i) => [5, 4, 5, 5, 3][i % 5],
+  author: (i) => ["S. Chen", "M. Rivera", "J. Lee"][i % 3],
+  url: () => "https://g.co/r/…",
+  headers: () => "{ … }",
+  "body (raw JSON)": () => "{ … }",
+};
+
+function generateFires(triggerId: string, payload: string[], subscribers: Subscriber[], count: number): FireEvent[] {
+  const rand = seeded(triggerId.split("").reduce((a, c) => a + c.charCodeAt(0), 0));
+  const now = Date.UTC(2026, 3, 18, 12, 0, 0);
+  const fires: FireEvent[] = [];
+  for (let i = 0; i < count; i++) {
+    const minutesAgo = Math.floor(rand() * 60 * 24 * 7); // up to 7 days
+    const r = rand();
+    const outcome: FireOutcome = r > 0.92 ? "failed" : r > 0.85 ? "skipped" : "success";
+    const sub = subscribers.length > 0 && outcome !== "skipped"
+      ? subscribers[Math.floor(rand() * subscribers.length)]
+      : null;
+    const payloadObj: Record<string, string | number> = {};
+    payload.forEach((field) => {
+      const fn = SAMPLE_VALUES[field];
+      payloadObj[field] = fn ? fn(i) : "—";
+    });
+    fires.push({
+      id: `${triggerId}_evt_${i}`,
+      firedAt: new Date(now - minutesAgo * 60_000).toISOString(),
+      outcome,
+      durationMs: Math.floor(rand() * 1800) + 80,
+      handledBy: sub?.name ?? null,
+      handledByKind: sub?.kind ?? null,
+      payload: payloadObj,
+    });
+  }
+  return fires.sort((a, b) => b.firedAt.localeCompare(a.firedAt));
+}
+
+const RELATIVE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "UTC",
+});
 
 export const Route = createFileRoute("/automation/triggers")({
   head: () => ({
