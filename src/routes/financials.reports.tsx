@@ -113,7 +113,7 @@ function ReportsPage() {
               />
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                formatter={(v: number, name) => [formatMoney(Number(v)), name]}
+                formatter={(v) => [formatMoney(Number(v ?? 0))]}
                 labelFormatter={(l) => `Week of ${l}`}
               />
               <Legend
