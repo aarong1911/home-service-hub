@@ -1,4 +1,4 @@
-import { Search, Bell, HelpCircle, ChevronDown, Command as CommandIcon, User, Briefcase, FolderKanban, Building2 } from "lucide-react";
+import { Search, Bell, HelpCircle, ChevronDown, Command as CommandIcon, Briefcase, FolderKanban, Building2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
