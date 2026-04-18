@@ -138,7 +138,8 @@ export function Topbar() {
                         value={`contact-${c.id}-${c.name}`}
                         onSelect={() => {
                           setOpen(false);
-                          navigate({ to: "/contacts" });
+                          setQuery("");
+                          navigate({ to: "/contacts", search: { contactId: c.id } });
                         }}
                       >
                         <Avatar className="h-5 w-5">
