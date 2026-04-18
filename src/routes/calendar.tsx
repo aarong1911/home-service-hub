@@ -399,22 +399,6 @@ function formatRelative(d: Date): string {
   return `${Math.floor(diff / 86400)} d ago`;
 }
 
-function parseYmd(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function buildWeekDays(anchor: Date): Date[] {
-  const day = anchor.getDay();
-  const offset = (day + 6) % 7;
-  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - offset);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d;
-  });
-}
-
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
