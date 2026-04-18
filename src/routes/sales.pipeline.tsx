@@ -32,12 +32,25 @@ const VALUE_FILTERS = ["Any value", "< $25k", "$25k–$75k", "> $75k"] as const;
 type ValueFilter = (typeof VALUE_FILTERS)[number];
 
 function PipelinePage() {
+  const { dealId } = useSearch({ from: "/sales/pipeline" });
+  const navigate = useNavigate({ from: "/sales/pipeline" });
   const [deals, setDeals] = useState<Deal[]>(mockDeals);
   const [search, setSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All owners");
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<Deal | null>(null);
+
+  // Deep-link: open the matching deal drawer when ?dealId=... is present.
+  useEffect(() => {
+    if (dealId) {
+      const found = deals.find((d) => d.id === dealId);
+      if (found && found.id !== selected?.id) setSelected(found);
+    } else if (selected) {
+      setSelected(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealId, deals]);
 
   const handleStageChange = (dealId: string, newStage: string) => {
     setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: newStage, lostReason: undefined, lostAt: undefined } : d)));
