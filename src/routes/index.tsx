@@ -1,13 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from "@/components/ui/sheet";
 import { PageHeader } from "@/components/layout/app-shell";
+import { toast } from "sonner";
 import {
   ArrowUpRight, ArrowDownRight, Briefcase, Target, TrendingUp, DollarSign,
   Plus, FileText, Workflow, UserPlus, Mail, Phone, CreditCard, CheckCircle2,
+  Calendar, Clock, User, MapPin, AlignLeft,
 } from "lucide-react";
 import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
