@@ -11,6 +11,8 @@ export type Contact = {
   createdAt: string;
 };
 
+export type LostReason = "Budget" | "Timing" | "Scope" | "Competitor" | "No response";
+
 export type Deal = {
   id: string;
   name: string;
@@ -22,6 +24,8 @@ export type Deal = {
   owner: string;
   ownerInitials: string;
   ageDays: number;
+  lostReason?: LostReason;
+  lostAt?: string;
 };
 
 // ============= PROJECTS =============
