@@ -9,9 +9,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
   Plus, Search, ChevronDown, LayoutGrid, List as ListIcon, AlertTriangle,
-  DollarSign, TrendingUp, Target, Clock, SlidersHorizontal,
+  DollarSign, TrendingUp, Target, Clock, SlidersHorizontal, Trophy, XCircle,
 } from "lucide-react";
 import { mockDeals, pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
+const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 
