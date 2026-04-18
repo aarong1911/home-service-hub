@@ -7,6 +7,7 @@ import { Search, Receipt, AlertTriangle, CheckCircle2, Clock, MoreHorizontal } f
 import { mockInvoices, type Invoice } from "@/lib/mock-data";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { useMemo, useState } from "react";
+import { FinancialDetailDrawer } from "@/components/financials/financial-detail-drawer";
 
 export const Route = createFileRoute("/financials/invoices")({
   component: InvoicesPage,
@@ -17,6 +18,7 @@ const STATUSES: Invoice["status"][] = ["Draft", "Sent", "Viewed", "Paid", "Overd
 function InvoicesPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Invoice["status"] | "All">("All");
+  const [selected, setSelected] = useState<Invoice | null>(null);
 
   const stats = useMemo(() => {
     const total = mockInvoices.reduce((s, i) => s + i.amount, 0);
@@ -96,7 +98,11 @@ function InvoicesPage() {
                       ? `In ${days}d · ${formatDate(i.due)}`
                       : `${Math.abs(days)}d late · ${formatDate(i.due)}`;
               return (
-                <tr key={i.id} className="h-12 border-b border-border last:border-b-0 hover:bg-secondary/30">
+                <tr
+                  key={i.id}
+                  onClick={() => setSelected(i)}
+                  className="h-12 cursor-pointer border-b border-border last:border-b-0 hover:bg-secondary/30"
+                >
                   <td className="px-4 font-mono text-xs">{i.number}</td>
                   <td className="px-4 font-medium">{i.client}</td>
                   <td className="px-4">
@@ -106,7 +112,7 @@ function InvoicesPage() {
                   <td className={"px-4 text-xs " + (isOverdue ? "text-destructive font-medium" : "text-muted-foreground")}>
                     {dueLabel}
                   </td>
-                  <td className="px-2 text-right">
+                  <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </Button>
@@ -124,6 +130,11 @@ function InvoicesPage() {
           </tbody>
         </table>
       </Card>
+
+      <FinancialDetailDrawer
+        record={selected ? { kind: "invoice", ...selected } : null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </>
   );
 }

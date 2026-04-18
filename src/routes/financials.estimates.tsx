@@ -7,6 +7,7 @@ import { Search, FileText, CheckCircle2, Eye, Send, MoreHorizontal } from "lucid
 import { mockEstimates, type Estimate } from "@/lib/mock-data";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useMemo, useState } from "react";
+import { FinancialDetailDrawer } from "@/components/financials/financial-detail-drawer";
 
 export const Route = createFileRoute("/financials/estimates")({
   component: EstimatesPage,
@@ -17,6 +18,7 @@ const STATUSES: Estimate["status"][] = ["Draft", "Sent", "Viewed", "Accepted", "
 function EstimatesPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Estimate["status"] | "All">("All");
+  const [selected, setSelected] = useState<Estimate | null>(null);
 
   const stats = useMemo(() => {
     const total = mockEstimates.reduce((s, e) => s + e.amount, 0);
@@ -87,7 +89,11 @@ function EstimatesPage() {
           </thead>
           <tbody>
             {rows.map((e) => (
-              <tr key={e.id} className="h-12 border-b border-border last:border-b-0 hover:bg-secondary/30">
+              <tr
+                key={e.id}
+                onClick={() => setSelected(e)}
+                className="h-12 cursor-pointer border-b border-border last:border-b-0 hover:bg-secondary/30"
+              >
                 <td className="px-4 font-mono text-xs">{e.number}</td>
                 <td className="px-4 font-medium">{e.client}</td>
                 <td className="px-4">
@@ -95,7 +101,7 @@ function EstimatesPage() {
                 </td>
                 <td className="px-4 text-right font-medium tabular-nums">{formatMoney(e.amount)}</td>
                 <td className="px-4 text-xs text-muted-foreground">{formatDate(e.issued)}</td>
-                <td className="px-2 text-right">
+                <td className="px-2 text-right" onClick={(ev) => ev.stopPropagation()}>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </Button>
@@ -112,6 +118,11 @@ function EstimatesPage() {
           </tbody>
         </table>
       </Card>
+
+      <FinancialDetailDrawer
+        record={selected ? { kind: "estimate", ...selected } : null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </>
   );
 }
