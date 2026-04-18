@@ -344,29 +344,61 @@ type CashflowWeek = {
 };
 
 /**
- * 13-week (~90d) bucketed series from the current week's Monday.
+ * Bucketed cashflow series from today, sized by horizon (days) and bucket (weekly|monthly).
  * Received: mockPayments with status omitted/"Received".
  * Scheduled: cross-route scheduled-payments store, bucketed by dueDate.
  */
-function buildCashflow(received: Payment[], scheduled: Payment[]): CashflowWeek[] {
-  const WEEKS = 13;
+function buildCashflow(
+  received: Payment[],
+  scheduled: Payment[],
+  bucket: "weekly" | "monthly",
+  horizonDays: 30 | 90 | 180,
+): CashflowWeek[] {
   const dayMs = 86_400_000;
-  const start = startOfWeek(new Date());
-  const buckets: CashflowWeek[] = Array.from({ length: WEEKS }, (_, i) => {
-    const d = new Date(start.getTime() + i * 7 * dayMs);
-    return {
-      weekStart: d.toISOString().slice(0, 10),
-      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-      received: 0,
-      scheduled: 0,
-    };
-  });
-  const end = new Date(start.getTime() + WEEKS * 7 * dayMs);
+
+  let bucketStarts: Date[];
+  if (bucket === "weekly") {
+    const start = startOfWeek(new Date());
+    const count = Math.max(1, Math.ceil(horizonDays / 7));
+    bucketStarts = Array.from({ length: count }, (_, i) => new Date(start.getTime() + i * 7 * dayMs));
+  } else {
+    const start = startOfMonth(new Date());
+    const count = Math.max(1, Math.ceil(horizonDays / 30));
+    bucketStarts = Array.from({ length: count }, (_, i) => {
+      const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
+      return d;
+    });
+  }
+  const end =
+    bucket === "weekly"
+      ? new Date(bucketStarts[bucketStarts.length - 1].getTime() + 7 * dayMs)
+      : new Date(Date.UTC(
+          bucketStarts[bucketStarts.length - 1].getUTCFullYear(),
+          bucketStarts[bucketStarts.length - 1].getUTCMonth() + 1,
+          1,
+        ));
+
+  const buckets: CashflowWeek[] = bucketStarts.map((d) => ({
+    weekStart: d.toISOString().slice(0, 10),
+    label:
+      bucket === "weekly"
+        ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+        : d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" }),
+    received: 0,
+    scheduled: 0,
+  }));
 
   const indexOf = (iso: string): number => {
     const t = new Date(iso).getTime();
-    if (Number.isNaN(t) || t < start.getTime() || t >= end.getTime()) return -1;
-    return Math.floor((t - start.getTime()) / (7 * dayMs));
+    if (Number.isNaN(t) || t < bucketStarts[0].getTime() || t >= end.getTime()) return -1;
+    if (bucket === "weekly") {
+      return Math.floor((t - bucketStarts[0].getTime()) / (7 * dayMs));
+    }
+    // monthly: find last bucket whose start <= t
+    for (let i = bucketStarts.length - 1; i >= 0; i--) {
+      if (t >= bucketStarts[i].getTime()) return i;
+    }
+    return -1;
   };
 
   for (const p of received) {
@@ -380,6 +412,10 @@ function buildCashflow(received: Payment[], scheduled: Payment[]): CashflowWeek[
     if (idx >= 0) buckets[idx].scheduled += p.amount;
   }
   return buckets;
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 }
 
 function startOfWeek(d: Date): Date {
