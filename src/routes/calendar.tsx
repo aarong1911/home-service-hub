@@ -80,13 +80,31 @@ function buildMockEvents(anchor: Date): CalEvent[] {
 
 type ViewMode = "month" | "week" | "day";
 
+function parseYmd(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function buildWeekDays(anchor: Date): Date[] {
+  const day = anchor.getDay();
+  const offset = (day + 6) % 7;
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - offset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+const TODAY = new Date(2026, 3, 18); // Stable "now" for SSR — matches src/lib/format.ts
+
 function CalendarPage() {
-  const today = new Date();
+  const today = TODAY;
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [view, setView] = useState<ViewMode>("month");
   const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
   const [syncing, setSyncing] = useState(false);
-  const [lastSynced, setLastSynced] = useState<Date | null>(new Date(Date.now() - 1000 * 60 * 4));
+  const [lastSynced, setLastSynced] = useState<Date | null>(new Date(today.getTime() - 1000 * 60 * 4));
   const [selectedDay, setSelectedDay] = useState<string>(ymd(today));
 
   const events = useMemo(() => buildMockEvents(cursor), [cursor]);
@@ -379,22 +397,6 @@ function formatRelative(d: Date): string {
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
   return `${Math.floor(diff / 86400)} d ago`;
-}
-
-function parseYmd(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function buildWeekDays(anchor: Date): Date[] {
-  const day = anchor.getDay();
-  const offset = (day + 6) % 7;
-  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - offset);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d;
-  });
 }
 
 function toMinutes(hhmm: string): number {
