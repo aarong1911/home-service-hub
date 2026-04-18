@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { PageHeader } from "@/components/layout/app-shell";
@@ -24,6 +24,10 @@ import {
   type ProjectStage,
   type ProjectStatus,
 } from "@/lib/mock-data";
+
+function formatUtcDate(value: string, options: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(new Date(value));
+}
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage,
@@ -234,16 +238,16 @@ function Kpi({
 }
 
 function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r: DropResult) => void }) {
-  const navigate = useNavigate();
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-scroll overflow-y-hidden px-6 pb-3">
-        <div className="flex h-full min-w-max gap-3">
+      <div className="-mx-6 flex min-h-0 flex-1 flex-col overflow-hidden px-6">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-3">
+          <div className="flex h-[calc(100vh-13.5rem)] min-w-max gap-3">
           {projectStages.map((stage) => {
             const stageProjects = projects.filter((p) => p.stage === stage.id);
             const stageTotal = stageProjects.reduce((s, p) => s + p.budget, 0);
             return (
-              <div key={stage.id} className="flex w-[300px] shrink-0 flex-col rounded-lg bg-secondary/40">
+              <div key={stage.id} className="flex h-full w-[300px] shrink-0 flex-col rounded-lg bg-secondary/40">
                 {/* Stage header */}
                 <div className="border-b border-border px-3 py-2.5">
                   <div className="flex items-center justify-between">
@@ -269,20 +273,28 @@ function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r
                       {...provided.droppableProps}
                       className={`flex-1 space-y-2 overflow-y-auto p-2 ${snapshot.isDraggingOver ? "bg-primary/5" : ""}`}
                     >
-                      {stageProjects.map((p, idx) => (
+                        {stageProjects.map((p, idx) => (
                         <Draggable key={p.id} draggableId={p.id} index={idx}>
                           {(prov, snap) => (
                             <div
                               ref={prov.innerRef}
                               {...prov.draggableProps}
                               {...prov.dragHandleProps}
-                              onClick={() => {
-                                if (snap.isDragging) return;
-                                navigate({ to: "/projects/$clientSlug", params: { clientSlug: p.slug } });
-                              }}
-                              className={`cursor-pointer ${snap.isDragging ? "rotate-1" : ""}`}
+                                className={snap.isDragging ? "rotate-1" : undefined}
                             >
-                              <ProjectCard project={p} />
+                                <Link
+                                  to="/projects/$clientSlug"
+                                  params={{ clientSlug: p.slug }}
+                                  className="block cursor-pointer"
+                                  draggable={false}
+                                  onClick={(event) => {
+                                    if (snap.isDragging) {
+                                      event.preventDefault();
+                                    }
+                                  }}
+                                >
+                                  <ProjectCard project={p} />
+                                </Link>
                             </div>
                           )}
                         </Draggable>
@@ -297,6 +309,7 @@ function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r
               </div>
             );
           })}
+          </div>
         </div>
       </div>
     </DragDropContext>
@@ -341,7 +354,7 @@ function ProjectCard({ project }: { project: Project }) {
         <>
           <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
             <span>{project.progress}% complete</span>
-            <span>Due {new Date(project.targetEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</span>
+            <span>Due {formatUtcDate(project.targetEnd, { month: "short", day: "numeric" })}</span>
           </div>
           <div className="mt-1 h-1 overflow-hidden rounded-full bg-secondary">
             <div className="h-full bg-primary" style={{ width: `${project.progress}%` }} />
@@ -519,7 +532,7 @@ function CancelledView({ projects }: { projects: Project[] }) {
               <td className="px-4 font-medium">{p.name}</td>
               <td className="px-4 text-muted-foreground">{p.client}</td>
               <td className="px-4 text-muted-foreground">
-                {p.cancelledDate && new Date(p.cancelledDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                {p.cancelledDate && formatUtcDate(p.cancelledDate, { month: "short", day: "numeric", year: "numeric" })}
               </td>
               <td className="px-4">
                 <div className="flex items-center gap-2">
