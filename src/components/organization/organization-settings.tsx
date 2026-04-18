@@ -1,6 +1,6 @@
 // Settings > Organization — wraps the shared OrganizationForm with the
 // in-memory store so changes persist across routes during the session.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { OrganizationForm } from "./organization-form";
 import {
@@ -13,8 +13,24 @@ import { toast } from "sonner";
 
 export function OrganizationSettings() {
   const stored = useOrganization();
-  const [draft, setDraft] = useState<Organization>(stored);
+  const [draft, setDraft] = useState<Organization>(() => getOrganization());
   const [saving, setSaving] = useState(false);
+  // Sync draft when the store hydrates from localStorage (post-SSR) or
+  // changes externally — but only while the user has no unsaved edits.
+  const lastSyncedRef = useRef<string>(JSON.stringify(getOrganization()));
+  useEffect(() => {
+    const storedStr = JSON.stringify(stored);
+    const draftStr = JSON.stringify(draft);
+    if (storedStr === draftStr) {
+      lastSyncedRef.current = storedStr;
+      return;
+    }
+    // If draft matches the last synced snapshot, user hasn't edited — adopt new stored value.
+    if (draftStr === lastSyncedRef.current) {
+      setDraft(stored);
+      lastSyncedRef.current = storedStr;
+    }
+  }, [stored, draft]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(stored);
 
   async function handleSave() {
