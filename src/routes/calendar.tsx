@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChevronLeft, ChevronRight, RefreshCw, Plus, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -77,9 +78,12 @@ function buildMockEvents(anchor: Date): CalEvent[] {
   ];
 }
 
+type ViewMode = "month" | "week" | "day";
+
 function CalendarPage() {
   const today = new Date();
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [view, setView] = useState<ViewMode>("month");
   const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(new Date(Date.now() - 1000 * 60 * 4));
@@ -100,9 +104,43 @@ function CalendarPage() {
     return m;
   }, [filtered]);
 
-  const monthLabel = cursor.toLocaleString("default", { month: "long", year: "numeric" });
+  const selectedDate = useMemo(() => parseYmd(selectedDay), [selectedDay]);
+  const weekDays = useMemo(() => buildWeekDays(selectedDate), [selectedDate]);
+  const headerLabel = useMemo(() => {
+    if (view === "month") return cursor.toLocaleString("default", { month: "long", year: "numeric" });
+    if (view === "day")
+      return selectedDate.toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    const last = weekDays[6];
+    const sameMonth = weekDays[0].getMonth() === last.getMonth();
+    const left = weekDays[0].toLocaleDateString("default", { month: "short", day: "numeric" });
+    const right = sameMonth
+      ? `${last.getDate()}, ${last.getFullYear()}`
+      : last.toLocaleDateString("default", { month: "short", day: "numeric", year: "numeric" });
+    return `${left} – ${right}`;
+  }, [view, cursor, selectedDate, weekDays]);
   const daysGrid = useMemo(() => buildMonthGrid(cursor), [cursor]);
   const selectedEvents = (eventsByDay.get(selectedDay) ?? []).slice().sort((a, b) => a.start.localeCompare(b.start));
+
+  const shift = (dir: -1 | 1) => {
+    if (view === "month") {
+      setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1));
+    } else if (view === "week") {
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() + dir * 7);
+      setSelectedDay(ymd(d));
+      setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    } else {
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() + dir);
+      setSelectedDay(ymd(d));
+      setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    }
+  };
+
+  const goToday = () => {
+    setSelectedDay(ymd(today));
+    setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+  };
 
   const handleSync = () => {
     setSyncing(true);
@@ -125,20 +163,36 @@ function CalendarPage() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8" onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))}>
+          <Button variant="outline" size="sm" className="h-8" onClick={goToday}>
             Today
           </Button>
           <div className="flex items-center rounded-md border border-border">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shift(-1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shift(1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <h2 className="text-base font-semibold">{monthLabel}</h2>
+          <h2 className="text-base font-semibold">{headerLabel}</h2>
         </div>
         <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(v) => v && setView(v as ViewMode)}
+            className="h-8 rounded-md border border-border p-0.5"
+          >
+            <ToggleGroupItem value="month" className="h-7 px-2.5 text-xs data-[state=on]:bg-secondary">
+              Month
+            </ToggleGroupItem>
+            <ToggleGroupItem value="week" className="h-7 px-2.5 text-xs data-[state=on]:bg-secondary">
+              Week
+            </ToggleGroupItem>
+            <ToggleGroupItem value="day" className="h-7 px-2.5 text-xs data-[state=on]:bg-secondary">
+              Day
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as EventType | "all")}>
             <SelectTrigger className="h-8 w-[160px] text-xs">
               <SelectValue />
@@ -178,64 +232,86 @@ function CalendarPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
-        <Card className="overflow-hidden p-0">
-          <div className="grid grid-cols-7 border-b border-border bg-secondary/40">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-              <div key={d} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {daysGrid.map((cell, i) => {
-              const inMonth = cell.getMonth() === cursor.getMonth();
-              const key = ymd(cell);
-              const dayEvents = eventsByDay.get(key) ?? [];
-              const isToday = ymd(today) === key;
-              const isSelected = selectedDay === key;
-              return (
-                <button
-                  key={i}
-                  onClick={() => setSelectedDay(key)}
-                  className={cn(
-                    "min-h-[96px] border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
-                    !inMonth && "bg-muted/30 text-muted-foreground",
-                    isSelected && "bg-primary/5 ring-1 ring-inset ring-primary/40",
-                    (i + 1) % 7 === 0 && "border-r-0",
-                    i >= daysGrid.length - 7 && "border-b-0",
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium",
-                        isToday && "bg-primary text-primary-foreground",
-                      )}
-                    >
-                      {cell.getDate()}
-                    </span>
-                    {dayEvents.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground">{dayEvents.length}</span>
+        {view === "month" && (
+          <Card className="overflow-hidden p-0">
+            <div className="grid grid-cols-7 border-b border-border bg-secondary/40">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                <div key={d} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {d}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {daysGrid.map((cell, i) => {
+                const inMonth = cell.getMonth() === cursor.getMonth();
+                const key = ymd(cell);
+                const dayEvents = eventsByDay.get(key) ?? [];
+                const isToday = ymd(today) === key;
+                const isSelected = selectedDay === key;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedDay(key)}
+                    className={cn(
+                      "min-h-[96px] border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
+                      !inMonth && "bg-muted/30 text-muted-foreground",
+                      isSelected && "bg-primary/5 ring-1 ring-inset ring-primary/40",
+                      (i + 1) % 7 === 0 && "border-r-0",
+                      i >= daysGrid.length - 7 && "border-b-0",
                     )}
-                  </div>
-                  <div className="space-y-0.5">
-                    {dayEvents.slice(0, 3).map((e) => (
-                      <div
-                        key={e.id}
-                        className={cn("truncate rounded border px-1 py-0.5 text-[10px] font-medium", TYPE_STYLES[e.type])}
+                  >
+                    <div className="mb-1 flex items-center justify-between">
+                      <span
+                        className={cn(
+                          "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium",
+                          isToday && "bg-primary text-primary-foreground",
+                        )}
                       >
-                        {e.start} {e.title}
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <div className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
+                        {cell.getDate()}
+                      </span>
+                      {dayEvents.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground">{dayEvents.length}</span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayEvents.slice(0, 3).map((e) => (
+                        <div
+                          key={e.id}
+                          className={cn("truncate rounded border px-1 py-0.5 text-[10px] font-medium", TYPE_STYLES[e.type])}
+                        >
+                          {e.start} {e.title}
+                        </div>
+                      ))}
+                      {dayEvents.length > 3 && (
+                        <div className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {view === "week" && (
+          <TimeGrid
+            days={weekDays}
+            today={today}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            eventsByDay={eventsByDay}
+          />
+        )}
+
+        {view === "day" && (
+          <TimeGrid
+            days={[selectedDate]}
+            today={today}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            eventsByDay={eventsByDay}
+          />
+        )}
 
         <Card className="p-3">
           <div className="mb-2 flex items-center gap-2">
@@ -303,4 +379,146 @@ function formatRelative(d: Date): string {
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
   return `${Math.floor(diff / 86400)} d ago`;
+}
+
+function parseYmd(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function buildWeekDays(anchor: Date): Date[] {
+  const day = anchor.getDay();
+  const offset = (day + 6) % 7;
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - offset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+const HOUR_PX = 44;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+function TimeGrid({
+  days,
+  today,
+  selectedDay,
+  onSelectDay,
+  eventsByDay,
+}: {
+  days: Date[];
+  today: Date;
+  selectedDay: string;
+  onSelectDay: (d: string) => void;
+  eventsByDay: Map<string, CalEvent[]>;
+}) {
+  return (
+    <Card className="overflow-hidden p-0">
+      <div
+        className="grid border-b border-border bg-secondary/40"
+        style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}
+      >
+        <div />
+        {days.map((d) => {
+          const key = ymd(d);
+          const isToday = ymd(today) === key;
+          const isSelected = selectedDay === key;
+          return (
+            <button
+              key={key}
+              onClick={() => onSelectDay(key)}
+              className={cn(
+                "border-l border-border px-2 py-1.5 text-left transition-colors hover:bg-secondary",
+                isSelected && "bg-primary/5",
+              )}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {d.toLocaleDateString("default", { weekday: "short" })}
+              </div>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium",
+                    isToday && "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {d.getDate()}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {(eventsByDay.get(key) ?? []).length} ev
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="max-h-[640px] overflow-y-auto">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}
+        >
+          <div className="relative border-r border-border" style={{ height: HOUR_PX * 24 }}>
+            {HOURS.map((h) => (
+              <div
+                key={h}
+                className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
+                style={{ top: h * HOUR_PX }}
+              >
+                {h === 0 ? "" : `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "AM" : "PM"}`}
+              </div>
+            ))}
+          </div>
+          {days.map((d) => {
+            const key = ymd(d);
+            const dayEvents = (eventsByDay.get(key) ?? [])
+              .slice()
+              .sort((a, b) => a.start.localeCompare(b.start));
+            return (
+              <div
+                key={key}
+                className="relative border-l border-border"
+                style={{ height: HOUR_PX * 24 }}
+              >
+                {HOURS.map((h) => (
+                  <div
+                    key={h}
+                    className="absolute inset-x-0 border-t border-border/60"
+                    style={{ top: h * HOUR_PX }}
+                  />
+                ))}
+                {dayEvents.map((e) => {
+                  const startMin = toMinutes(e.start);
+                  const endMin = Math.max(toMinutes(e.end), startMin + 30);
+                  const top = (startMin / 60) * HOUR_PX;
+                  const height = ((endMin - startMin) / 60) * HOUR_PX - 2;
+                  return (
+                    <div
+                      key={e.id}
+                      className={cn(
+                        "absolute left-1 right-1 overflow-hidden rounded border px-1.5 py-1 text-[10px] shadow-sm",
+                        TYPE_STYLES[e.type],
+                      )}
+                      style={{ top, height }}
+                    >
+                      <div className="truncate font-semibold">{e.title}</div>
+                      <div className="truncate opacity-80">
+                        {e.start}–{e.end}
+                        {e.project && ` · ${e.project}`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
 }
