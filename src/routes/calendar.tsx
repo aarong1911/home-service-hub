@@ -104,9 +104,43 @@ function CalendarPage() {
     return m;
   }, [filtered]);
 
-  const monthLabel = cursor.toLocaleString("default", { month: "long", year: "numeric" });
+  const selectedDate = useMemo(() => parseYmd(selectedDay), [selectedDay]);
+  const weekDays = useMemo(() => buildWeekDays(selectedDate), [selectedDate]);
+  const headerLabel = useMemo(() => {
+    if (view === "month") return cursor.toLocaleString("default", { month: "long", year: "numeric" });
+    if (view === "day")
+      return selectedDate.toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    const last = weekDays[6];
+    const sameMonth = weekDays[0].getMonth() === last.getMonth();
+    const left = weekDays[0].toLocaleDateString("default", { month: "short", day: "numeric" });
+    const right = sameMonth
+      ? `${last.getDate()}, ${last.getFullYear()}`
+      : last.toLocaleDateString("default", { month: "short", day: "numeric", year: "numeric" });
+    return `${left} – ${right}`;
+  }, [view, cursor, selectedDate, weekDays]);
   const daysGrid = useMemo(() => buildMonthGrid(cursor), [cursor]);
   const selectedEvents = (eventsByDay.get(selectedDay) ?? []).slice().sort((a, b) => a.start.localeCompare(b.start));
+
+  const shift = (dir: -1 | 1) => {
+    if (view === "month") {
+      setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1));
+    } else if (view === "week") {
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() + dir * 7);
+      setSelectedDay(ymd(d));
+      setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    } else {
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() + dir);
+      setSelectedDay(ymd(d));
+      setCursor(new Date(d.getFullYear(), d.getMonth(), 1));
+    }
+  };
+
+  const goToday = () => {
+    setSelectedDay(ymd(today));
+    setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+  };
 
   const handleSync = () => {
     setSyncing(true);
