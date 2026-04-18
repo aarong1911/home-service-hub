@@ -29,6 +29,7 @@ import {
   type DraftSchedule,
   type PaymentMilestone,
 } from "@/lib/draft-invoices";
+import { scheduleFromInvoice } from "@/lib/scheduled-payments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "@tanstack/react-router";
