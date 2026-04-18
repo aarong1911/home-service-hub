@@ -420,16 +420,24 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 function TimeGrid({
   days,
   today,
+  now,
   selectedDay,
   onSelectDay,
   eventsByDay,
 }: {
   days: Date[];
   today: Date;
+  now: Date | null;
   selectedDay: string;
   onSelectDay: (d: string) => void;
   eventsByDay: Map<string, CalEvent[]>;
 }) {
+  const todayKey = ymd(today);
+  const nowMinutes = now ? now.getHours() * 60 + now.getMinutes() : null;
+  const nowTop = nowMinutes !== null ? (nowMinutes / 60) * HOUR_PX : 0;
+  const nowLabel = now
+    ? now.toLocaleTimeString("default", { hour: "numeric", minute: "2-digit" })
+    : "";
   return (
     <Card className="overflow-hidden p-0">
       <div
