@@ -92,7 +92,7 @@ function ReportsPage() {
                 />
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  formatter={(v: number) => formatMoney(v)}
+                  formatter={(v) => formatMoney(Number(v))}
                 />
                 <Area type="monotone" dataKey="value" stroke={PRIMARY} fill="url(#rev)" strokeWidth={2} />
               </AreaChart>
