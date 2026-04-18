@@ -22,6 +22,8 @@ import { Route as SettingsIntegrationsRouteImport } from './routes/settings.inte
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
 import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
 import { Route as ProjectsClientSlugRouteImport } from './routes/projects.$clientSlug'
+import { Route as InsightsReputationRouteImport } from './routes/insights.reputation'
+import { Route as InsightsAnalyticsRouteImport } from './routes/insights.analytics'
 import { Route as FinancialsReportsRouteImport } from './routes/financials.reports'
 import { Route as FinancialsPaymentsRouteImport } from './routes/financials.payments'
 import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invoices'
@@ -97,6 +99,16 @@ const ProjectsClientSlugRoute = ProjectsClientSlugRouteImport.update({
   path: '/projects/$clientSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InsightsReputationRoute = InsightsReputationRouteImport.update({
+  id: '/insights/reputation',
+  path: '/insights/reputation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InsightsAnalyticsRoute = InsightsAnalyticsRouteImport.update({
+  id: '/insights/analytics',
+  path: '/insights/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FinancialsReportsRoute = FinancialsReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -160,6 +172,8 @@ export interface FileRoutesByFullPath {
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
+  '/insights/analytics': typeof InsightsAnalyticsRoute
+  '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/billing': typeof SettingsBillingRoute
@@ -183,6 +197,8 @@ export interface FileRoutesByTo {
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
+  '/insights/analytics': typeof InsightsAnalyticsRoute
+  '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/billing': typeof SettingsBillingRoute
@@ -208,6 +224,8 @@ export interface FileRoutesById {
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
+  '/insights/analytics': typeof InsightsAnalyticsRoute
+  '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/billing': typeof SettingsBillingRoute
@@ -234,6 +252,8 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
+    | '/insights/analytics'
+    | '/insights/reputation'
     | '/projects/$clientSlug'
     | '/sales/pipeline'
     | '/settings/billing'
@@ -257,6 +277,8 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
+    | '/insights/analytics'
+    | '/insights/reputation'
     | '/projects/$clientSlug'
     | '/sales/pipeline'
     | '/settings/billing'
@@ -281,6 +303,8 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
+    | '/insights/analytics'
+    | '/insights/reputation'
     | '/projects/$clientSlug'
     | '/sales/pipeline'
     | '/settings/billing'
@@ -302,6 +326,8 @@ export interface RootRouteChildren {
   AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
   AutomationWorkflowsRoute: typeof AutomationWorkflowsRouteWithChildren
+  InsightsAnalyticsRoute: typeof InsightsAnalyticsRoute
+  InsightsReputationRoute: typeof InsightsReputationRoute
   ProjectsClientSlugRoute: typeof ProjectsClientSlugRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -398,6 +424,20 @@ declare module '@tanstack/react-router' {
       path: '/projects/$clientSlug'
       fullPath: '/projects/$clientSlug'
       preLoaderRoute: typeof ProjectsClientSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insights/reputation': {
+      id: '/insights/reputation'
+      path: '/insights/reputation'
+      fullPath: '/insights/reputation'
+      preLoaderRoute: typeof InsightsReputationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insights/analytics': {
+      id: '/insights/analytics'
+      path: '/insights/analytics'
+      fullPath: '/insights/analytics'
+      preLoaderRoute: typeof InsightsAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/financials/reports': {
@@ -524,6 +564,8 @@ const rootRouteChildren: RootRouteChildren = {
   AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
   AutomationWorkflowsRoute: AutomationWorkflowsRouteWithChildren,
+  InsightsAnalyticsRoute: InsightsAnalyticsRoute,
+  InsightsReputationRoute: InsightsReputationRoute,
   ProjectsClientSlugRoute: ProjectsClientSlugRoute,
   SalesPipelineRoute: SalesPipelineRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
