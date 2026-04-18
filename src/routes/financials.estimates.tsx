@@ -31,6 +31,10 @@ function EstimatesPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Estimate["status"] | "All">("All");
   const [selected, setSelected] = useState<Estimate | null>(null);
+  const [drafts, setDrafts] = useState<Estimate[]>([]);
+  const [tplOpen, setTplOpen] = useState(false);
+
+  const allEstimates = useMemo(() => [...drafts, ...mockEstimates], [drafts]);
 
   const stats = useMemo(() => {
     const total = mockEstimates.reduce((s, e) => s + e.amount, 0);
