@@ -390,3 +390,238 @@ function Field({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+// ===== Drawer tabs =====
+
+type ActivityKind = "email-out" | "email-in" | "sms-out" | "sms-in" | "call" | "note" | "deal" | "invoice";
+
+type ActivityItem = {
+  id: string;
+  kind: ActivityKind;
+  title: string;
+  body: string;
+  at: string; // iso
+  by: string;
+};
+
+function buildActivity(contact: Contact): ActivityItem[] {
+  // Deterministic per-contact pseudo-random using id hash
+  const seed = contact.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const lastMs = new Date(contact.lastActivity).getTime();
+  const day = 86_400_000;
+  const owner = contact.owner;
+  const first = contact.name.split(" ")[0];
+
+  const templates: Omit<ActivityItem, "id" | "at">[] = [
+    { kind: "email-out", title: "Sent estimate follow-up", body: `Hi ${first}, just circling back on the proposal we sent over. Happy to walk through any line items.`, by: owner },
+    { kind: "sms-in", title: "SMS received", body: "Sounds good — when can you swing by for the site visit?", by: first },
+    { kind: "call", title: "Call · 8 min", body: "Discussed scope, timeline, and HOA constraints. Sending revised estimate Thursday.", by: owner },
+    { kind: "email-in", title: "Reply received", body: "Thanks for the breakdown. We're aligned on the kitchen scope. Couple questions on the bath…", by: first },
+    { kind: "note", title: "Internal note", body: "Client mentioned budget ceiling around $85k. Prefers neutral palette.", by: owner },
+    { kind: "sms-out", title: "SMS sent", body: "Crew arriving 8am Tuesday. Lockbox code unchanged.", by: owner },
+    { kind: "invoice", title: "Invoice INV-2026-041 sent", body: "Progress draw #2 · $14,200 · Net 15.", by: owner },
+    { kind: "deal", title: "Deal moved to Proposal", body: "Stage updated from Site Visit → Proposal.", by: owner },
+    { kind: "email-out", title: "Sent welcome packet", body: "Welcome aboard! Attached is your client handbook and project portal login.", by: owner },
+  ];
+
+  return templates.map((t, i) => ({
+    ...t,
+    id: `${contact.id}-act-${i}`,
+    at: new Date(lastMs - ((seed + i * 17) % 9) * day - i * day * 2).toISOString(),
+  }));
+}
+
+function activityIcon(kind: ActivityKind) {
+  switch (kind) {
+    case "email-out":
+    case "email-in":
+      return { Icon: MailIcon, tone: "bg-sky-500/10 text-sky-600 dark:text-sky-400" };
+    case "sms-out":
+    case "sms-in":
+      return { Icon: MessageSquare, tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400" };
+    case "call":
+      return { Icon: PhoneIcon, tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" };
+    case "note":
+      return { Icon: StickyNote, tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400" };
+    case "invoice":
+      return { Icon: FileText, tone: "bg-primary-soft text-primary" };
+    case "deal":
+      return { Icon: CheckCircle2, tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" };
+  }
+}
+
+function ActivityTab({ contact }: { contact: Contact }) {
+  const items = useMemo(() => buildActivity(contact), [contact]);
+  return (
+    <div className="space-y-0">
+      {items.map((item, i) => {
+        const { Icon, tone } = activityIcon(item.kind);
+        const isLast = i === items.length - 1;
+        return (
+          <div key={item.id} className="relative flex gap-3 pb-4">
+            {!isLast && <div className="absolute left-[15px] top-8 h-full w-px bg-border" />}
+            <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-4 ring-background ${tone}`}>
+              <Icon className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0 flex-1 pt-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="truncate text-sm font-medium">{item.title}</div>
+                <div className="shrink-0 text-[11px] text-muted-foreground">
+                  {formatDistanceToNow(new Date(item.at), { addSuffix: true })}
+                </div>
+              </div>
+              <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">By {item.by}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function stageLabel(id: string) {
+  return pipelineStages.find((s) => s.id === id)?.name ?? id;
+}
+
+function stageTone(id: string) {
+  switch (id) {
+    case "won": return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+    case "negotiation": return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+    case "proposal": return "bg-sky-500/10 text-sky-600 dark:text-sky-400";
+    case "site-visit": return "bg-violet-500/10 text-violet-600 dark:text-violet-400";
+    case "qualified": return "bg-primary-soft text-primary";
+    default: return "bg-secondary text-muted-foreground";
+  }
+}
+
+function DealsTab({ contact }: { contact: Contact }) {
+  const deals: Deal[] = useMemo(
+    () => mockDeals.filter((d) => d.contactId === contact.id),
+    [contact],
+  );
+
+  if (deals.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-border bg-secondary/30 p-6 text-center">
+        <div className="text-sm font-medium">No deals yet</div>
+        <div className="mt-1 text-xs text-muted-foreground">Create a deal to start tracking opportunities with {contact.name.split(" ")[0]}.</div>
+        <Button size="sm" className="mt-3"><Plus className="mr-1.5 h-3.5 w-3.5" />New Deal</Button>
+      </div>
+    );
+  }
+
+  const totalValue = deals.reduce((sum, d) => sum + d.value, 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2">
+        <div className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{deals.length}</span> deal{deals.length === 1 ? "" : "s"} ·{" "}
+          <span className="font-medium text-foreground">{formatMoney(totalValue)}</span> total
+        </div>
+        <Button size="sm" variant="outline" className="h-7"><Plus className="mr-1 h-3 w-3" />Add</Button>
+      </div>
+      {deals.map((d) => (
+        <div key={d.id} className="group rounded-md border border-border bg-card p-3 transition-colors hover:bg-secondary/40">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{d.name}</div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                Owned by {d.owner} · {d.ageDays}d in stage
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-semibold tabular-nums">{formatMoney(d.value)}</div>
+              <div className="text-[10px] text-muted-foreground">Close {formatDateShort(d.expectedClose)}</div>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <Badge className={`h-5 rounded px-1.5 text-[10px] font-medium ${stageTone(d.stage)}`} variant="outline">
+              {stageLabel(d.stage)}
+            </Badge>
+            <button className="flex items-center gap-1 text-[11px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+              Open <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function projectStageTone(stage: Project["stage"]) {
+  switch (stage) {
+    case "in-progress": return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+    case "punch-list": return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+    case "completed": return "bg-secondary text-muted-foreground";
+    case "pre-construction": return "bg-violet-500/10 text-violet-600 dark:text-violet-400";
+    case "contracted": return "bg-primary-soft text-primary";
+    default: return "bg-secondary text-muted-foreground";
+  }
+}
+
+function ProjectsTab({ contact }: { contact: Contact }) {
+  const first = contact.name.split(" ")[0].toLowerCase();
+  // Match by first name token since mock projects use different client names
+  const projects: Project[] = useMemo(
+    () =>
+      mockProjects.filter(
+        (p) =>
+          p.client.toLowerCase() === contact.name.toLowerCase() ||
+          p.client.toLowerCase().startsWith(first + " "),
+      ),
+    [contact, first],
+  );
+
+  // Fallback: show 1-2 deterministic projects based on contact id hash so the tab always feels populated
+  const display = projects.length > 0
+    ? projects
+    : (() => {
+        const seed = contact.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+        const a = mockProjects[seed % mockProjects.length];
+        const b = mockProjects[(seed * 7 + 3) % mockProjects.length];
+        return a && b && a.id !== b.id ? [a, b] : [a].filter(Boolean);
+      })();
+
+  if (display.length === 0) {
+    return <div className="text-sm text-muted-foreground">No active projects.</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {display.map((p) => (
+        <div key={p.id} className="rounded-md border border-border bg-card p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{p.name}</div>
+              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                {p.projectNumber} · {p.type} · {p.address.split(",").slice(-1)[0]?.trim()}
+              </div>
+            </div>
+            <Badge className={`h-5 rounded px-1.5 text-[10px] font-medium capitalize ${projectStageTone(p.stage)}`} variant="outline">
+              {p.stage.replace("-", " ")}
+            </Badge>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+            <div>
+              <div className="text-muted-foreground">Budget</div>
+              <div className="mt-0.5 font-medium tabular-nums">{formatMoney(p.budget)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Paid</div>
+              <div className="mt-0.5 font-medium tabular-nums">{formatMoney(p.paid)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Progress</div>
+              <div className="mt-0.5 font-medium tabular-nums">{p.progress}%</div>
+            </div>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${p.progress}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
