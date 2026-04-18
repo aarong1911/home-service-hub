@@ -25,7 +25,12 @@ import { mockCompanies, type Company, type CompanyType, type CompanyStatus } fro
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { toast } from "sonner";
 
+type CompaniesSearch = { companyId?: string };
+
 export const Route = createFileRoute("/companies")({
+  validateSearch: (raw: Record<string, unknown>): CompaniesSearch => ({
+    companyId: typeof raw.companyId === "string" ? raw.companyId : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Companies — RenoMeta" },
