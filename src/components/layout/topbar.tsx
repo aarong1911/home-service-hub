@@ -93,7 +93,7 @@ export function Topbar() {
         <Popover open={open && query.trim().length > 0} onOpenChange={(o) => { if (!o) setOpen(false); }}>
           <PopoverTrigger asChild>
             <div
-              ref={triggerRef as unknown as React.RefObject<HTMLDivElement>}
+              ref={triggerRef}
               className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm transition-colors focus-within:border-border-strong hover:border-border-strong"
             >
               <Search className="h-4 w-4 text-muted-foreground" />
