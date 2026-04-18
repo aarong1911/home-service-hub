@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/app-shell";
 import {
-  Building2, Users, Plug, CreditCard, Wand2, Palette, Key, Bell,
+  Building2, Users, Plug, CreditCard, Wand2, Palette, Key, Bell, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ const sections = [
   { to: "/settings/team", label: "Team & Roles", icon: Users },
   { to: "/settings/integrations", label: "Integrations", icon: Plug },
   { to: "/settings/billing", label: "Plans & Billing", icon: CreditCard },
+  { to: "/settings/templates", label: "Templates", icon: FileText },
   { to: "/settings/custom-fields", label: "Custom Fields", icon: Wand2 },
   { to: "/settings/branding", label: "Branding", icon: Palette },
   { to: "/settings/api-keys", label: "API Keys", icon: Key },
