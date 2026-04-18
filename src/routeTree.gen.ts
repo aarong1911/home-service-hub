@@ -10,12 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as FinancialsRouteImport } from './routes/financials'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as SettingsTeamRouteImport } from './routes/settings.team'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
@@ -30,11 +30,6 @@ import { Route as AutomationWorkflowsRouteImport } from './routes/automation.wor
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InboxRoute = InboxRouteImport.update({
@@ -62,6 +57,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsTeamRoute = SettingsTeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -83,9 +83,9 @@ const SalesPipelineRoute = SalesPipelineRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsClientSlugRoute = ProjectsClientSlugRouteImport.update({
-  id: '/$clientSlug',
-  path: '/$clientSlug',
-  getParentRoute: () => ProjectsRoute,
+  id: '/projects/$clientSlug',
+  path: '/projects/$clientSlug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FinancialsReportsRoute = FinancialsReportsRouteImport.update({
   id: '/reports',
@@ -119,7 +119,6 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
-  '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
@@ -131,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/projects/': typeof ProjectsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -138,7 +138,6 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
-  '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
@@ -150,6 +149,7 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/projects': typeof ProjectsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -158,7 +158,6 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
-  '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
@@ -170,6 +169,7 @@ export interface FileRoutesById {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/projects/': typeof ProjectsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -179,7 +179,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/financials'
     | '/inbox'
-    | '/projects'
     | '/settings'
     | '/automation/workflows'
     | '/financials/estimates'
@@ -191,6 +190,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/integrations'
     | '/settings/team'
+    | '/projects/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,7 +198,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/financials'
     | '/inbox'
-    | '/projects'
     | '/settings'
     | '/automation/workflows'
     | '/financials/estimates'
@@ -210,6 +209,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/integrations'
     | '/settings/team'
+    | '/projects'
   id:
     | '__root__'
     | '/'
@@ -217,7 +217,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/financials'
     | '/inbox'
-    | '/projects'
     | '/settings'
     | '/automation/workflows'
     | '/financials/estimates'
@@ -229,6 +228,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/integrations'
     | '/settings/team'
+    | '/projects/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -237,10 +237,11 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   FinancialsRoute: typeof FinancialsRouteWithChildren
   InboxRoute: typeof InboxRoute
-  ProjectsRoute: typeof ProjectsRouteWithChildren
   SettingsRoute: typeof SettingsRouteWithChildren
   AutomationWorkflowsRoute: typeof AutomationWorkflowsRoute
+  ProjectsClientSlugRoute: typeof ProjectsClientSlugRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -250,13 +251,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/projects': {
-      id: '/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inbox': {
@@ -294,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/': {
+      id: '/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/team': {
       id: '/settings/team'
       path: '/team'
@@ -324,10 +325,10 @@ declare module '@tanstack/react-router' {
     }
     '/projects/$clientSlug': {
       id: '/projects/$clientSlug'
-      path: '/$clientSlug'
+      path: '/projects/$clientSlug'
       fullPath: '/projects/$clientSlug'
       preLoaderRoute: typeof ProjectsClientSlugRouteImport
-      parentRoute: typeof ProjectsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/financials/reports': {
       id: '/financials/reports'
@@ -385,18 +386,6 @@ const FinancialsRouteWithChildren = FinancialsRoute._addFileChildren(
   FinancialsRouteChildren,
 )
 
-interface ProjectsRouteChildren {
-  ProjectsClientSlugRoute: typeof ProjectsClientSlugRoute
-}
-
-const ProjectsRouteChildren: ProjectsRouteChildren = {
-  ProjectsClientSlugRoute: ProjectsClientSlugRoute,
-}
-
-const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
-  ProjectsRouteChildren,
-)
-
 interface SettingsRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
@@ -419,10 +408,11 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   FinancialsRoute: FinancialsRouteWithChildren,
   InboxRoute: InboxRoute,
-  ProjectsRoute: ProjectsRouteWithChildren,
   SettingsRoute: SettingsRouteWithChildren,
   AutomationWorkflowsRoute: AutomationWorkflowsRoute,
+  ProjectsClientSlugRoute: ProjectsClientSlugRoute,
   SalesPipelineRoute: SalesPipelineRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
