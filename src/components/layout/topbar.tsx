@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+  Command, CommandEmpty, CommandGroup, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { useOrganization, memberInitials } from "@/lib/organization";
 import { mockContacts, mockDeals, mockProjects, mockCompanies } from "@/lib/mock-data";
@@ -20,14 +20,16 @@ export function Topbar() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  // Cmd/Ctrl+K shortcut
+  // Cmd/Ctrl+K shortcut — focus the inline search input
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        inputRef.current?.focus();
+        inputRef.current?.select();
       }
     };
     window.addEventListener("keydown", onKey);
