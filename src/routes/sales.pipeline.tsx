@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { mockDeals, pipelineStages, type Deal } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
+import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 
 export const Route = createFileRoute("/sales/pipeline")({
   component: PipelinePage,
