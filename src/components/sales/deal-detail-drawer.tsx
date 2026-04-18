@@ -1,0 +1,228 @@
+import { useMemo } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Mail, Phone, MessageSquare, FileText, CheckCircle2, XCircle, StickyNote,
+  TrendingUp, Calendar, User, Building2,
+} from "lucide-react";
+import { mockContacts, pipelineStages, type Deal } from "@/lib/mock-data";
+import { formatMoney, formatDateShort } from "@/lib/format";
+import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
+
+type DealActivityKind = "email-out" | "email-in" | "sms" | "call" | "note" | "stage" | "proposal";
+type DealActivity = {
+  id: string;
+  kind: DealActivityKind;
+  title: string;
+  body: string;
+  at: string;
+  by: string;
+};
+
+function buildActivity(deal: Deal): DealActivity[] {
+  const seed = deal.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const day = 86_400_000;
+  const now = Date.now();
+  const first = deal.contactName.split(" ")[0];
+
+  const templates: Omit<DealActivity, "id" | "at">[] = [
+    { kind: "stage", title: `Moved to ${stageName(deal.stage)}`, body: "Stage updated based on latest client conversation.", by: deal.owner },
+    { kind: "email-out", title: "Sent revised proposal", body: `Hi ${first}, attached is the updated scope reflecting the changes we discussed. Let me know your thoughts.`, by: deal.owner },
+    { kind: "email-in", title: "Reply received", body: "Thanks — reviewing internally with my partner. Will circle back this week.", by: first },
+    { kind: "call", title: "Discovery call · 24 min", body: "Walked through scope, timeline expectations, and budget range. Strong fit.", by: deal.owner },
+    { kind: "note", title: "Internal note", body: "Decision-maker is the spouse. Loop her in on next touch.", by: deal.owner },
+    { kind: "proposal", title: "Estimate sent", body: `EST-2026-${(seed % 90) + 10} · ${formatMoney(deal.value)}`, by: deal.owner },
+    { kind: "sms", title: "SMS exchange", body: "Confirmed site visit for Tuesday 10am. Will bring sample boards.", by: deal.owner },
+    { kind: "stage", title: "Deal created", body: `Source: Website inquiry · Assigned to ${deal.owner}.`, by: "System" },
+  ];
+
+  return templates.map((t, i) => ({
+    ...t,
+    id: `${deal.id}-act-${i}`,
+    at: new Date(now - ((seed + i * 13) % 5 + 1) * day - i * day * 2).toISOString(),
+  }));
+}
+
+function stageName(id: string) {
+  return pipelineStages.find((s) => s.id === id)?.name ?? id;
+}
+
+function activityIcon(kind: DealActivityKind) {
+  switch (kind) {
+    case "email-out":
+    case "email-in":
+      return { Icon: Mail, tone: "bg-sky-500/10 text-sky-600 dark:text-sky-400" };
+    case "sms":
+      return { Icon: MessageSquare, tone: "bg-violet-500/10 text-violet-600 dark:text-violet-400" };
+    case "call":
+      return { Icon: Phone, tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" };
+    case "note":
+      return { Icon: StickyNote, tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400" };
+    case "proposal":
+      return { Icon: FileText, tone: "bg-primary-soft text-primary" };
+    case "stage":
+      return { Icon: TrendingUp, tone: "bg-secondary text-foreground" };
+  }
+}
+
+export function DealDetailDrawer({
+  deal,
+  onOpenChange,
+  onStageChange,
+}: {
+  deal: Deal | null;
+  onOpenChange: (open: boolean) => void;
+  onStageChange?: (dealId: string, newStage: string) => void;
+}) {
+  const contact = useMemo(
+    () => (deal ? mockContacts.find((c) => c.id === deal.contactId) : null),
+    [deal],
+  );
+  const activity = useMemo(() => (deal ? buildActivity(deal) : []), [deal]);
+
+  const handleWon = () => {
+    if (!deal) return;
+    onStageChange?.(deal.id, "won");
+    toast.success(`${deal.name} marked as Won`, {
+      description: `${formatMoney(deal.value)} added to closed revenue.`,
+    });
+    onOpenChange(false);
+  };
+
+  const handleLost = () => {
+    if (!deal) return;
+    onStageChange?.(deal.id, "new"); // there's no "lost" stage; reset for demo
+    toast(`${deal.name} marked as Lost`, {
+      description: "Reason logged. Deal archived.",
+    });
+    onOpenChange(false);
+  };
+
+  return (
+    <Sheet open={!!deal} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        {deal && (
+          <>
+            <SheetHeader className="space-y-3 border-b border-border pb-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 text-left">
+                  <Badge variant="outline" className="mb-1.5 h-5 rounded px-1.5 text-[10px]">
+                    {stageName(deal.stage)}
+                  </Badge>
+                  <SheetTitle className="text-base leading-snug">{deal.name}</SheetTitle>
+                  <SheetDescription className="mt-0.5 text-xs">
+                    {deal.contactName} · Owned by {deal.owner}
+                  </SheetDescription>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-semibold tabular-nums">{formatMoney(deal.value)}</div>
+                  <div className="text-[11px] text-muted-foreground">Expected {formatDateShort(deal.expectedClose)}</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleWon}>
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark as Won
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={handleLost}>
+                  <XCircle className="mr-1.5 h-3.5 w-3.5" /> Mark as Lost
+                </Button>
+              </div>
+            </SheetHeader>
+
+            <div className="mt-4 space-y-5">
+              {/* Linked contact */}
+              <section>
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Linked contact
+                </div>
+                {contact ? (
+                  <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary-soft text-xs font-medium text-primary">
+                        {contact.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{contact.name}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">{contact.company}</div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Email">
+                        <Mail className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Call">
+                        <Phone className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    No linked contact.
+                  </div>
+                )}
+              </section>
+
+              {/* Deal facts */}
+              <section className="grid grid-cols-2 gap-3">
+                <Fact icon={User} label="Owner" value={deal.owner} />
+                <Fact icon={Building2} label="Company" value={contact?.company ?? "—"} />
+                <Fact icon={Calendar} label="Age in stage" value={`${deal.ageDays}d`} />
+                <Fact icon={TrendingUp} label="Stage" value={stageName(deal.stage)} />
+              </section>
+
+              <Separator />
+
+              {/* Activity timeline */}
+              <section>
+                <div className="mb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Activity
+                </div>
+                <div>
+                  {activity.map((item, i) => {
+                    const { Icon, tone } = activityIcon(item.kind);
+                    const isLast = i === activity.length - 1;
+                    return (
+                      <div key={item.id} className="relative flex gap-3 pb-4">
+                        {!isLast && <div className="absolute left-[15px] top-8 h-full w-px bg-border" />}
+                        <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-4 ring-background ${tone}`}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1 pt-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <div className="truncate text-sm font-medium">{item.title}</div>
+                            <div className="shrink-0 text-[11px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(item.at), { addSuffix: true })}
+                            </div>
+                          </div>
+                          <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</div>
+                          <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                            By {item.by}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function Fact({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-card p-2.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <Icon className="h-3 w-3" /> {label}
+      </div>
+      <div className="mt-1 truncate text-sm font-medium">{value}</div>
+    </div>
+  );
+}
