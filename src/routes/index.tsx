@@ -1,13 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from "@/components/ui/sheet";
 import { PageHeader } from "@/components/layout/app-shell";
+import { toast } from "sonner";
 import {
   ArrowUpRight, ArrowDownRight, Briefcase, Target, TrendingUp, DollarSign,
   Plus, FileText, Workflow, UserPlus, Mail, Phone, CreditCard, CheckCircle2,
+  Calendar, Clock, User, MapPin, AlignLeft,
 } from "lucide-react";
 import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
@@ -46,7 +50,31 @@ function formatDate() {
   return new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 }
 
+type TaskDetail = {
+  assignee: string;
+  location?: string;
+  description: string;
+  related?: string;
+  duration: string;
+};
+
+const taskDetails: Record<number, TaskDetail> = {
+  1: { assignee: "Alex Romero", location: "14 Elm St., Brookline", description: "Walk through with homeowner to confirm scope for kitchen + half-bath remodel. Bring measuring kit and material samples.", related: "Deal: Elm St. Kitchen", duration: "1h 30m" },
+  2: { assignee: "Priya Shah", description: "Send refined proposal v2 with updated tile selections and revised timeline. Reference last week's call notes.", related: "Deal: Thorne Residence", duration: "30m" },
+  3: { assignee: "Priya Shah", description: "Call to confirm budget alignment and next-step site visit for the master bath remodel.", related: "Lead: Becker Family", duration: "20m" },
+  4: { assignee: "Jamal Burke", description: "Place cabinet order with Apex Cabinetry — confirm finish (Matte Linen) and delivery to staging warehouse.", related: "Project: Miller Kitchen", duration: "45m" },
+  5: { assignee: "Alex Romero", description: "Review Q4 pipeline forecast and revenue projections with leadership team.", duration: "1h" },
+};
+
+function priorityLabel(p: string) {
+  return p === "high" ? "High priority" : p === "med" ? "Medium priority" : "Low priority";
+}
+
 function DashboardPage() {
+  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const activeTask = upcomingTasks.find((t) => t.id === activeTaskId) ?? null;
+  const activeDetail = activeTaskId != null ? taskDetails[activeTaskId] : null;
+
   return (
     <>
       <PageHeader
@@ -167,7 +195,12 @@ function DashboardPage() {
             <div className="mb-2 text-sm font-semibold">Upcoming Tasks</div>
             <div className="space-y-2">
               {upcomingTasks.map((t) => (
-                <div key={t.id} className="flex items-start gap-2 rounded-md border border-border bg-card p-2.5">
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setActiveTaskId(t.id)}
+                  className="flex w-full items-start gap-2 rounded-md border border-border bg-card p-2.5 text-left transition-colors hover:border-border-strong hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <div className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
                     t.priority === "high" ? "bg-destructive" : t.priority === "med" ? "bg-warning" : "bg-muted-foreground/40"
                   }`} />
@@ -175,7 +208,7 @@ function DashboardPage() {
                     <div className="truncate text-[13px] font-medium">{t.title}</div>
                     <div className="text-[11px] text-muted-foreground">{t.time}</div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </CardContent>
@@ -239,7 +272,72 @@ function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Sheet open={activeTaskId !== null} onOpenChange={(o) => !o && setActiveTaskId(null)}>
+        <SheetContent className="w-full sm:max-w-md">
+          {activeTask && activeDetail && (
+            <>
+              <SheetHeader>
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${
+                    activeTask.priority === "high" ? "bg-destructive" : activeTask.priority === "med" ? "bg-warning" : "bg-muted-foreground/40"
+                  }`} />
+                  <Badge variant="secondary" className="text-[10px]">{priorityLabel(activeTask.priority)}</Badge>
+                </div>
+                <SheetTitle className="text-left">{activeTask.title}</SheetTitle>
+                <SheetDescription className="text-left">Task details and context.</SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-5 space-y-4">
+                <TaskFact icon={Calendar} label="When" value={activeTask.time} />
+                <TaskFact icon={Clock} label="Duration" value={activeDetail.duration} />
+                <TaskFact icon={User} label="Assigned to" value={activeDetail.assignee} />
+                {activeDetail.location && <TaskFact icon={MapPin} label="Location" value={activeDetail.location} />}
+                {activeDetail.related && <TaskFact icon={Briefcase} label="Related" value={activeDetail.related} />}
+
+                <Separator />
+
+                <div>
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <AlignLeft className="h-3.5 w-3.5" /> Description
+                  </div>
+                  <p className="text-sm leading-relaxed">{activeDetail.description}</p>
+                </div>
+              </div>
+
+              <SheetFooter className="mt-6 flex-row gap-2 sm:justify-end">
+                <SheetClose asChild>
+                  <Button variant="outline" size="sm">Close</Button>
+                </SheetClose>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    toast.success("Task marked complete", { description: activeTask.title });
+                    setActiveTaskId(null);
+                  }}
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark complete
+                </Button>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
+  );
+}
+
+function TaskFact({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+        <div className="text-[13px]">{value}</div>
+      </div>
+    </div>
   );
 }
 
