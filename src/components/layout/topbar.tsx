@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+  Command, CommandEmpty, CommandGroup, CommandItem, CommandList,
 } from "@/components/ui/command";
 import { useOrganization, memberInitials } from "@/lib/organization";
 import { mockContacts, mockDeals, mockProjects, mockCompanies } from "@/lib/mock-data";
@@ -20,14 +20,16 @@ export function Topbar() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  // Cmd/Ctrl+K shortcut
+  // Cmd/Ctrl+K shortcut — focus the inline search input
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        inputRef.current?.focus();
+        inputRef.current?.select();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -88,36 +90,44 @@ export function Topbar() {
 
       {/* Global search with autocomplete */}
       <div className="mx-auto flex w-full max-w-xl items-center">
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open && query.trim().length > 0} onOpenChange={(o) => { if (!o) setOpen(false); }}>
           <PopoverTrigger asChild>
-            <button
+            <div
               ref={triggerRef}
-              className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:border-border-strong"
-              aria-label="Search"
+              className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm transition-colors focus-within:border-border-strong hover:border-border-strong"
             >
-              <Search className="h-4 w-4" />
-              <span className="flex-1">Search contacts, deals, projects…</span>
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <input
+                ref={inputRef}
+                type="text"
+                role="combobox"
+                aria-expanded={open}
+                aria-autocomplete="list"
+                autoComplete="off"
+                spellCheck={false}
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+                onFocus={() => { if (query.trim()) setOpen(true); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") { setOpen(false); (e.target as HTMLInputElement).blur(); }
+                }}
+                placeholder="Search contacts, deals, projects…"
+                className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none"
+                aria-label="Search"
+              />
               <kbd className="flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                 <CommandIcon className="h-3 w-3" />K
               </kbd>
-            </button>
+            </div>
           </PopoverTrigger>
           <PopoverContent
             align="center"
             sideOffset={6}
             className="w-[--radix-popover-trigger-width] p-0"
-            onOpenAutoFocus={(e) => {
-              // Let CommandInput auto-focus naturally
-              e.preventDefault();
-            }}
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <Command shouldFilter={false}>
-              <CommandInput
-                value={query}
-                onValueChange={setQuery}
-                placeholder="Search contacts, deals, projects, companies…"
-                autoFocus
-              />
               <CommandList>
                 <CommandEmpty>No results found.</CommandEmpty>
                 {results.contacts.length > 0 && (
