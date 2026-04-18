@@ -456,7 +456,7 @@ function InboxPage() {
 
               <ContextSection title="Lifetime Value">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-semibold tabular-nums">${(contact.ltv ?? 0).toLocaleString()}</span>
+                  <span className="text-lg font-semibold tabular-nums">${contactProjects.reduce((s, p) => s + (p.contractValue || 0), 0).toLocaleString()}</span>
                   <span className="text-[10px] text-emerald-600">+12% YoY</span>
                 </div>
                 <div className="mt-1 text-[10px] text-muted-foreground">{contactProjects.length} projects · 3 invoices</div>
