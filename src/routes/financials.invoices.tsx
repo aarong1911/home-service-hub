@@ -51,7 +51,7 @@ function InvoicesPage() {
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="Total invoiced" value={formatMoney(stats.total)} sub={`${mockInvoices.length} invoices`} icon={Receipt} tone="primary" />
+        <Kpi label="Total invoiced" value={formatMoney(stats.total)} sub={`${stats.count} invoices${drafts.length ? ` · ${drafts.length} from estimates` : ""}`} icon={Receipt} tone="primary" />
         <Kpi label="Outstanding" value={formatMoney(stats.outstanding)} sub="awaiting payment" icon={Clock} tone="warning" />
         <Kpi label="Overdue" value={formatMoney(stats.overdue)} sub={`${stats.overdueCount} invoices`} icon={AlertTriangle} tone="destructive" />
         <Kpi label="Collected" value={formatMoney(stats.paid)} sub="fully paid" icon={CheckCircle2} tone="success" />
