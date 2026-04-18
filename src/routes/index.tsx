@@ -17,7 +17,29 @@ import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
   LineChart, Line,
 } from "recharts";
-import { pipelineVelocityData, recentActivity, upcomingTasks } from "@/lib/mock-data";
+import {
+  pipelineVelocityData, recentActivity, upcomingTasks,
+  mockDeals, mockContacts, mockProjects, mockInvoices,
+} from "@/lib/mock-data";
+
+// Map each activity row to a concrete deep-link target.
+// Picks real records from mock data so drawers open with valid IDs.
+type ActivityLink =
+  | { kind: "deal"; dealId: string }
+  | { kind: "contact"; contactId: string }
+  | { kind: "invoice"; invoiceId: string }
+  | { kind: "project"; clientSlug: string }
+  | { kind: "inbox" }
+  | { kind: "workflows" };
+
+const activityLinks: Record<number, ActivityLink> = {
+  1: { kind: "deal", dealId: mockDeals[0]?.id ?? "" },              // signed proposal → deal drawer
+  2: { kind: "contact", contactId: mockContacts[0]?.id ?? "" },     // new lead → contact drawer
+  3: { kind: "invoice", invoiceId: mockInvoices[0]?.id ?? "" },     // paid invoice → invoices
+  4: { kind: "inbox" },                                              // email reply → inbox
+  5: { kind: "project", clientSlug: mockProjects[0]?.slug ?? "" },  // job complete → project page
+  6: { kind: "workflows" },                                          // automation → workflows
+};
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
