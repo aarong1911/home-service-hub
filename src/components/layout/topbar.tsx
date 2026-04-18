@@ -1,4 +1,6 @@
-import { Search, Bell, HelpCircle, ChevronDown, Command } from "lucide-react";
+import { Search, Bell, HelpCircle, ChevronDown, Command as CommandIcon, Briefcase, FolderKanban, Building2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -6,25 +8,77 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import { useOrganization, memberInitials } from "@/lib/organization";
+import { mockContacts, mockDeals, mockProjects, mockCompanies } from "@/lib/mock-data";
 
 export function Topbar() {
+  const org = useOrganization();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Cmd/Ctrl+K shortcut
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const limit = (arr: unknown[]) => arr.slice(0, 5);
+    const contacts = limit(
+      mockContacts.filter((c) => !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.company.toLowerCase().includes(q)),
+    ) as typeof mockContacts;
+    const deals = limit(
+      mockDeals.filter((d) => !q || d.name.toLowerCase().includes(q) || d.contactName.toLowerCase().includes(q)),
+    ) as typeof mockDeals;
+    const projects = limit(
+      mockProjects.filter((p) => !q || p.name.toLowerCase().includes(q) || p.client.toLowerCase().includes(q)),
+    ) as typeof mockProjects;
+    const companies = limit(
+      mockCompanies.filter((c) => !q || c.name.toLowerCase().includes(q)),
+    ) as typeof mockCompanies;
+    return { contacts, deals, projects, companies };
+  }, [query]);
+
+  const orgInitial = (org.companyName?.trim()?.[0] ?? "R").toUpperCase();
+
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-card px-4">
       {/* Org switcher */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-secondary">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
-              R
-            </div>
-            <span>RenoMeta Builders</span>
+            {org.logoUrl ? (
+              <img
+                src={org.logoUrl}
+                alt={`${org.companyName} logo`}
+                className="h-6 w-6 rounded object-cover"
+              />
+            ) : (
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
+                {orgInitial}
+              </div>
+            )}
+            <span className="max-w-[180px] truncate">{org.companyName || "Workspace"}</span>
             <Badge variant="secondary" className="h-5 rounded px-1.5 text-[10px] font-medium">Pro</Badge>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-          <DropdownMenuItem>RenoMeta Builders</DropdownMenuItem>
+          <DropdownMenuItem>{org.companyName || "RenoMeta Builders"}</DropdownMenuItem>
           <DropdownMenuItem>Coastal Construction Co.</DropdownMenuItem>
           <DropdownMenuItem>Heritage Renovations</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -32,18 +86,119 @@ export function Topbar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Global search */}
+      {/* Global search with autocomplete */}
       <div className="mx-auto flex w-full max-w-xl items-center">
-        <button
-          className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:border-border-strong"
-          aria-label="Search"
-        >
-          <Search className="h-4 w-4" />
-          <span className="flex-1">Search contacts, deals, projects…</span>
-          <kbd className="flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-            <Command className="h-3 w-3" />K
-          </kbd>
-        </button>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              ref={triggerRef}
+              className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:border-border-strong"
+              aria-label="Search"
+            >
+              <Search className="h-4 w-4" />
+              <span className="flex-1">Search contacts, deals, projects…</span>
+              <kbd className="flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                <CommandIcon className="h-3 w-3" />K
+              </kbd>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="center"
+            sideOffset={6}
+            className="w-[--radix-popover-trigger-width] p-0"
+            onOpenAutoFocus={(e) => {
+              // Let CommandInput auto-focus naturally
+              e.preventDefault();
+            }}
+          >
+            <Command shouldFilter={false}>
+              <CommandInput
+                value={query}
+                onValueChange={setQuery}
+                placeholder="Search contacts, deals, projects, companies…"
+                autoFocus
+              />
+              <CommandList>
+                <CommandEmpty>No results found.</CommandEmpty>
+                {results.contacts.length > 0 && (
+                  <CommandGroup heading="Contacts">
+                    {results.contacts.map((c) => (
+                      <CommandItem
+                        key={`c-${c.id}`}
+                        value={`contact-${c.id}-${c.name}`}
+                        onSelect={() => {
+                          setOpen(false);
+                          navigate({ to: "/contacts" });
+                        }}
+                      >
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="bg-secondary text-[9px]">
+                            {memberInitials(c.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{c.name}</span>
+                        <span className="ml-auto truncate text-xs text-muted-foreground">{c.company}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+                {results.deals.length > 0 && (
+                  <CommandGroup heading="Deals">
+                    {results.deals.map((d) => (
+                      <CommandItem
+                        key={`d-${d.id}`}
+                        value={`deal-${d.id}-${d.name}`}
+                        onSelect={() => {
+                          setOpen(false);
+                          navigate({ to: "/sales/pipeline" });
+                        }}
+                      >
+                        <Briefcase className="text-muted-foreground" />
+                        <span className="truncate">{d.name}</span>
+                        <span className="ml-auto truncate text-xs text-muted-foreground">{d.contactName}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+                {results.projects.length > 0 && (
+                  <CommandGroup heading="Projects">
+                    {results.projects.map((p) => (
+                      <CommandItem
+                        key={`p-${p.id}`}
+                        value={`project-${p.id}-${p.name}`}
+                        onSelect={() => {
+                          setOpen(false);
+                          navigate({ to: "/projects/$clientSlug", params: { clientSlug: p.slug } });
+                        }}
+                      >
+                        <FolderKanban className="text-muted-foreground" />
+                        <span className="truncate">{p.name}</span>
+                        <span className="ml-auto truncate text-xs text-muted-foreground">{p.client}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+                {results.companies.length > 0 && (
+                  <CommandGroup heading="Companies">
+                    {results.companies.map((c) => (
+                      <CommandItem
+                        key={`co-${c.id}`}
+                        value={`company-${c.id}-${c.name}`}
+                        onSelect={() => {
+                          setOpen(false);
+                          navigate({ to: "/companies" });
+                        }}
+                      >
+                        <Building2 className="text-muted-foreground" />
+                        <span className="truncate">{c.name}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Right actions */}
