@@ -272,7 +272,72 @@ function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Sheet open={activeTaskId !== null} onOpenChange={(o) => !o && setActiveTaskId(null)}>
+        <SheetContent className="w-full sm:max-w-md">
+          {activeTask && activeDetail && (
+            <>
+              <SheetHeader>
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${
+                    activeTask.priority === "high" ? "bg-destructive" : activeTask.priority === "med" ? "bg-warning" : "bg-muted-foreground/40"
+                  }`} />
+                  <Badge variant="secondary" className="text-[10px]">{priorityLabel(activeTask.priority)}</Badge>
+                </div>
+                <SheetTitle className="text-left">{activeTask.title}</SheetTitle>
+                <SheetDescription className="text-left">Task details and context.</SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-5 space-y-4">
+                <TaskFact icon={Calendar} label="When" value={activeTask.time} />
+                <TaskFact icon={Clock} label="Duration" value={activeDetail.duration} />
+                <TaskFact icon={User} label="Assigned to" value={activeDetail.assignee} />
+                {activeDetail.location && <TaskFact icon={MapPin} label="Location" value={activeDetail.location} />}
+                {activeDetail.related && <TaskFact icon={Briefcase} label="Related" value={activeDetail.related} />}
+
+                <Separator />
+
+                <div>
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <AlignLeft className="h-3.5 w-3.5" /> Description
+                  </div>
+                  <p className="text-sm leading-relaxed">{activeDetail.description}</p>
+                </div>
+              </div>
+
+              <SheetFooter className="mt-6 flex-row gap-2 sm:justify-end">
+                <SheetClose asChild>
+                  <Button variant="outline" size="sm">Close</Button>
+                </SheetClose>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    toast.success("Task marked complete", { description: activeTask.title });
+                    setActiveTaskId(null);
+                  }}
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark complete
+                </Button>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
+  );
+}
+
+function TaskFact({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+        <div className="text-[13px]">{value}</div>
+      </div>
+    </div>
   );
 }
 
