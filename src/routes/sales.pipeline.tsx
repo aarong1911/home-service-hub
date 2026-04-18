@@ -55,7 +55,7 @@ function PipelinePage() {
       />
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="-mx-6 overflow-x-auto px-6 pb-4">
+        <div className="-mx-6 overflow-x-scroll px-6 pb-4" style={{ scrollbarGutter: "stable" }}>
           <div className="flex min-w-max gap-3">
             {pipelineStages.map((stage) => {
               const stageDeals = deals.filter((d) => d.stage === stage.id);
