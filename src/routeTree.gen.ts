@@ -20,8 +20,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as SettingsTemplatesRouteImport } from './routes/settings.templates'
 import { Route as SettingsTeamRouteImport } from './routes/settings.team'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
+import { Route as SettingsCustomFieldsRouteImport } from './routes/settings.custom-fields'
+import { Route as SettingsBrandingRouteImport } from './routes/settings.branding'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
+import { Route as SettingsApiKeysRouteImport } from './routes/settings.api-keys'
 import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
 import { Route as ProjectsClientSlugRouteImport } from './routes/projects.$clientSlug'
 import { Route as InsightsReputationRouteImport } from './routes/insights.reputation'
@@ -91,14 +95,34 @@ const SettingsTeamRoute = SettingsTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsCustomFieldsRoute = SettingsCustomFieldsRouteImport.update({
+  id: '/custom-fields',
+  path: '/custom-fields',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
+  id: '/branding',
+  path: '/branding',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsBillingRoute = SettingsBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsApiKeysRoute = SettingsApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SalesPipelineRoute = SalesPipelineRouteImport.update({
@@ -189,8 +213,12 @@ export interface FileRoutesByFullPath {
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
   '/sales/pipeline': typeof SalesPipelineRoute
+  '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -216,8 +244,12 @@ export interface FileRoutesByTo {
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
   '/sales/pipeline': typeof SalesPipelineRoute
+  '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
   '/projects': typeof ProjectsIndexRoute
@@ -245,8 +277,12 @@ export interface FileRoutesById {
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
   '/sales/pipeline': typeof SalesPipelineRoute
+  '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -275,8 +311,12 @@ export interface FileRouteTypes {
     | '/insights/reputation'
     | '/projects/$clientSlug'
     | '/sales/pipeline'
+    | '/settings/api-keys'
     | '/settings/billing'
+    | '/settings/branding'
+    | '/settings/custom-fields'
     | '/settings/integrations'
+    | '/settings/notifications'
     | '/settings/team'
     | '/settings/templates'
     | '/projects/'
@@ -302,8 +342,12 @@ export interface FileRouteTypes {
     | '/insights/reputation'
     | '/projects/$clientSlug'
     | '/sales/pipeline'
+    | '/settings/api-keys'
     | '/settings/billing'
+    | '/settings/branding'
+    | '/settings/custom-fields'
     | '/settings/integrations'
+    | '/settings/notifications'
     | '/settings/team'
     | '/settings/templates'
     | '/projects'
@@ -330,8 +374,12 @@ export interface FileRouteTypes {
     | '/insights/reputation'
     | '/projects/$clientSlug'
     | '/sales/pipeline'
+    | '/settings/api-keys'
     | '/settings/billing'
+    | '/settings/branding'
+    | '/settings/custom-fields'
     | '/settings/integrations'
+    | '/settings/notifications'
     | '/settings/team'
     | '/settings/templates'
     | '/projects/'
@@ -437,6 +485,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsTeamRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/integrations': {
       id: '/settings/integrations'
       path: '/integrations'
@@ -444,11 +499,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIntegrationsRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/custom-fields': {
+      id: '/settings/custom-fields'
+      path: '/custom-fields'
+      fullPath: '/settings/custom-fields'
+      preLoaderRoute: typeof SettingsCustomFieldsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/branding': {
+      id: '/settings/branding'
+      path: '/branding'
+      fullPath: '/settings/branding'
+      preLoaderRoute: typeof SettingsBrandingRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/billing': {
       id: '/settings/billing'
       path: '/billing'
       fullPath: '/settings/billing'
       preLoaderRoute: typeof SettingsBillingRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/api-keys': {
+      id: '/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof SettingsApiKeysRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/sales/pipeline': {
@@ -564,15 +640,23 @@ const FinancialsRouteWithChildren = FinancialsRoute._addFileChildren(
 )
 
 interface SettingsRouteChildren {
+  SettingsApiKeysRoute: typeof SettingsApiKeysRoute
   SettingsBillingRoute: typeof SettingsBillingRoute
+  SettingsBrandingRoute: typeof SettingsBrandingRoute
+  SettingsCustomFieldsRoute: typeof SettingsCustomFieldsRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsTeamRoute: typeof SettingsTeamRoute
   SettingsTemplatesRoute: typeof SettingsTemplatesRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsApiKeysRoute: SettingsApiKeysRoute,
   SettingsBillingRoute: SettingsBillingRoute,
+  SettingsBrandingRoute: SettingsBrandingRoute,
+  SettingsCustomFieldsRoute: SettingsCustomFieldsRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsTeamRoute: SettingsTeamRoute,
   SettingsTemplatesRoute: SettingsTemplatesRoute,
 }

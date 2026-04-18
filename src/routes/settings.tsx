@@ -4,6 +4,7 @@ import {
   Building2, Users, Plug, CreditCard, Wand2, Palette, Key, Bell, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OrganizationSettings } from "@/components/organization/organization-settings";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsLayout,
@@ -55,45 +56,5 @@ function SettingsLayout() {
         <div>{isRoot ? <OrganizationSettings /> : <Outlet />}</div>
       </div>
     </>
-  );
-}
-
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-
-function OrganizationSettings() {
-  return (
-    <Card className="p-6">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold">Organization</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">Basic info about your workspace</p>
-      </div>
-      <div className="grid max-w-xl grid-cols-1 gap-4">
-        <div>
-          <Label className="text-xs" htmlFor="org-name">Organization name</Label>
-          <Input id="org-name" defaultValue="RenoMeta Builders" className="mt-1.5 h-9 text-sm" />
-        </div>
-        <div>
-          <Label className="text-xs" htmlFor="org-domain">Workspace URL</Label>
-          <Input id="org-domain" defaultValue="connect.renometa.com" className="mt-1.5 h-9 text-sm" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label className="text-xs" htmlFor="org-tz">Timezone</Label>
-            <Input id="org-tz" defaultValue="America/Los_Angeles" className="mt-1.5 h-9 text-sm" />
-          </div>
-          <div>
-            <Label className="text-xs" htmlFor="org-currency">Currency</Label>
-            <Input id="org-currency" defaultValue="USD" className="mt-1.5 h-9 text-sm" />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-border pt-4">
-          <Button variant="outline" size="sm" className="h-8">Cancel</Button>
-          <Button size="sm" className="h-8">Save changes</Button>
-        </div>
-      </div>
-    </Card>
   );
 }
