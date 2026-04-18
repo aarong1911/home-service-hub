@@ -7,6 +7,7 @@ import { Search, Receipt, AlertTriangle, CheckCircle2, Clock, MoreHorizontal } f
 import { mockInvoices, type Invoice } from "@/lib/mock-data";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { useMemo, useState } from "react";
+import { FinancialDetailDrawer } from "@/components/financials/financial-detail-drawer";
 
 export const Route = createFileRoute("/financials/invoices")({
   component: InvoicesPage,
