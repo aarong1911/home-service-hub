@@ -7,7 +7,7 @@ export type Contact = {
   company: string;
   tags: string[];
   owner: string;
-  lastActivity: string; // ISO
+  lastActivity: string;
   createdAt: string;
 };
 
@@ -24,17 +24,162 @@ export type Deal = {
   ageDays: number;
 };
 
+// ============= PROJECTS =============
+export type ProjectStage =
+  | "estimating"
+  | "contracted"
+  | "pre-construction"
+  | "in-progress"
+  | "punch-list"
+  | "completed";
+
+export type ProjectStatus = "active" | "on-hold" | "cancelled";
+
+export type ProjectType =
+  | "Kitchen"
+  | "Bath"
+  | "Whole Home"
+  | "Addition"
+  | "Basement"
+  | "Outdoor"
+  | "Primary Suite";
+
 export type Project = {
   id: string;
+  slug: string; // client-name based
   name: string;
   client: string;
-  status: "Planning" | "In Progress" | "On Hold" | "Completed";
-  progress: number;
+  clientEmail: string;
+  clientPhone: string;
+  address: string;
+  projectNumber: string;
+  type: ProjectType;
+  stage: ProjectStage;
+  status: ProjectStatus;
+  ownerInitials: string;
+  ownerName: string;
+  ownerColor: string;
   budget: number;
   spent: number;
+  invoiced: number;
+  paid: number;
+  approvedCO: number;
+  progress: number; // 0..100
+  ageDays: number; // days in current stage
+  startDate: string;
+  targetEnd: string;
+  squareFootage: number;
+  paymentTerms: string;
+  siteAccess: string;
+  workingHours: string;
+  contractValue: number;
+  scopeSummary: string;
   nextMilestone: string;
+  // off-pipeline metadata
+  pausedFromStage?: ProjectStage;
+  pauseReason?: string;
+  onHoldDays?: number;
+  cancelledDate?: string;
+  cancelReason?: string;
+  cancelTag?: "Scope change" | "Budget" | "Timing" | "Client decision";
+  lostValue?: number;
+  // archived
+  archived?: boolean;
+  completedDate?: string;
+  finalValue?: number;
+  margin?: number;
+  rating?: number;
+  // misc
+  banner?: "over-budget" | "stuck" | null;
+  bannerLabel?: string;
 };
 
+export type ProjectTask = {
+  id: string;
+  projectId: string;
+  title: string;
+  status: "not-started" | "in-progress" | "overdue" | "completed" | "on-hold";
+  due: string;
+  assigneeInitials: string;
+  assigneeColor: string;
+};
+
+export type Subcontractor = {
+  id: string;
+  projectId: string;
+  trade: string;
+  company: string;
+  contact: string;
+  phone: string;
+  scheduled: string;
+  insurance: { status: "current" | "expiring"; exp: string };
+  status: string;
+};
+
+export type TeamMember = {
+  id: string;
+  projectId: string;
+  name: string;
+  initials: string;
+  color: string;
+  role: string;
+};
+
+export type Selection = {
+  id: string;
+  projectId: string;
+  room: string;
+  item: string;
+  spec: string;
+  vendor: string;
+  price: number;
+  client: "Approved" | "Pending";
+  status: string;
+};
+
+export type ProjectDocument = {
+  id: string;
+  projectId: string;
+  name: string;
+  category: "Contract" | "Blueprint" | "Permit" | "Photos" | "Other";
+  uploaded: string;
+  size: string;
+  shared: boolean;
+};
+
+export type Permit = {
+  id: string;
+  projectId: string;
+  type: string;
+  number: string;
+  status: "Approved" | "Rough passed" | "Final pending" | "Pending";
+  detail: string;
+};
+
+export type ProjectInvoice = {
+  id: string;
+  projectId: string;
+  number: string;
+  description: string;
+  sent: string | null;
+  due: string | null;
+  amount: number;
+  status: "Paid" | "Sent" | "Overdue" | "Draft";
+  daysOverdue?: number;
+};
+
+export type ProjectActivity = {
+  id: string;
+  projectId: string;
+  who: string;
+  initials: string;
+  color: string;
+  what: string;
+  when: string;
+  type: "task" | "invoice" | "upload" | "message" | "payment";
+};
+
+// ============= EXISTING TYPES =============
 export type Task = {
   id: string;
   projectId: string;
@@ -126,8 +271,7 @@ function pick<T>(arr: T[], i: number): T {
 }
 
 function isoDaysAgo(d: number): string {
-  // Use a stable epoch-rounded base to avoid SSR/CSR drift
-  const base = Date.UTC(2026, 3, 18); // April 18, 2026 (matches current date)
+  const base = Date.UTC(2026, 3, 18);
   return new Date(base - d * 86_400_000).toISOString();
 }
 
@@ -175,17 +319,317 @@ export const mockDeals: Deal[] = Array.from({ length: 40 }, (_, i) => {
   };
 });
 
-export const mockProjects: Project[] = Array.from({ length: 12 }, (_, i) => ({
-  id: `p_${i + 1}`,
-  name: pick(dealTypes, i) + ` — ${pick(lastNames, i)} Residence`,
-  client: `${pick(firstNames, i)} ${pick(lastNames, i)}`,
-  status: (["Planning", "In Progress", "In Progress", "On Hold", "Completed"] as const)[i % 5],
-  progress: (i * 17) % 100,
-  budget: 18000 + ((i * 4321) % 80000),
-  spent: 6000 + ((i * 2113) % 60000),
-  nextMilestone: ["Demo complete", "Cabinet install", "Final inspection", "Punch list", "Client walkthrough"][i % 5],
-}));
+// ============= PROJECTS DATA =============
+export const projectStages: { id: ProjectStage; name: string; sub: string; color: string }[] = [
+  { id: "estimating", name: "Estimating", sub: "Proposal / bid in progress", color: "muted" },
+  { id: "contracted", name: "Contracted", sub: "Signed, deposit received", color: "primary" },
+  { id: "pre-construction", name: "Pre-Construction", sub: "Permits · materials · scheduling", color: "amber" },
+  { id: "in-progress", name: "In Progress", sub: "Active on-site work", color: "success" },
+  { id: "punch-list", name: "Punch List", sub: "Final items · walkthrough", color: "warning" },
+  { id: "completed", name: "Completed", sub: "Closed out", color: "success" },
+];
 
+const ownerPalette = [
+  { initials: "RM", name: "Ron Marquez", color: "bg-purple-100 text-purple-700" },
+  { initials: "JT", name: "Jamal Turner", color: "bg-emerald-100 text-emerald-700" },
+  { initials: "DK", name: "Dani Kim", color: "bg-rose-100 text-rose-700" },
+  { initials: "MR", name: "Maya Rivera", color: "bg-orange-100 text-orange-700" },
+  { initials: "TC", name: "Tom Chen", color: "bg-amber-100 text-amber-700" },
+  { initials: "SH", name: "Sara Holt", color: "bg-sky-100 text-sky-700" },
+];
+
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+type Seed = {
+  client: string;
+  type: ProjectType;
+  city: string;
+  stage: ProjectStage;
+  status: ProjectStatus;
+  budget: number;
+  ageDays: number;
+  progress: number;
+  ownerIdx: number;
+  banner?: Project["banner"];
+  bannerLabel?: string;
+};
+
+const projectSeeds: Seed[] = [
+  // Estimating (4)
+  { client: "Sarah Johnson", type: "Kitchen", city: "Austin, TX", stage: "estimating", status: "active", budget: 42000, ageDays: 3, progress: 0, ownerIdx: 0 },
+  { client: "Carlos Rivera", type: "Bath", city: "Round Rock", stage: "estimating", status: "active", budget: 28500, ageDays: 1, progress: 0, ownerIdx: 1 },
+  { client: "Lisa Park", type: "Addition", city: "South Austin", stage: "estimating", status: "active", budget: 180000, ageDays: 5, progress: 0, ownerIdx: 0 },
+  { client: "Tan Nguyen", type: "Outdoor", city: "Pflugerville", stage: "estimating", status: "active", budget: 22000, ageDays: 2, progress: 0, ownerIdx: 1 },
+  // Contracted (3)
+  { client: "Michael Chen", type: "Whole Home", city: "West Lake Hills", stage: "contracted", status: "active", budget: 320000, ageDays: 4, progress: 5, ownerIdx: 3 },
+  { client: "Emma Mitchell", type: "Bath", city: "Cedar Park", stage: "contracted", status: "active", budget: 54000, ageDays: 6, progress: 8, ownerIdx: 1 },
+  { client: "Raj Patel", type: "Kitchen", city: "Leander", stage: "contracted", status: "active", budget: 68000, ageDays: 2, progress: 10, ownerIdx: 2 },
+  // Pre-Construction (4)
+  { client: "David Thompson", type: "Addition", city: "Georgetown", stage: "pre-construction", status: "active", budget: 195000, ageDays: 14, progress: 25, ownerIdx: 3, banner: "stuck", bannerLabel: "14d stuck" },
+  { client: "Maria Garcia", type: "Basement", city: "Buda", stage: "pre-construction", status: "active", budget: 85000, ageDays: 7, progress: 30, ownerIdx: 2 },
+  { client: "Ben Williams", type: "Kitchen", city: "Lakeway", stage: "pre-construction", status: "active", budget: 58000, ageDays: 3, progress: 35, ownerIdx: 1 },
+  { client: "Chidi Okafor", type: "Primary Suite", city: "Dripping Springs", stage: "pre-construction", status: "active", budget: 115000, ageDays: 5, progress: 40, ownerIdx: 3 },
+  // In Progress (5)
+  { client: "James Anderson", type: "Kitchen", city: "Round Rock", stage: "in-progress", status: "active", budget: 48000, ageDays: 22, progress: 65, ownerIdx: 3 },
+  { client: "Soo-Yun Kim", type: "Bath", city: "Austin", stage: "in-progress", status: "active", budget: 32000, ageDays: 11, progress: 40, ownerIdx: 4 },
+  { client: "Kate Murphy", type: "Outdoor", city: "Bee Cave", stage: "in-progress", status: "active", budget: 145000, ageDays: 25, progress: 25, ownerIdx: 2, banner: "over-budget", bannerLabel: "Over budget" },
+  { client: "Robert & Linda Harris", type: "Primary Suite", city: "Austin", stage: "in-progress", status: "active", budget: 94400, ageDays: 34, progress: 80, ownerIdx: 0 },
+  { client: "Patricia Lowe", type: "Whole Home", city: "Westlake", stage: "in-progress", status: "active", budget: 240000, ageDays: 18, progress: 55, ownerIdx: 3 },
+  // Punch List (2)
+  { client: "Grace Taylor", type: "Bath", city: "Kyle", stage: "punch-list", status: "active", budget: 38000, ageDays: 4, progress: 92, ownerIdx: 0 },
+  { client: "Mark Brooks", type: "Basement", city: "Manor", stage: "punch-list", status: "active", budget: 72000, ageDays: 6, progress: 95, ownerIdx: 2 },
+  // Completed (3 active board entries — recently completed)
+  { client: "Anita Walsh", type: "Kitchen", city: "Cedar Park", stage: "completed", status: "active", budget: 56000, ageDays: 2, progress: 100, ownerIdx: 1 },
+  { client: "Eli Cohen", type: "Bath", city: "Austin", stage: "completed", status: "active", budget: 41000, ageDays: 5, progress: 100, ownerIdx: 4 },
+  { client: "Amelia Cross", type: "Outdoor", city: "Buda", stage: "completed", status: "active", budget: 31000, ageDays: 1, progress: 100, ownerIdx: 1 },
+];
+
+// On-hold projects (off pipeline)
+const onHoldSeeds: (Seed & { pausedFrom: ProjectStage; pauseReason: string; onHoldDays: number })[] = [
+  { client: "Kate Sullivan", type: "Bath", city: "Austin", stage: "pre-construction", status: "on-hold", budget: 62000, ageDays: 12, progress: 22, ownerIdx: 0, pausedFrom: "pre-construction", pauseReason: "Client awaiting HELOC approval", onHoldDays: 12 },
+  { client: "Ed Morales", type: "Kitchen", city: "Round Rock", stage: "in-progress", status: "on-hold", budget: 71000, ageDays: 8, progress: 50, ownerIdx: 1, pausedFrom: "in-progress", pauseReason: "Cabinet backorder from manufacturer", onHoldDays: 8 },
+  { client: "Scott Davis", type: "Basement", city: "Pflugerville", stage: "pre-construction", status: "on-hold", budget: 95000, ageDays: 21, progress: 18, ownerIdx: 2, pausedFrom: "pre-construction", pauseReason: "HOA variance review pending", onHoldDays: 21 },
+];
+
+// Cancelled projects
+const cancelledSeeds: (Seed & { cancelledDate: string; cancelReason: string; cancelTag: NonNullable<Project["cancelTag"]>; lostValue: number })[] = [
+  { client: "Lin Baker", type: "Outdoor", city: "Austin", stage: "estimating", status: "cancelled", budget: 24000, ageDays: 10, progress: 0, ownerIdx: 1, cancelledDate: isoDaysAgo(10), cancelReason: "Client decided on pergola instead", cancelTag: "Scope change", lostValue: 24000 },
+  { client: "Pete Ellis", type: "Bath", city: "Cedar Park", stage: "contracted", status: "cancelled", budget: 38000, ageDays: 20, progress: 0, ownerIdx: 2, cancelledDate: isoDaysAgo(20), cancelReason: "Couldn't meet contractor's minimum", cancelTag: "Budget", lostValue: 38000 },
+];
+
+// Archived (completed >30 days)
+const archivedSeeds: { client: string; type: ProjectType; completed: string; finalValue: number; margin: number; rating: number; ownerIdx: number }[] = [
+  { client: "Alex Henderson", type: "Kitchen", completed: "Mar 14, 2026", finalValue: 62400, margin: 24.1, rating: 5, ownerIdx: 0 },
+  { client: "Sasha Novak", type: "Bath", completed: "Mar 2, 2026", finalValue: 48700, margin: 22.8, rating: 5, ownerIdx: 1 },
+  { client: "Morgan Bailey", type: "Basement", completed: "Feb 21, 2026", finalValue: 79200, margin: 14.2, rating: 4, ownerIdx: 2 },
+  { client: "Miguel Ortiz", type: "Addition", completed: "Feb 9, 2026", finalValue: 172500, margin: 19.4, rating: 5, ownerIdx: 3 },
+  { client: "Huy Pham", type: "Kitchen", completed: "Jan 28, 2026", finalValue: 84300, margin: 21.7, rating: 5, ownerIdx: 4 },
+  { client: "Whitney Cole", type: "Outdoor", completed: "Jan 15, 2026", finalValue: 34100, margin: 26.5, rating: 5, ownerIdx: 1 },
+];
+
+function makeProject(seed: Seed, idx: number, extra: Partial<Project> = {}): Project {
+  const owner = ownerPalette[seed.ownerIdx];
+  const slug = slugify(seed.client);
+  const projectNumber = `PRJ-2026-${String(100 + idx).padStart(4, "0")}`;
+  const spent = Math.round(seed.budget * (seed.progress / 100) * 0.92);
+  const invoiced = Math.round(seed.budget * Math.min(seed.progress / 100 + 0.05, 1) * 0.85);
+  const paid = Math.round(invoiced * 0.78);
+  return {
+    id: `proj_${idx}_${slug}`,
+    slug,
+    name: `${seed.client.split(" ")[0]}'s ${seed.type}`,
+    client: seed.client,
+    clientEmail: `${slug.replace(/-/g, ".")}@example.com`,
+    clientPhone: `(512) 555-${1000 + (idx * 137) % 9000}`,
+    address: `${1200 + idx * 47} ${pick(["Shoal Creek", "Travis Heights", "Mueller", "Tarrytown", "Hyde Park"], idx)} Blvd, ${seed.city}`,
+    projectNumber,
+    type: seed.type,
+    stage: seed.stage,
+    status: seed.status,
+    ownerInitials: owner.initials,
+    ownerName: owner.name,
+    ownerColor: owner.color,
+    budget: seed.budget,
+    spent,
+    invoiced,
+    paid,
+    approvedCO: Math.round(seed.budget * 0.025),
+    progress: seed.progress,
+    ageDays: seed.ageDays,
+    startDate: isoDaysAgo(seed.ageDays + 14),
+    targetEnd: isoDaysAgo(-((100 - seed.progress) / 3)),
+    squareFootage: 280 + (idx * 73) % 1200,
+    paymentTerms: "Progress billing, Net 15",
+    siteAccess: `Lockbox · Code ${4000 + idx * 17}`,
+    workingHours: "7:30am – 4:00pm, M–F",
+    contractValue: seed.budget - 2400,
+    scopeSummary:
+      "Full gut remodel of primary bedroom and en-suite bath. New walk-in closet built out into existing guest bedroom (wall relocation). Heated tile floors, custom walk-in shower with frameless glass, freestanding soaking tub, double vanity with quartz top. Electrical and plumbing updated to code.",
+    nextMilestone: pick(["Cabinet install", "Final inspection", "Drywall complete", "Punch walkthrough", "Permit approval"], idx),
+    banner: seed.banner ?? null,
+    bannerLabel: seed.bannerLabel,
+    ...extra,
+  };
+}
+
+const activeProjects: Project[] = projectSeeds.map((s, i) => makeProject(s, i));
+
+const onHoldProjects: Project[] = onHoldSeeds.map((s, i) =>
+  makeProject(s, 100 + i, {
+    pausedFromStage: s.pausedFrom,
+    pauseReason: s.pauseReason,
+    onHoldDays: s.onHoldDays,
+  }),
+);
+
+const cancelledProjects: Project[] = cancelledSeeds.map((s, i) =>
+  makeProject(s, 200 + i, {
+    cancelledDate: s.cancelledDate,
+    cancelReason: s.cancelReason,
+    cancelTag: s.cancelTag,
+    lostValue: s.lostValue,
+  }),
+);
+
+const archivedProjects: Project[] = archivedSeeds.map((seed, i) => {
+  const baseSeed: Seed = {
+    client: seed.client,
+    type: seed.type,
+    city: "Austin",
+    stage: "completed",
+    status: "active",
+    budget: seed.finalValue,
+    ageDays: 60,
+    progress: 100,
+    ownerIdx: seed.ownerIdx,
+  };
+  return makeProject(baseSeed, 300 + i, {
+    archived: true,
+    completedDate: seed.completed,
+    finalValue: seed.finalValue,
+    margin: seed.margin,
+    rating: seed.rating,
+  });
+});
+
+export const mockProjects: Project[] = [
+  ...activeProjects,
+  ...onHoldProjects,
+  ...cancelledProjects,
+  ...archivedProjects,
+];
+
+// ============= PROJECT SUB-DATA (for detail page) =============
+function tasksFor(projectId: string): ProjectTask[] {
+  const titles = [
+    ["Tile installation — shower walls", "completed", -1],
+    ["Cabinet install", "completed", -4],
+    ["Drywall + finishing", "completed", -9],
+    ["Electrical rough-in", "completed", -15],
+    ["Plumbing rough-in", "completed", -16],
+    ["Demo existing", "completed", -28],
+    ["Framing modifications", "completed", -22],
+    ["Trim carpentry — baseboards & casing", "in-progress", 4],
+    ["Paint touch-ups", "in-progress", 5],
+    ["Coordinate glass shower door delivery", "overdue", -2],
+    ["Install medicine cabinets", "not-started", 3],
+    ["Grout shower tile", "not-started", 2],
+    ["Final electrical trim-out", "completed", -7],
+    ["Mirror + accessory install", "not-started", 8],
+    ["Punch walkthrough", "not-started", 10],
+    ["Client walkthrough", "not-started", 12],
+  ] as const;
+  return titles.map(([title, status, dueOffset], i) => {
+    const owner = ownerPalette[i % ownerPalette.length];
+    return {
+      id: `${projectId}_t_${i}`,
+      projectId,
+      title: title as string,
+      status: status as ProjectTask["status"],
+      due: isoDaysAgo(-(dueOffset as number)),
+      assigneeInitials: owner.initials,
+      assigneeColor: owner.color,
+    };
+  });
+}
+
+function subsFor(projectId: string): Subcontractor[] {
+  return [
+    { id: `${projectId}_s1`, projectId, trade: "Electrical", company: "Rodriguez Electric", contact: "Miguel Rodriguez", phone: "(512) 555-4401", scheduled: "Mar 28 – Apr 3", insurance: { status: "current", exp: "11/26" }, status: "Complete" },
+    { id: `${projectId}_s2`, projectId, trade: "Plumbing", company: "Central Texas Plumbing", contact: "Tom Chen", phone: "(512) 555-8823", scheduled: "Apr 1 – Apr 6, Apr 22", insurance: { status: "current", exp: "3/27" }, status: "Rough-in done" },
+    { id: `${projectId}_s3`, projectId, trade: "Tile", company: "Stone Creek Tile", contact: "Priya Patel", phone: "(512) 555-7712", scheduled: "Apr 12 – Apr 17", insurance: { status: "current", exp: "9/26" }, status: "Complete" },
+    { id: `${projectId}_s4`, projectId, trade: "HVAC", company: "AirTemp Solutions", contact: "James Kim", phone: "(512) 555-3390", scheduled: "Apr 24", insurance: { status: "expiring", exp: "5/15" }, status: "Scheduled" },
+    { id: `${projectId}_s5`, projectId, trade: "Glass", company: "Lone Star Glass", contact: "Kate Foster", phone: "(512) 555-2257", scheduled: "Apr 20", insurance: { status: "current", exp: "2/27" }, status: "Install Apr 20" },
+  ];
+}
+
+function teamFor(projectId: string): TeamMember[] {
+  return [
+    { id: `${projectId}_tm1`, projectId, name: "Ron Marquez", initials: "RM", color: "bg-purple-100 text-purple-700", role: "Project Manager · Owner" },
+    { id: `${projectId}_tm2`, projectId, name: "Jamal Turner", initials: "JT", color: "bg-emerald-100 text-emerald-700", role: "Lead Carpenter" },
+  ];
+}
+
+function selectionsFor(projectId: string): Selection[] {
+  return [
+    { id: `${projectId}_sel1`, projectId, room: "Primary Bathroom", item: "Vanity cabinets", spec: 'Custom maple shaker, White Oak finish, 72"', vendor: "Austin Cabinet Co.", price: 4800, client: "Approved", status: "Installed" },
+    { id: `${projectId}_sel2`, projectId, room: "Primary Bathroom", item: "Countertop", spec: "Calacatta Gold quartz, mitered edge", vendor: "Stone Gallery", price: 3200, client: "Approved", status: "Installed" },
+    { id: `${projectId}_sel3`, projectId, room: "Primary Bathroom", item: "Floor tile", spec: 'Porcelain 12×24, "Urban Concrete" matte', vendor: "Stone Creek Tile", price: 2880, client: "Approved", status: "Installed" },
+    { id: `${projectId}_sel4`, projectId, room: "Primary Bathroom", item: "Faucets & fixtures", spec: "Kohler Purist, matte black", vendor: "Ferguson", price: 1640, client: "Approved", status: "Delivered" },
+    { id: `${projectId}_sel5`, projectId, room: "Primary Bathroom", item: "Medicine cabinets", spec: 'Robern Uplift LED, 24" × 2', vendor: "Build.com", price: 1920, client: "Approved", status: "Arriving Apr 21" },
+    { id: `${projectId}_sel6`, projectId, room: "Primary Bathroom", item: "Shower door", spec: 'Custom frameless, 3/8" clear glass', vendor: "Lone Star Glass", price: 3800, client: "Approved", status: "In production" },
+    { id: `${projectId}_sel7`, projectId, room: "Primary Bedroom", item: "Ceiling fan", spec: 'Minka-Aire Concept III, 54" matte black', vendor: "Lamps Plus", price: 620, client: "Approved", status: "Installed" },
+    { id: `${projectId}_sel8`, projectId, room: "Primary Bedroom", item: "Paint", spec: 'Benjamin Moore "Classic Gray" eggshell', vendor: "Sherwin Williams", price: 1780, client: "Approved", status: "In progress" },
+    { id: `${projectId}_sel9`, projectId, room: "Walk-in Closet", item: "Closet system", spec: "California Closets custom, white oak veneer", vendor: "California Closets", price: 4000, client: "Pending", status: "Awaiting approval" },
+  ];
+}
+
+function docsFor(projectId: string): ProjectDocument[] {
+  return [
+    { id: `${projectId}_d1`, projectId, name: "Harris_Contract_signed.pdf", category: "Contract", uploaded: "Mar 10, 2026", size: "1.2 MB", shared: true },
+    { id: `${projectId}_d2`, projectId, name: "Change_Order_01.pdf", category: "Contract", uploaded: "Apr 2, 2026", size: "340 KB", shared: true },
+    { id: `${projectId}_d3`, projectId, name: "Proposed_Floor_Plan_v3.dwg", category: "Blueprint", uploaded: "Feb 28, 2026", size: "4.8 MB", shared: true },
+    { id: `${projectId}_d4`, projectId, name: "Building_Permit_2026-0341.pdf", category: "Permit", uploaded: "Mar 8, 2026", size: "820 KB", shared: false },
+    { id: `${projectId}_d5`, projectId, name: "Site Photos — Apr 17 (8)", category: "Photos", uploaded: "Apr 17, 2026", size: "24 MB", shared: true },
+  ];
+}
+
+function permitsFor(projectId: string): Permit[] {
+  return [
+    { id: `${projectId}_p1`, projectId, type: "Building Permit", number: "#2026-0341-B", status: "Approved", detail: "Issued Mar 8, 2026" },
+    { id: `${projectId}_p2`, projectId, type: "Electrical Permit", number: "#2026-0341-E", status: "Rough passed", detail: "Rough inspection passed Apr 4" },
+    { id: `${projectId}_p3`, projectId, type: "Plumbing Permit", number: "#2026-0341-P", status: "Final pending", detail: "Final inspection scheduled Apr 22" },
+  ];
+}
+
+function invoicesFor(projectId: string, projectNumber: string): ProjectInvoice[] {
+  const num = projectNumber.replace("PRJ-", "INV-");
+  return [
+    { id: `${projectId}_i1`, projectId, number: `${num}-01`, description: "Deposit — 20%", sent: "Mar 12", due: "Mar 27", amount: 18400, status: "Paid" },
+    { id: `${projectId}_i2`, projectId, number: `${num}-02`, description: "Progress draw #1 — Demo + framing", sent: "Mar 28", due: "Apr 12", amount: 19620, status: "Paid" },
+    { id: `${projectId}_i3`, projectId, number: `${num}-03`, description: "Progress draw #2 — Rough-ins + drywall", sent: "Apr 4", due: "Apr 19", amount: 18400, status: "Overdue", daysOverdue: 6 },
+    { id: `${projectId}_i4`, projectId, number: `${num}-04`, description: "Progress draw #3 — Tile + cabinets", sent: "Apr 17", due: "May 2", amount: 18400, status: "Sent" },
+    { id: `${projectId}_i5`, projectId, number: `${num}-05`, description: "Final — upon completion", sent: null, due: null, amount: 19580, status: "Draft" },
+  ];
+}
+
+function activityFor(projectId: string): ProjectActivity[] {
+  return [
+    { id: `${projectId}_a1`, projectId, who: "Jamal Turner", initials: "JT", color: "bg-emerald-100 text-emerald-700", what: "completed Tile installation — shower walls", when: "2 hours ago", type: "task" },
+    { id: `${projectId}_a2`, projectId, who: "System", initials: "+", color: "bg-sky-100 text-sky-700", what: "Invoice sent for $18,400 — Progress draw #4", when: "Yesterday, 4:22 PM", type: "invoice" },
+    { id: `${projectId}_a3`, projectId, who: "Ron Marquez", initials: "RM", color: "bg-purple-100 text-purple-700", what: "uploaded 8 site photos", when: "Yesterday, 2:15 PM", type: "upload" },
+    { id: `${projectId}_a4`, projectId, who: "Robert Harris", initials: "RH", color: "bg-blue-100 text-blue-700", what: 'replied via SMS: "Looks amazing! When will the glass door install be?"', when: "Apr 16, 10:30 AM", type: "message" },
+    { id: `${projectId}_a5`, projectId, who: "Payment", initials: "$", color: "bg-emerald-100 text-emerald-700", what: "received — $18,400 from Harris Progress Draw #3", when: "Apr 14, 9:02 AM", type: "payment" },
+  ];
+}
+
+export const projectTasks: Record<string, ProjectTask[]> = {};
+export const projectSubs: Record<string, Subcontractor[]> = {};
+export const projectTeam: Record<string, TeamMember[]> = {};
+export const projectSelections: Record<string, Selection[]> = {};
+export const projectDocuments: Record<string, ProjectDocument[]> = {};
+export const projectPermits: Record<string, Permit[]> = {};
+export const projectInvoices: Record<string, ProjectInvoice[]> = {};
+export const projectActivities: Record<string, ProjectActivity[]> = {};
+
+mockProjects.forEach((p) => {
+  projectTasks[p.id] = tasksFor(p.id);
+  projectSubs[p.id] = subsFor(p.id);
+  projectTeam[p.id] = teamFor(p.id);
+  projectSelections[p.id] = selectionsFor(p.id);
+  projectDocuments[p.id] = docsFor(p.id);
+  projectPermits[p.id] = permitsFor(p.id);
+  projectInvoices[p.id] = invoicesFor(p.id, p.projectNumber);
+  projectActivities[p.id] = activityFor(p.id);
+});
+
+export function getProjectBySlug(slug: string): Project | undefined {
+  return mockProjects.find((p) => p.slug === slug);
+}
+
+// ============= EXISTING DATA (unchanged) =============
 const taskTitles = [
   "Demo existing cabinets", "Order quartz countertops", "Schedule electrical rough-in",
   "Drywall + skim coat", "Tile backsplash install", "Paint walls + trim",
