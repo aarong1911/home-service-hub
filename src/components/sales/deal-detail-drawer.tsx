@@ -1,17 +1,23 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Mail, Phone, MessageSquare, FileText, CheckCircle2, XCircle, StickyNote,
-  TrendingUp, Calendar, User, Building2,
+  TrendingUp, Calendar, User, Building2, AlertCircle,
 } from "lucide-react";
-import { mockContacts, pipelineStages, type Deal } from "@/lib/mock-data";
+import { mockContacts, pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+
+const LOST_REASONS: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 
 type DealActivityKind = "email-out" | "email-in" | "sms" | "call" | "note" | "stage" | "proposal";
 type DealActivity = {
@@ -73,16 +79,22 @@ export function DealDetailDrawer({
   deal,
   onOpenChange,
   onStageChange,
+  onMarkLost,
 }: {
   deal: Deal | null;
   onOpenChange: (open: boolean) => void;
   onStageChange?: (dealId: string, newStage: string) => void;
+  onMarkLost?: (dealId: string, reason: LostReason, notes: string) => void;
 }) {
   const contact = useMemo(
     () => (deal ? mockContacts.find((c) => c.id === deal.contactId) : null),
     [deal],
   );
   const activity = useMemo(() => (deal ? buildActivity(deal) : []), [deal]);
+
+  const [lostOpen, setLostOpen] = useState(false);
+  const [lostReason, setLostReason] = useState<LostReason | null>(null);
+  const [lostNotes, setLostNotes] = useState("");
 
   const handleWon = () => {
     if (!deal) return;
@@ -93,16 +105,24 @@ export function DealDetailDrawer({
     onOpenChange(false);
   };
 
-  const handleLost = () => {
-    if (!deal) return;
-    onStageChange?.(deal.id, "new"); // there's no "lost" stage; reset for demo
+  const openLost = () => {
+    setLostReason(null);
+    setLostNotes("");
+    setLostOpen(true);
+  };
+
+  const confirmLost = () => {
+    if (!deal || !lostReason) return;
+    onMarkLost?.(deal.id, lostReason, lostNotes);
     toast(`${deal.name} marked as Lost`, {
-      description: "Reason logged. Deal archived.",
+      description: `Reason: ${lostReason}${lostNotes ? ` · ${lostNotes.slice(0, 60)}` : ""}`,
     });
+    setLostOpen(false);
     onOpenChange(false);
   };
 
   return (
+    <>
     <Sheet open={!!deal} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         {deal && (
@@ -123,11 +143,24 @@ export function DealDetailDrawer({
                   <div className="text-[11px] text-muted-foreground">Expected {formatDateShort(deal.expectedClose)}</div>
                 </div>
               </div>
+              {deal.lostReason && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                  <div className="min-w-0">
+                    <div className="font-medium text-destructive">Lost · {deal.lostReason}</div>
+                    {deal.lostAt && (
+                      <div className="text-[11px] text-muted-foreground">
+                        {formatDistanceToNow(new Date(deal.lostAt), { addSuffix: true })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button size="sm" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleWon}>
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark as Won
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1" onClick={handleLost}>
+                <Button size="sm" variant="outline" className="flex-1" onClick={openLost}>
                   <XCircle className="mr-1.5 h-3.5 w-3.5" /> Mark as Lost
                 </Button>
               </div>
@@ -213,6 +246,61 @@ export function DealDetailDrawer({
         )}
       </SheetContent>
     </Sheet>
+
+    <Dialog open={lostOpen} onOpenChange={setLostOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Mark deal as Lost</DialogTitle>
+          <DialogDescription>
+            Capture why this deal didn't close. This helps surface patterns in your pipeline.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Reason
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {LOST_REASONS.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setLostReason(r)}
+                  className={`h-9 rounded-md border px-3 text-left text-sm font-medium transition-colors ${
+                    lostReason === r
+                      ? "border-primary/40 bg-primary-soft text-primary"
+                      : "border-border bg-background text-foreground hover:bg-secondary/60"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Notes (optional)
+            </div>
+            <Textarea
+              value={lostNotes}
+              onChange={(e) => setLostNotes(e.target.value)}
+              placeholder="Add context — competitor name, timing details, etc."
+              rows={3}
+              className="resize-none text-sm"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={() => setLostOpen(false)}>Cancel</Button>
+          <Button variant="destructive" disabled={!lostReason} onClick={confirmLost}>
+            Mark as Lost
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
