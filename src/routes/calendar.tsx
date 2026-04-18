@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ChevronLeft, ChevronRight, RefreshCw, Plus, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronLeft, ChevronRight, RefreshCw, Plus, CheckCircle2, Calendar as CalendarIcon, Pencil, Trash2, ExternalLink, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -519,20 +520,25 @@ function TimeGrid({
                   const top = (startMin / 60) * HOUR_PX;
                   const height = ((endMin - startMin) / 60) * HOUR_PX - 2;
                   return (
-                    <div
-                      key={e.id}
-                      className={cn(
-                        "absolute left-1 right-1 overflow-hidden rounded border px-1.5 py-1 text-[10px] shadow-sm",
-                        TYPE_STYLES[e.type],
-                      )}
-                      style={{ top, height }}
-                    >
-                      <div className="truncate font-semibold">{e.title}</div>
-                      <div className="truncate opacity-80">
-                        {e.start}–{e.end}
-                        {e.project && ` · ${e.project}`}
-                      </div>
-                    </div>
+                    <Popover key={e.id}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={cn(
+                            "absolute left-1 right-1 cursor-pointer overflow-hidden rounded border px-1.5 py-1 text-left text-[10px] shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            TYPE_STYLES[e.type],
+                          )}
+                          style={{ top, height }}
+                        >
+                          <div className="truncate font-semibold">{e.title}</div>
+                          <div className="truncate opacity-80">
+                            {e.start}–{e.end}
+                            {e.project && ` · ${e.project}`}
+                          </div>
+                        </button>
+                      </PopoverTrigger>
+                      <EventDetailPopover event={e} />
+                    </Popover>
                   );
                 })}
                 {showNow && (
@@ -553,5 +559,74 @@ function TimeGrid({
         </div>
       </div>
     </Card>
+  );
+}
+
+function EventDetailPopover({ event }: { event: CalEvent }) {
+  const handleEdit = () => toast.info(`Edit "${event.title}" — coming soon`);
+  const handleDelete = () =>
+    toast.success("Event deleted", { description: event.title });
+
+  return (
+    <PopoverContent align="start" side="right" className="w-72 p-0">
+      <div className={cn("border-b px-3 py-2", TYPE_STYLES[event.type])}>
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="text-sm font-semibold leading-tight">{event.title}</h4>
+          <Badge variant="secondary" className="h-5 shrink-0 rounded border px-1.5 text-[10px]">
+            {TYPE_LABEL[event.type]}
+          </Badge>
+        </div>
+      </div>
+      <div className="space-y-2.5 px-3 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" />
+          <span className="tabular-nums">
+            {event.start}–{event.end}
+          </span>
+          <span className="ml-auto text-[10px] uppercase tracking-wider">
+            {event.source === "google" ? "Google" : "Internal"}
+          </span>
+        </div>
+        {event.project && (
+          <div className="flex items-center gap-2 text-xs">
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+            <Link
+              to="/projects"
+              className="truncate font-medium text-primary hover:underline"
+            >
+              {event.project}
+            </Link>
+          </div>
+        )}
+        <div className="flex items-start gap-2 text-xs">
+          <Users className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />
+          <div className="flex flex-wrap items-center gap-1">
+            {event.attendees.map((a) => (
+              <span
+                key={a}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-secondary text-[9px] font-semibold"
+              >
+                {a}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 border-t border-border p-1.5">
+        <Button variant="ghost" size="sm" className="h-7 flex-1 text-xs" onClick={handleEdit}>
+          <Pencil className="h-3 w-3" />
+          Edit
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 flex-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={handleDelete}
+        >
+          <Trash2 className="h-3 w-3" />
+          Delete
+        </Button>
+      </div>
+    </PopoverContent>
   );
 }
