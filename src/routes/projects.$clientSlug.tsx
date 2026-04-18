@@ -880,12 +880,256 @@ function DocumentsTab({ project }: { project: Project }) {
 }
 
 // ============= COMMUNICATIONS =============
-function CommunicationsTab({ project: _project }: { project: Project }) {
+type CommChannel = "SMS" | "Email" | "Call" | "Note";
+type CommMsg = {
+  id: string;
+  from: string;
+  initials: string;
+  channel: CommChannel;
+  ago: string;
+  preview: string;
+  body?: string;
+  time?: string;
+  outbound?: boolean;
+  meta?: string;
+};
+
+const projectComms: CommMsg[] = [
+  { id: "c1", from: "Robert Harris", initials: "RH", channel: "SMS", ago: "2h", preview: "Looks amazing! When will the glass door install be?", body: "Looks amazing! When will the glass door install be? The tile turned out even better than the sample.", time: "10:30 AM" },
+  { id: "c2", from: "Kate Foster", initials: "KF", channel: "Email", ago: "Yday", preview: "Glass panels ready. Confirming Apr 20 @ 9am for install." },
+  { id: "c3", from: "Linda Harris", initials: "LH", channel: "Email", ago: "2d", preview: "Approved: closet system quote. Please proceed when ready." },
+  { id: "c4", from: "Ron Marquez", initials: "RM", channel: "Note", ago: "3d", preview: "Walkthrough scheduled for Apr 25. Linda requesting ceiling fan swap." },
+  { id: "c5", from: "Robert Harris", initials: "RH", channel: "Call", ago: "4d", preview: "14 min · Discussed paint color change to Classic Gray" },
+  { id: "c6", from: "Miguel Rodriguez", initials: "MR", channel: "SMS", ago: "1wk", preview: "Rough-in inspection passed. All good." },
+];
+
+const replyMsg: CommMsg = {
+  id: "r1", from: "You (Ron)", initials: "RM", channel: "SMS", ago: "10:47 AM", preview: "",
+  body: "Thanks Robert! Glass install is confirmed for Monday Apr 20 @ 9am. Kate at Lone Star is bringing the frameless panels. Should take about 3 hrs.",
+  time: "10:47 AM", outbound: true, meta: "Delivered · Read",
+};
+
+const followUp: CommMsg = {
+  id: "c1b", from: "Robert Harris", initials: "RH", channel: "SMS", ago: "11:02 AM", preview: "",
+  body: "Perfect. We'll be out of the house by 8:30 — code's still 4729.", time: "11:02 AM",
+};
+
+function CommunicationsTab({ project }: { project: Project }) {
+  const [filter, setFilter] = useState<"All" | CommChannel>("All");
+  const [selected, setSelected] = useState<string>("c1");
+  const [composer, setComposer] = useState<"SMS" | "Email">("SMS");
+  const [draft, setDraft] = useState("");
+
+  const counts = {
+    All: projectComms.length + 39,
+    Email: 23,
+    SMS: 12,
+    Call: 4,
+    Note: 6,
+  };
+
+  const visible = filter === "All" ? projectComms : projectComms.filter((m) => m.channel === filter);
+  const active = projectComms.find((m) => m.id === selected) ?? projectComms[0];
+  const phone = "(512) 555-2189";
+  const email = "rharris@example.com";
+
   return (
-    <Card className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-      <MessageSquare className="h-8 w-8 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">Project communications inbox coming soon.</p>
-      <Button size="sm" className="h-8">Open in Inbox</Button>
-    </Card>
+    <div className="space-y-3">
+      {/* Filter pills + actions */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(["All", "Email", "SMS", "Call", "Note"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                filter === f
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {f === "All" ? "All" : f === "Call" ? "Calls" : f === "Note" ? "Notes" : f}
+              <span className={`text-[10px] ${filter === f ? "opacity-70" : "opacity-60"}`}>
+                {counts[f]}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="h-8 gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> Add Note
+          </Button>
+          <Button size="sm" className="h-8 gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" /> Compose
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[360px_1fr]">
+        {/* List pane */}
+        <Card className="flex flex-col overflow-hidden p-0">
+          <div className="border-b p-2.5">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search this project..."
+                className="h-8 rounded-md border-muted bg-muted/40 pl-8 text-xs"
+              />
+            </div>
+          </div>
+          <div className="flex max-h-[640px] flex-col divide-y overflow-y-auto">
+            {visible.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setSelected(m.id)}
+                className={`flex flex-col gap-1.5 px-3 py-3 text-left transition-colors hover:bg-muted/40 ${
+                  selected === m.id ? "bg-muted/60" : ""
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar initials={m.initials} />
+                    <div className="text-xs font-semibold">{m.from}</div>
+                    <ChannelBadge channel={m.channel} />
+                  </div>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{m.ago}</span>
+                </div>
+                <p className="line-clamp-1 pl-8 text-xs text-muted-foreground">{m.preview}</p>
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {/* Thread pane */}
+        <Card className="flex flex-col overflow-hidden p-0">
+          {/* Contact header */}
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Avatar initials={active.initials} size="md" />
+              <div>
+                <div className="text-sm font-semibold">{active.from}</div>
+                <div className="text-xs text-muted-foreground">
+                  {phone} · {email}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-primary">
+                <Phone className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-primary">
+                <Mail className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Thread */}
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-muted/20 px-4 py-5" style={{ minHeight: 360 }}>
+            <DayDivider label="Apr 18 · Today" />
+            <Bubble msg={active} />
+            <Bubble msg={replyMsg} />
+            <Bubble msg={followUp} />
+          </div>
+
+          {/* Composer */}
+          <div className="border-t bg-background px-4 py-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs">
+                <button
+                  onClick={() => setComposer("SMS")}
+                  className={`rounded px-2 py-0.5 font-medium ${composer === "SMS" ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
+                >
+                  SMS
+                </button>
+                <button
+                  onClick={() => setComposer("Email")}
+                  className={`rounded px-2 py-0.5 font-medium ${composer === "Email" ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
+                >
+                  Email
+                </button>
+                <span className="text-muted-foreground">→ {composer === "SMS" ? phone : email}</span>
+              </div>
+              <button className="text-xs font-medium text-primary hover:underline">✨ AI Draft</button>
+            </div>
+            <div className="flex items-end gap-2 rounded-md border bg-background p-2">
+              <Input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Type a message..."
+                className="h-8 flex-1 border-0 px-1 shadow-none focus-visible:ring-0"
+              />
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
+                <Upload className="h-4 w-4" />
+              </Button>
+              <Button size="sm" className="h-8">Send</Button>
+            </div>
+            <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+              <button className="hover:text-foreground">Templates</button>
+              <button className="hover:text-foreground">Insert variable</button>
+              <span className="ml-auto opacity-0">{project.id}</span>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Avatar({ initials, size = "sm" }: { initials: string; size?: "sm" | "md" }) {
+  const dim = size === "md" ? "h-9 w-9 text-[11px]" : "h-6 w-6 text-[10px]";
+  return (
+    <div className={`${dim} flex items-center justify-center rounded-full bg-primary/10 font-semibold text-primary`}>
+      {initials}
+    </div>
+  );
+}
+
+function ChannelBadge({ channel }: { channel: CommChannel }) {
+  const styles: Record<CommChannel, string> = {
+    SMS: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    Email: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+    Call: "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300",
+    Note: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  };
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${styles[channel]}`}>
+      {channel}
+    </span>
+  );
+}
+
+function DayDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center">
+      <span className="rounded-full bg-background px-3 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function Bubble({ msg }: { msg: CommMsg }) {
+  const outbound = msg.outbound;
+  return (
+    <div className={`flex gap-2 ${outbound ? "flex-row-reverse" : ""}`}>
+      <Avatar initials={msg.initials} />
+      <div className={`flex max-w-[70%] flex-col gap-1 ${outbound ? "items-end" : "items-start"}`}>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="font-semibold">{msg.from}</span>
+          <ChannelBadge channel={msg.channel} />
+          <span className="text-muted-foreground">{msg.time}</span>
+        </div>
+        <div
+          className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+            outbound
+              ? "rounded-tr-sm bg-primary text-primary-foreground"
+              : "rounded-tl-sm bg-background shadow-sm"
+          }`}
+        >
+          {msg.body}
+        </div>
+        {msg.meta && <div className="text-[10px] text-muted-foreground">{msg.meta}</div>}
+      </div>
+    </div>
   );
 }
