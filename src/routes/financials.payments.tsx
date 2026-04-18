@@ -30,6 +30,17 @@ function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [selected, setSelected] = useState<Payment | null>(null);
   const scheduled = useScheduledPayments();
+  const reminders = useReminders();
+  const lastReminderByPayment = useMemo(() => {
+    const map = new Map<string, ReminderEntry>();
+    for (const r of reminders) {
+      const prev = map.get(r.paymentId);
+      if (!prev || new Date(r.sentAt).getTime() > new Date(prev.sentAt).getTime()) {
+        map.set(r.paymentId, r);
+      }
+    }
+    return map;
+  }, [reminders]);
 
   const allPayments = useMemo<Payment[]>(
     () => [...scheduled, ...mockPayments],
