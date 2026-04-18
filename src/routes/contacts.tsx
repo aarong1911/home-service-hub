@@ -52,6 +52,18 @@ function ContactsPage() {
     },
   });
 
+  // Deep-link: open the matching contact drawer when ?contactId=... is present.
+  useEffect(() => {
+    if (!contacts) return;
+    if (contactId) {
+      const found = contacts.find((c) => c.id === contactId);
+      if (found && found.id !== selected?.id) setSelected(found);
+    } else if (selected) {
+      setSelected(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactId, contacts]);
+
   const stats = useMemo(() => {
     if (!contacts) return { total: 0, newThisMonth: 0, vip: 0, activeWeek: 0 };
     const now = Date.now();
