@@ -154,7 +154,283 @@ function EstimatesPage() {
         record={selected ? { kind: "estimate", ...selected } : null}
         onOpenChange={(open) => !open && setSelected(null)}
       />
+
+      <StartFromTemplateDialog
+        open={tplOpen}
+        onOpenChange={setTplOpen}
+        existingCount={allEstimates.length}
+        onCreate={handleCreated}
+      />
     </>
+  );
+}
+
+// ============ Start-from-template wizard ============
+function StartFromTemplateDialog({
+  open,
+  onOpenChange,
+  existingCount,
+  onCreate,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  existingCount: number;
+  onCreate: (estimate: Estimate) => void;
+}) {
+  const [step, setStep] = useState<"pick" | "customize">("pick");
+  const [tplId, setTplId] = useState<string>(estimateTemplates[0]?.id ?? "");
+  const [search, setSearch] = useState("");
+  const [client, setClient] = useState<string>(mockContacts[0]?.name ?? "");
+  const [markup, setMarkup] = useState<number>(estimateTemplates[0]?.markup ?? 20);
+  const [notes, setNotes] = useState<string>(estimateTemplates[0]?.notes ?? "");
+  const [lines, setLines] = useState<EstimateLine[]>(estimateTemplates[0]?.lines ?? []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return estimateTemplates;
+    return estimateTemplates.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q),
+    );
+  }, [search]);
+
+  const reset = () => {
+    setStep("pick");
+    setSearch("");
+  };
+
+  const choose = (t: SharedEstimateTemplate) => {
+    setTplId(t.id);
+    setMarkup(t.markup);
+    setNotes(t.notes);
+    setLines(t.lines.map((l) => ({ ...l })));
+    setStep("customize");
+  };
+
+  const subtotal = useMemo(() => lines.reduce((s, l) => s + l.qty * l.price, 0), [lines]);
+  const total = Math.round(subtotal * (1 + markup / 100));
+
+  const updateLine = (idx: number, patch: Partial<EstimateLine>) => {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  };
+  const removeLine = (idx: number) => setLines((prev) => prev.filter((_, i) => i !== idx));
+  const addLine = () =>
+    setLines((prev) => [...prev, { name: "New line item", qty: 1, unit: "ea", price: 0 }]);
+
+  const create = () => {
+    if (!client.trim()) {
+      toast.error("Pick a client for this estimate");
+      return;
+    }
+    const tpl = estimateTemplates.find((t) => t.id === tplId);
+    const number = `EST-${String(8000 + existingCount + 1).padStart(4, "0")}`;
+    const newDraft: Estimate = {
+      id: `draft-${Date.now()}`,
+      number,
+      client,
+      amount: total,
+      status: "Draft",
+      issued: new Date().toISOString().slice(0, 10),
+    };
+    onCreate(newDraft);
+    // Suppress unused notes/tpl warning — they would be persisted alongside the estimate
+    // in a real backend. Here we surface them via toast for confirmation.
+    toast.message(`Imported ${lines.length} lines from "${tpl?.name ?? "template"}"`, {
+      description: notes ? notes.slice(0, 80) + (notes.length > 80 ? "…" : "") : undefined,
+    });
+    reset();
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) reset();
+      }}
+    >
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            {step === "pick" ? "Start from template" : "Customize draft"}
+          </DialogTitle>
+          <DialogDescription>
+            {step === "pick"
+              ? "Pick a renovation-specific starting point. You can edit every line in the next step."
+              : "Tweak line items, markup, and notes. Then create a Draft estimate."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {step === "pick" ? (
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search templates by name, category, or description…"
+                className="h-9 pl-8 text-sm"
+                autoFocus
+              />
+            </div>
+            <div className="grid max-h-[420px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              {filtered.map((t) => {
+                const tplTotal = estimateTemplateTotal(t);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => choose(t)}
+                    className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/60 hover:bg-secondary/30"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-semibold">{t.name}</span>
+                          {t.starred && <Star className="h-3 w-3 fill-amber-400 text-amber-400" />}
+                        </div>
+                        <Badge variant="outline" className="mt-1 h-4 px-1.5 text-[9px]">
+                          {t.category}
+                        </Badge>
+                      </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                    </div>
+                    <p className="line-clamp-2 text-[11px] text-muted-foreground">{t.description}</p>
+                    <div className="mt-auto flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground">
+                        {t.lines.length} lines · {t.markup}% markup
+                      </span>
+                      <span className="font-semibold tabular-nums">{formatMoney(tplTotal)}</span>
+                    </div>
+                  </button>
+                );
+              })}
+              {filtered.length === 0 && (
+                <div className="col-span-full py-10 text-center text-xs text-muted-foreground">
+                  No templates match "{search}".
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Client</Label>
+                <Input
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
+                  placeholder="Client name"
+                  className="h-8 text-sm"
+                  list="estimate-template-clients"
+                />
+                <datalist id="estimate-template-clients">
+                  {mockContacts.map((c) => (
+                    <option key={c.id} value={c.name} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Markup %</Label>
+                <Input
+                  type="number"
+                  value={markup}
+                  onChange={(e) => setMarkup(Number(e.target.value) || 0)}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border">
+              <div className="grid grid-cols-[1fr_70px_70px_100px_32px] items-center gap-2 border-b border-border bg-secondary/40 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span>Item</span>
+                <span className="text-right">Qty</span>
+                <span className="text-right">Unit</span>
+                <span className="text-right">Price</span>
+                <span />
+              </div>
+              <div className="max-h-[260px] overflow-y-auto">
+                {lines.map((l, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_70px_70px_100px_32px] items-center gap-2 border-b border-border px-2 py-1.5 last:border-b-0">
+                    <Input
+                      value={l.name}
+                      onChange={(e) => updateLine(i, { name: e.target.value })}
+                      className="h-7 text-xs"
+                    />
+                    <Input
+                      type="number"
+                      value={l.qty}
+                      onChange={(e) => updateLine(i, { qty: Number(e.target.value) || 0 })}
+                      className="h-7 text-right text-xs tabular-nums"
+                    />
+                    <Input
+                      value={l.unit}
+                      onChange={(e) => updateLine(i, { unit: e.target.value })}
+                      className="h-7 text-xs"
+                    />
+                    <Input
+                      type="number"
+                      value={l.price}
+                      onChange={(e) => updateLine(i, { price: Number(e.target.value) || 0 })}
+                      className="h-7 text-right text-xs tabular-nums"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeLine(i)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between border-t border-border px-2 py-1.5">
+                <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={addLine}>
+                  <Plus className="mr-1 h-3 w-3" /> Add line
+                </Button>
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="text-muted-foreground">
+                    Subtotal <span className="ml-1 tabular-nums text-foreground">{formatMoney(subtotal)}</span>
+                  </span>
+                  <span className="font-semibold">
+                    Total <span className="ml-1 tabular-nums">{formatMoney(total)}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Notes / terms</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="text-xs"
+              />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          {step === "customize" && (
+            <Button variant="ghost" size="sm" onClick={() => setStep("pick")}>
+              Back to templates
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          {step === "customize" && (
+            <Button size="sm" onClick={create}>
+              <FileText className="mr-1.5 h-3.5 w-3.5" /> Create draft
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
