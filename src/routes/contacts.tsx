@@ -14,10 +14,11 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Plus, Search, Filter, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download, Tag,
+  Plus, Search, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download,
+  Users, UserPlus, Star, Activity,
 } from "lucide-react";
 import { mockContacts, type Contact } from "@/lib/mock-data";
 import { formatDistanceToNow } from "date-fns";
@@ -26,8 +27,12 @@ export const Route = createFileRoute("/contacts")({
   component: ContactsPage,
 });
 
+const TAG_FILTERS = ["All", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
+type TagFilter = (typeof TAG_FILTERS)[number];
+
 function ContactsPage() {
   const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState<TagFilter>("All");
   const [selected, setSelected] = useState<Contact | null>(null);
 
   const { data: contacts, isLoading } = useQuery({
@@ -38,17 +43,34 @@ function ContactsPage() {
     },
   });
 
+  const stats = useMemo(() => {
+    if (!contacts) return { total: 0, newThisMonth: 0, vip: 0, activeWeek: 0 };
+    const now = Date.now();
+    const month = 30 * 86_400_000;
+    const week = 7 * 86_400_000;
+    return {
+      total: contacts.length,
+      newThisMonth: contacts.filter((c) => now - new Date(c.createdAt).getTime() < month).length,
+      vip: contacts.filter((c) => c.tags.some((t) => /vip/i.test(t))).length,
+      activeWeek: contacts.filter((c) => now - new Date(c.lastActivity).getTime() < week).length,
+    };
+  }, [contacts]);
+
   const filtered = useMemo(() => {
     if (!contacts) return [];
     const q = search.toLowerCase().trim();
-    if (!q) return contacts;
-    return contacts.filter(
-      (c) =>
+    return contacts.filter((c) => {
+      if (tagFilter !== "All" && !c.tags.some((t) => t.toLowerCase() === tagFilter.toLowerCase())) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         c.name.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
-        c.company.toLowerCase().includes(q),
-    );
-  }, [contacts, search]);
+        c.company.toLowerCase().includes(q)
+      );
+    });
+  }, [contacts, search, tagFilter]);
 
   return (
     <>
@@ -68,6 +90,14 @@ function ContactsPage() {
         }
       />
 
+      {/* KPIs */}
+      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Total contacts" value={stats.total.toString()} sub="All-time records" icon={Users} tone="primary" />
+        <Kpi label="New this month" value={stats.newThisMonth.toString()} sub="Added in last 30 days" icon={UserPlus} tone="success" />
+        <Kpi label="VIP" value={stats.vip.toString()} sub="High-priority accounts" icon={Star} tone="warning" />
+        <Kpi label="Active this week" value={stats.activeWeek.toString()} sub="Touched in last 7 days" icon={Activity} tone="muted" />
+      </div>
+
       {/* Filters bar */}
       <Card className="mb-3 p-2.5">
         <div className="flex flex-wrap items-center gap-2">
@@ -80,12 +110,13 @@ function ContactsPage() {
               className="h-8 pl-8 text-sm"
             />
           </div>
-          <Button variant="outline" size="sm" className="h-8">
-            <Filter className="mr-1.5 h-3.5 w-3.5" /> Filters
-          </Button>
-          <Button variant="outline" size="sm" className="h-8">
-            <Tag className="mr-1.5 h-3.5 w-3.5" /> Tags
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {TAG_FILTERS.map((t) => (
+              <FilterChip key={t} active={tagFilter === t} onClick={() => setTagFilter(t)}>
+                {t}
+              </FilterChip>
+            ))}
+          </div>
           <Button variant="outline" size="sm" className="h-8">
             <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> Columns
           </Button>
@@ -140,7 +171,7 @@ function ContactsPage() {
                         <Search className="h-4 w-4" />
                       </div>
                       <div className="text-sm font-medium">No contacts found</div>
-                      <div className="mt-1 text-xs text-muted-foreground">Try adjusting your search or add a new contact.</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Try adjusting your search or filters.</div>
                       <Button size="sm" className="mt-4">
                         <Plus className="mr-1.5 h-3.5 w-3.5" /> New Contact
                       </Button>
@@ -209,6 +240,64 @@ function ContactsPage() {
 
       <ContactDrawer contact={selected} onOpenChange={(o) => !o && setSelected(null)} />
     </>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`h-8 rounded-md border px-2.5 text-xs font-medium transition-colors ${
+        active
+          ? "border-primary/30 bg-primary-soft text-primary"
+          : "border-border bg-background text-muted-foreground hover:bg-secondary/60"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "primary" | "success" | "warning" | "muted";
+}) {
+  const toneClass = {
+    primary: "bg-primary-soft text-primary",
+    success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    muted: "bg-secondary text-muted-foreground",
+  }[tone];
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+          <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
+        </div>
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${toneClass}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </Card>
   );
 }
 
