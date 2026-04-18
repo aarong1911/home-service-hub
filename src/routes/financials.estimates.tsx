@@ -98,6 +98,14 @@ function EstimatesPage() {
               </FilterChip>
             ))}
           </div>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button size="sm" variant="outline" className="h-8" onClick={() => setTplOpen(true)}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" /> Start from template
+            </Button>
+            <Button size="sm" className="h-8">
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> New estimate
+            </Button>
+          </div>
         </div>
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-secondary/40 text-xs text-muted-foreground">
