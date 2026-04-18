@@ -7,6 +7,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -14,9 +15,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { mockInvoices, mockPayments, pipelineVelocityData } from "@/lib/mock-data";
+import { mockInvoices, mockPayments, pipelineVelocityData, type Payment } from "@/lib/mock-data";
+import { useScheduledPayments } from "@/lib/scheduled-payments";
 import { formatMoney } from "@/lib/format";
-import { TrendingUp, TrendingDown, ArrowUpRight, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowUpRight, Wallet, CalendarClock } from "lucide-react";
+import { useMemo } from "react";
 
 export const Route = createFileRoute("/financials/reports")({
   component: ReportsPage,
