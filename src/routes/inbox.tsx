@@ -440,7 +440,7 @@ function InboxPage() {
                       <Link
                         key={p.id}
                         to="/projects/$clientSlug"
-                        params={{ clientSlug: p.clientSlug }}
+                        params={{ clientSlug: p.slug }}
                         className="flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5 hover:border-primary/40"
                       >
                         <div className="min-w-0">
