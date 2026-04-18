@@ -61,7 +61,7 @@ function ProjectsPage() {
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
       <PageHeader
         title="Projects"
         subtitle={`Track renovations from estimate through warranty. ${counts.active} active across 6 stages.`}
