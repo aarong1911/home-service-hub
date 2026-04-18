@@ -126,6 +126,57 @@ function InboxPage() {
   const contact = active ? mockContacts.find((c) => c.id === active.contactId) : undefined;
   const contactProjects = contact ? mockProjects.filter((p) => p.client === contact.name) : [];
 
+  const mergeCtx: MergeContext = useMemo(() => {
+    const firstProject = contactProjects[0];
+    const [first_name = "", ...rest] = (contact?.name ?? "").split(" ");
+    const last_name = rest.join(" ");
+    const total = firstProject?.contractValue ?? 0;
+    const fmtMoney = (n: number) =>
+      new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    return {
+      first_name,
+      last_name,
+      project_address: firstProject?.address ?? "your project address",
+      project_type: firstProject?.type ?? "renovation",
+      owner_name: "Alex Rivera",
+      company_name: "Rivera Construction",
+      estimate_total: total ? fmtMoney(total) : "$—",
+      deposit_amount: total ? fmtMoney(Math.round(total * 0.5)) : "$—",
+      deposit_due: "Friday",
+      start_date: firstProject?.startDate
+        ? new Date(firstProject.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : "next Monday",
+    };
+  }, [contact, contactProjects]);
+
+  const visibleTemplates = useMemo(() => {
+    const channelMatch = (t: SharedMessageTemplate) =>
+      composeChannel === "note" ? true : t.channel === composeChannel;
+    const q = tplSearch.trim().toLowerCase();
+    return messageTemplates.filter((t) => {
+      if (!channelMatch(t)) return false;
+      if (!q) return true;
+      return (
+        t.name.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        t.body.toLowerCase().includes(q)
+      );
+    });
+  }, [composeChannel, tplSearch]);
+
+  const applyTemplate = (t: SharedMessageTemplate) => {
+    setDraft(resolveMergeTags(t.body, mergeCtx));
+    if (t.channel === "email" && t.subject) {
+      setSubject(resolveMergeTags(t.subject, mergeCtx));
+      if (composeChannel !== "email") setComposeChannel("email");
+    } else if (t.channel === "sms" && composeChannel !== "sms") {
+      setComposeChannel("sms");
+    }
+    setTplOpen(false);
+    setTplSearch("");
+    toast.success(`Inserted "${t.name}"`);
+  };
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
       <PageHeader
