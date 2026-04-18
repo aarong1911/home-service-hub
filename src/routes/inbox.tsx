@@ -170,20 +170,20 @@ function InboxPage() {
           </div>
           <div className="flex flex-col gap-0.5 px-2">
             {[
-              { label: "VIP", tone: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
-              { label: "New Lead", tone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
-              { label: "Hot", tone: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" },
-              { label: "Punch List", tone: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" },
-            ].map((t) => (
+              { label: "VIP", count: 4 },
+              { label: "New Lead", count: 7 },
+              { label: "Hot", count: 3 },
+              { label: "Punch List", count: 2 },
+            ].map((t, i) => (
               <button
                 key={t.label}
                 className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[13px] font-medium text-foreground hover:bg-secondary"
               >
                 <span className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${t.tone.split(" ")[0]}`} />
+                  <span className={`h-2 w-2 rounded-full ${["bg-amber-400","bg-emerald-400","bg-rose-400","bg-sky-400"][i]}`} />
                   {t.label}
                 </span>
-                <span className="text-[10px] text-muted-foreground">{Math.floor(Math.random() * 9) + 1}</span>
+                <span className="text-[10px] text-muted-foreground">{t.count}</span>
               </button>
             ))}
           </div>
