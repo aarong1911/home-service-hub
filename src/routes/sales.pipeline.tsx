@@ -31,6 +31,11 @@ function PipelinePage() {
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All owners");
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
   const [view, setView] = useState<"board" | "list">("board");
+  const [selected, setSelected] = useState<Deal | null>(null);
+
+  const handleStageChange = (dealId: string, newStage: string) => {
+    setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: newStage } : d)));
+  };
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
