@@ -75,6 +75,44 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   const [convertedTo, setConvertedTo] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Draft invoice editing — only when this invoice came from the cross-route draft store.
+  const draftId = isInvoice && record.id.startsWith("inv-draft-") ? record.id : undefined;
+  const { invoice: draftInvoice, schedule: draftSchedule } = useDraftInvoice(draftId);
+  const isDraft = isInvoice && localStatus === "Draft" && !!draftId;
+  const currentDue = draftInvoice?.due ?? (isInvoice ? (record as Invoice).due : "");
+  const currentSchedule: DraftSchedule =
+    draftSchedule ?? { milestones: [{ id: "m1", label: "Full payment", percent: 100, dueDate: currentDue }] };
+
+  const setDue = (date: string) => {
+    if (!draftId) return;
+    updateDraftInvoice(draftId, { due: date });
+  };
+  const setSchedule = (next: DraftSchedule) => {
+    if (!draftId) return;
+    updateDraftSchedule(draftId, next);
+  };
+  const updateMilestone = (id: string, patch: Partial<PaymentMilestone>) => {
+    setSchedule({
+      milestones: currentSchedule.milestones.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    });
+  };
+  const addMilestone = () => {
+    const last = currentSchedule.milestones[currentSchedule.milestones.length - 1];
+    const baseDate = last?.dueDate ?? currentDue;
+    const next = new Date(new Date(baseDate).getTime() + 14 * 86_400_000).toISOString().slice(0, 10);
+    setSchedule({
+      milestones: [
+        ...currentSchedule.milestones,
+        { id: `m${Date.now()}`, label: "Progress payment", percent: 0, dueDate: next },
+      ],
+    });
+  };
+  const removeMilestone = (id: string) => {
+    setSchedule({ milestones: currentSchedule.milestones.filter((m) => m.id !== id) });
+  };
+  const percentSum = currentSchedule.milestones.reduce((s, m) => s + (Number(m.percent) || 0), 0);
+  const scheduleBalanced = Math.round(percentSum) === 100;
+
   const label = isInvoice ? "Invoice" : "Estimate";
   const handleSend = () => {
     setLocalStatus("Sent");
