@@ -259,7 +259,7 @@ function ContactsPage() {
         </div>
       </Card>
 
-      <ContactDrawer contact={selected} onOpenChange={(o) => !o && setSelected(null)} />
+      <ContactDrawer contact={selected} onOpenChange={(o) => { if (!o) navigate({ search: { contactId: undefined }, replace: true }); }} />
     </>
   );
 }
