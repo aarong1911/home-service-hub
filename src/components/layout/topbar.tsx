@@ -98,6 +98,7 @@ export function Topbar() {
             >
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
+                ref={inputRef}
                 type="text"
                 role="combobox"
                 aria-expanded={open}
