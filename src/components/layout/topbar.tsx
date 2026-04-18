@@ -214,9 +214,7 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <button className="ml-1 flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-secondary">
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-primary text-[11px] text-primary-foreground">
-                  <User className="h-3.5 w-3.5" />
-                </AvatarFallback>
+                <AvatarFallback className="bg-primary text-[11px] text-primary-foreground">AR</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
