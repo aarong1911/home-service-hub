@@ -19,10 +19,22 @@ import {
 } from "lucide-react";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { mockInvoices, type Estimate, type Invoice } from "@/lib/mock-data";
-import { addDraftInvoice, nextDraftInvoiceNumber } from "@/lib/draft-invoices";
+import {
+  addDraftInvoice,
+  nextDraftInvoiceNumber,
+  defaultSchedule,
+  useDraftInvoice,
+  updateDraftInvoice,
+  updateDraftSchedule,
+  type DraftSchedule,
+  type PaymentMilestone,
+} from "@/lib/draft-invoices";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Plus, Trash2, CalendarDays } from "lucide-react";
 
 type Kind = "estimate" | "invoice";
 
@@ -63,6 +75,44 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   const [convertedTo, setConvertedTo] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Draft invoice editing — only when this invoice came from the cross-route draft store.
+  const draftId = isInvoice && record.id.startsWith("inv-draft-") ? record.id : undefined;
+  const { invoice: draftInvoice, schedule: draftSchedule } = useDraftInvoice(draftId);
+  const isDraft = isInvoice && localStatus === "Draft" && !!draftId;
+  const currentDue = draftInvoice?.due ?? (isInvoice ? (record as Invoice).due : "");
+  const currentSchedule: DraftSchedule =
+    draftSchedule ?? { milestones: [{ id: "m1", label: "Full payment", percent: 100, dueDate: currentDue }] };
+
+  const setDue = (date: string) => {
+    if (!draftId) return;
+    updateDraftInvoice(draftId, { due: date });
+  };
+  const setSchedule = (next: DraftSchedule) => {
+    if (!draftId) return;
+    updateDraftSchedule(draftId, next);
+  };
+  const updateMilestone = (id: string, patch: Partial<PaymentMilestone>) => {
+    setSchedule({
+      milestones: currentSchedule.milestones.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    });
+  };
+  const addMilestone = () => {
+    const last = currentSchedule.milestones[currentSchedule.milestones.length - 1];
+    const baseDate = last?.dueDate ?? currentDue;
+    const next = new Date(new Date(baseDate).getTime() + 14 * 86_400_000).toISOString().slice(0, 10);
+    setSchedule({
+      milestones: [
+        ...currentSchedule.milestones,
+        { id: `m${Date.now()}`, label: "Progress payment", percent: 0, dueDate: next },
+      ],
+    });
+  };
+  const removeMilestone = (id: string) => {
+    setSchedule({ milestones: currentSchedule.milestones.filter((m) => m.id !== id) });
+  };
+  const percentSum = currentSchedule.milestones.reduce((s, m) => s + (Number(m.percent) || 0), 0);
+  const scheduleBalanced = Math.round(percentSum) === 100;
+
   const label = isInvoice ? "Invoice" : "Estimate";
   const handleSend = () => {
     setLocalStatus("Sent");
@@ -87,18 +137,19 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
     const today = new Date();
     const due = new Date(today.getTime() + 30 * 86_400_000);
     const number = nextDraftInvoiceNumber(mockInvoices.length);
+    const id = `inv-draft-${Date.now()}`;
     const draft: Invoice = {
-      id: `inv-draft-${Date.now()}`,
+      id,
       number,
       client: record.client,
       amount: total,
       status: "Draft",
       due: due.toISOString().slice(0, 10),
     };
-    addDraftInvoice(draft);
+    addDraftInvoice(draft, defaultSchedule(today.toISOString().slice(0, 10)));
     setConvertedTo(number);
     toast.success(`Created Draft ${number} from ${record.number}`, {
-      description: `${items.length} line items · ${formatMoney(total)}`,
+      description: `${items.length} line items · ${formatMoney(total)} · deposit + 2 milestones`,
       action: {
         label: "Open Invoices",
         onClick: () => navigate({ to: "/financials/invoices" }),
@@ -177,7 +228,113 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
             </div>
           </Section>
 
-          {/* Activity history */}
+          {/* Editable due date + payment schedule for draft invoices */}
+          {isDraft && (
+            <Section title="Payment schedule">
+              <div className="rounded-md border border-border">
+                <div className="flex flex-wrap items-end gap-3 border-b border-border bg-secondary/20 px-3 py-2.5">
+                  <div className="flex-1 min-w-[180px]">
+                    <Label htmlFor="due-date" className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <CalendarDays className="h-3 w-3" /> Final due date
+                    </Label>
+                    <Input
+                      id="due-date"
+                      type="date"
+                      value={currentDue}
+                      onChange={(e) => setDue(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Net{" "}
+                    <span className="font-medium text-foreground">
+                      {Math.max(0, daysFromNow(currentDue))}
+                    </span>{" "}
+                    days from today
+                  </div>
+                </div>
+
+                <div className="divide-y divide-border">
+                  {currentSchedule.milestones.map((m, idx) => {
+                    const amount = Math.round((total * (Number(m.percent) || 0)) / 100);
+                    return (
+                      <div key={m.id} className="grid grid-cols-12 items-center gap-2 px-3 py-2">
+                        <div className="col-span-1 text-[10px] font-mono text-muted-foreground">
+                          {String(idx + 1).padStart(2, "0")}
+                        </div>
+                        <Input
+                          value={m.label}
+                          onChange={(e) => updateMilestone(m.id, { label: e.target.value })}
+                          className="col-span-4 h-7 text-xs"
+                          placeholder="Label"
+                        />
+                        <div className="col-span-2 flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={m.percent}
+                            onChange={(e) =>
+                              updateMilestone(m.id, { percent: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })
+                            }
+                            className="h-7 text-xs tabular-nums"
+                          />
+                          <span className="text-[11px] text-muted-foreground">%</span>
+                        </div>
+                        <Input
+                          type="date"
+                          value={m.dueDate}
+                          onChange={(e) => updateMilestone(m.id, { dueDate: e.target.value })}
+                          className="col-span-3 h-7 text-xs"
+                        />
+                        <div className="col-span-1 text-right text-xs font-medium tabular-nums">
+                          {formatMoney(amount)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeMilestone(m.id)}
+                          disabled={currentSchedule.milestones.length <= 1}
+                          className="col-span-1 inline-flex h-7 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-destructive disabled:opacity-30"
+                          aria-label="Remove milestone"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-border bg-secondary/20 px-3 py-2 text-xs">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={addMilestone}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add milestone
+                  </Button>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={
+                        scheduleBalanced
+                          ? "text-success"
+                          : "text-destructive"
+                      }
+                    >
+                      {percentSum.toFixed(0)}% allocated
+                    </span>
+                    <span className="text-muted-foreground">
+                      Total: <span className="font-medium tabular-nums text-foreground">{formatMoney(total)}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Section>
+          )}
+
+
           <Section title="Activity">
             <ol className="relative space-y-3 border-l border-border pl-4">
               {activity.map((a, i) => (
@@ -202,14 +359,29 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-background px-5 py-3">
         {isInvoice ? (
           <>
-            <Button size="sm" className="h-8 gap-1.5" onClick={handleMarkPaid} disabled={localStatus === "Paid"}>
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {localStatus === "Paid" ? "Paid" : "Mark as paid"}
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleReminder}>
-              <Send className="h-3.5 w-3.5" />
-              Send reminder
-            </Button>
+            {isDraft ? (
+              <Button
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={handleSend}
+                disabled={!scheduleBalanced}
+                title={scheduleBalanced ? undefined : "Schedule must total 100% before sending"}
+              >
+                <Send className="h-3.5 w-3.5" />
+                Send invoice
+              </Button>
+            ) : (
+              <Button size="sm" className="h-8 gap-1.5" onClick={handleMarkPaid} disabled={localStatus === "Paid"}>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {localStatus === "Paid" ? "Paid" : "Mark as paid"}
+              </Button>
+            )}
+            {!isDraft && (
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleReminder}>
+                <Send className="h-3.5 w-3.5" />
+                Send reminder
+              </Button>
+            )}
           </>
         ) : (
           <>
