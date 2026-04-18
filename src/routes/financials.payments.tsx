@@ -7,6 +7,7 @@ import { Search, DollarSign, Building2, CreditCard as CardIcon, Banknote, MoreHo
 import { mockPayments, type Payment } from "@/lib/mock-data";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useMemo, useState } from "react";
+import { PaymentDetailDrawer } from "@/components/financials/payment-detail-drawer";
 
 export const Route = createFileRoute("/financials/payments")({
   component: PaymentsPage,
@@ -17,6 +18,7 @@ const METHODS: Payment["method"][] = ["ACH", "Card", "Check", "Wire"];
 function PaymentsPage() {
   const [query, setQuery] = useState("");
   const [method, setMethod] = useState<Payment["method"] | "All">("All");
+  const [selected, setSelected] = useState<Payment | null>(null);
 
   const stats = useMemo(() => {
     const total = mockPayments.reduce((s, p) => s + p.amount, 0);
@@ -85,7 +87,11 @@ function PaymentsPage() {
           </thead>
           <tbody>
             {rows.map((p) => (
-              <tr key={p.id} className="h-12 border-b border-border last:border-b-0 hover:bg-secondary/30">
+              <tr
+                key={p.id}
+                onClick={() => setSelected(p)}
+                className="h-12 cursor-pointer border-b border-border last:border-b-0 hover:bg-secondary/30"
+              >
                 <td className="px-4 font-mono text-xs">{p.invoice}</td>
                 <td className="px-4 font-medium">{p.client}</td>
                 <td className="px-4">
@@ -95,7 +101,7 @@ function PaymentsPage() {
                   +{formatMoney(p.amount)}
                 </td>
                 <td className="px-4 text-xs text-muted-foreground">{formatDate(p.receivedAt)}</td>
-                <td className="px-2 text-right">
+                <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </Button>
@@ -112,6 +118,11 @@ function PaymentsPage() {
           </tbody>
         </table>
       </Card>
+
+      <PaymentDetailDrawer
+        payment={selected}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </>
   );
 }

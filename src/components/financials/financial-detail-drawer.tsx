@@ -1,4 +1,5 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -8,7 +9,6 @@ import {
   Eye,
   CheckCircle2,
   Download,
-  Copy,
   FileText,
   CreditCard,
   Mail,
@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import type { Estimate, Invoice } from "@/lib/mock-data";
+import { useState } from "react";
+import { toast } from "sonner";
 
 type Kind = "estimate" | "invoice";
 
@@ -53,6 +55,28 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   const tax = Math.round(subtotal * 0.0825);
   const total = subtotal + tax;
   const activity = generateActivity(record);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [localStatus, setLocalStatus] = useState<string>(record.status);
+
+  const label = isInvoice ? "Invoice" : "Estimate";
+  const handleSend = () => {
+    setLocalStatus("Sent");
+    toast.success(`${label} ${record.number} sent to ${record.client}`);
+  };
+  const handleReminder = () => {
+    toast.success(`Reminder sent to ${record.client}`);
+  };
+  const handleMarkPaid = () => {
+    setLocalStatus("Paid");
+    toast.success(`${record.number} marked as paid · ${formatMoney(total)}`);
+  };
+  const handleAccept = () => {
+    setLocalStatus("Accepted");
+    toast.success(`${record.number} marked accepted`);
+  };
+  const handleDownload = () => {
+    toast.success(`Downloading ${record.number}.pdf`);
+  };
 
   // Header status meta
   const statusTone = getStatusTone(record);
@@ -76,7 +100,7 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
             variant="secondary"
             className={`ml-auto h-5 rounded px-1.5 text-[10px] ${statusTone}`}
           >
-            {record.status}
+            {localStatus}
           </Badge>
         </div>
         <SheetTitle className="mt-2 text-lg font-semibold">{record.client}</SheetTitle>
@@ -150,34 +174,34 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
       <div className="flex flex-wrap items-center gap-2 border-t border-border bg-background px-5 py-3">
         {isInvoice ? (
           <>
-            <Button size="sm" className="h-8 gap-1.5">
+            <Button size="sm" className="h-8 gap-1.5" onClick={handleMarkPaid} disabled={localStatus === "Paid"}>
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Mark as paid
+              {localStatus === "Paid" ? "Paid" : "Mark as paid"}
             </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5">
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleReminder}>
               <Send className="h-3.5 w-3.5" />
               Send reminder
             </Button>
           </>
         ) : (
           <>
-            <Button size="sm" className="h-8 gap-1.5">
+            <Button size="sm" className="h-8 gap-1.5" onClick={handleSend}>
               <Send className="h-3.5 w-3.5" />
               Send to client
             </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5">
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleAccept} disabled={localStatus === "Accepted"}>
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Mark accepted
+              {localStatus === "Accepted" ? "Accepted" : "Mark accepted"}
             </Button>
           </>
         )}
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5">
+        <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={handleDownload}>
           <Download className="h-3.5 w-3.5" />
           PDF
         </Button>
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5">
-          <Copy className="h-3.5 w-3.5" />
-          Duplicate
+        <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={() => setPreviewOpen(true)}>
+          <Eye className="h-3.5 w-3.5" />
+          Preview
         </Button>
         <div className="ml-auto">
           <Button size="sm" variant="ghost" className="h-8" onClick={onClose}>
@@ -185,7 +209,127 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
           </Button>
         </div>
       </div>
+
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        record={record}
+        items={items}
+        subtotal={subtotal}
+        tax={tax}
+        total={total}
+      />
     </div>
+  );
+}
+
+function PdfPreviewDialog({
+  open,
+  onOpenChange,
+  record,
+  items,
+  subtotal,
+  tax,
+  total,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  record: FinancialRecord;
+  items: { title: string; note: string; qty: number; price: number }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+}) {
+  const isInvoice = record.kind === "invoice";
+  const dateLine = isInvoice
+    ? `Due ${formatDate((record as Invoice).due)}`
+    : `Issued ${formatDate((record as Estimate).issued)}`;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl p-0">
+        <DialogHeader className="border-b border-border px-6 py-3">
+          <DialogTitle className="text-sm font-medium text-muted-foreground">
+            PDF Preview · {record.number}
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="max-h-[75vh]">
+          <div className="bg-secondary/30 p-6">
+            <div className="mx-auto max-w-[640px] rounded-md bg-white p-10 text-slate-900 shadow-lg">
+              <div className="flex items-start justify-between border-b border-slate-200 pb-6">
+                <div>
+                  <div className="text-2xl font-semibold tracking-tight">Romero & Co.</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    412 Maple Ave · Austin, TX 78704<br />
+                    hello@romero.co · (512) 555-0144
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    {isInvoice ? "Invoice" : "Estimate"}
+                  </div>
+                  <div className="mt-1 font-mono text-sm">{record.number}</div>
+                  <div className="mt-2 text-xs text-slate-500">{dateLine}</div>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <div className="font-semibold uppercase tracking-wide text-slate-400">Bill to</div>
+                  <div className="mt-1 font-medium text-slate-800">{record.client}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold uppercase tracking-wide text-slate-400">Amount due</div>
+                  <div className="mt-1 text-lg font-semibold tabular-nums">{formatMoney(total)}</div>
+                </div>
+              </div>
+
+              <table className="mt-6 w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-300 text-[10px] uppercase tracking-wide text-slate-500">
+                    <th className="py-2 text-left font-semibold">Description</th>
+                    <th className="w-12 py-2 text-right font-semibold">Qty</th>
+                    <th className="w-20 py-2 text-right font-semibold">Price</th>
+                    <th className="w-24 py-2 text-right font-semibold">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, idx) => (
+                    <tr key={idx} className="border-b border-slate-100">
+                      <td className="py-2">
+                        <div className="font-medium">{it.title}</div>
+                        <div className="text-[10px] text-slate-500">{it.note}</div>
+                      </td>
+                      <td className="py-2 text-right tabular-nums">{it.qty}</td>
+                      <td className="py-2 text-right tabular-nums">{formatMoney(it.price)}</td>
+                      <td className="py-2 text-right tabular-nums">{formatMoney(it.qty * it.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-4 ml-auto w-56 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-500">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums">{formatMoney(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Tax (8.25%)</span>
+                  <span className="tabular-nums">{formatMoney(tax)}</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t border-slate-300 pt-2 text-sm font-semibold">
+                  <span>Total</span>
+                  <span className="tabular-nums">{formatMoney(total)}</span>
+                </div>
+              </div>
+
+              <div className="mt-10 border-t border-slate-200 pt-4 text-[10px] text-slate-400">
+                Thank you for your business. Payment is due within 30 days of receipt.
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }
 
