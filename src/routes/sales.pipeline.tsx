@@ -282,6 +282,12 @@ function PipelinePage() {
           </div>
         </Card>
       )}
+
+      <DealDetailDrawer
+        deal={selected ? deals.find((d) => d.id === selected.id) ?? selected : null}
+        onOpenChange={(o) => !o && setSelected(null)}
+        onStageChange={handleStageChange}
+      />
     </>
   );
 }
