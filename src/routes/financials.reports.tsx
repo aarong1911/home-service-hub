@@ -293,3 +293,68 @@ function SummaryCard({
     </Card>
   );
 }
+
+function Legendish({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+type CashflowWeek = {
+  weekStart: string;
+  label: string;
+  received: number;
+  scheduled: number;
+};
+
+/**
+ * 13-week (~90d) bucketed series from the current week's Monday.
+ * Received: mockPayments with status omitted/"Received".
+ * Scheduled: cross-route scheduled-payments store, bucketed by dueDate.
+ */
+function buildCashflow(received: Payment[], scheduled: Payment[]): CashflowWeek[] {
+  const WEEKS = 13;
+  const dayMs = 86_400_000;
+  const start = startOfWeek(new Date());
+  const buckets: CashflowWeek[] = Array.from({ length: WEEKS }, (_, i) => {
+    const d = new Date(start.getTime() + i * 7 * dayMs);
+    return {
+      weekStart: d.toISOString().slice(0, 10),
+      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      received: 0,
+      scheduled: 0,
+    };
+  });
+  const end = new Date(start.getTime() + WEEKS * 7 * dayMs);
+
+  const indexOf = (iso: string): number => {
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t) || t < start.getTime() || t >= end.getTime()) return -1;
+    return Math.floor((t - start.getTime()) / (7 * dayMs));
+  };
+
+  for (const p of received) {
+    if ((p.status ?? "Received") !== "Received") continue;
+    const idx = indexOf(p.receivedAt);
+    if (idx >= 0) buckets[idx].received += p.amount;
+  }
+  for (const p of scheduled) {
+    if (p.status !== "Scheduled") continue;
+    const idx = indexOf(p.dueDate ?? p.receivedAt);
+    if (idx >= 0) buckets[idx].scheduled += p.amount;
+  }
+  return buckets;
+}
+
+function startOfWeek(d: Date): Date {
+  // UTC Monday-start week to keep SSR/CSR aligned.
+  const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dow = utc.getUTCDay();
+  const diff = (dow + 6) % 7;
+  utc.setUTCDate(utc.getUTCDate() - diff);
+  return utc;
+}
