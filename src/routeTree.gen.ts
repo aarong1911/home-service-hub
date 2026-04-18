@@ -18,6 +18,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
+import { Route as SettingsTemplatesRouteImport } from './routes/settings.templates'
 import { Route as SettingsTeamRouteImport } from './routes/settings.team'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
@@ -79,6 +80,11 @@ const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsTemplatesRoute = SettingsTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsTeamRoute = SettingsTeamRouteImport.update({
   id: '/team',
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/settings/templates': typeof SettingsTemplatesRoute
   '/projects/': typeof ProjectsIndexRoute
   '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
   '/automation/workflows/': typeof AutomationWorkflowsIndexRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/settings/templates': typeof SettingsTemplatesRoute
   '/projects': typeof ProjectsIndexRoute
   '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
   '/automation/workflows': typeof AutomationWorkflowsIndexRoute
@@ -240,6 +248,7 @@ export interface FileRoutesById {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
+  '/settings/templates': typeof SettingsTemplatesRoute
   '/projects/': typeof ProjectsIndexRoute
   '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
   '/automation/workflows/': typeof AutomationWorkflowsIndexRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/integrations'
     | '/settings/team'
+    | '/settings/templates'
     | '/projects/'
     | '/automation/workflows/$workflowId'
     | '/automation/workflows/'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/integrations'
     | '/settings/team'
+    | '/settings/templates'
     | '/projects'
     | '/automation/workflows/$workflowId'
     | '/automation/workflows'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/integrations'
     | '/settings/team'
+    | '/settings/templates'
     | '/projects/'
     | '/automation/workflows/$workflowId'
     | '/automation/workflows/'
@@ -410,6 +422,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/projects/'
       preLoaderRoute: typeof ProjectsIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings/templates': {
+      id: '/settings/templates'
+      path: '/templates'
+      fullPath: '/settings/templates'
+      preLoaderRoute: typeof SettingsTemplatesRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/settings/team': {
       id: '/settings/team'
@@ -548,12 +567,14 @@ interface SettingsRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
   SettingsTeamRoute: typeof SettingsTeamRoute
+  SettingsTemplatesRoute: typeof SettingsTemplatesRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBillingRoute: SettingsBillingRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
   SettingsTeamRoute: SettingsTeamRoute,
+  SettingsTemplatesRoute: SettingsTemplatesRoute,
 }
 
 const SettingsRouteWithChildren = SettingsRoute._addFileChildren(

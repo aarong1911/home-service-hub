@@ -1,0 +1,971 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Mail, MessageSquare, FileSpreadsheet, ListChecks, FileText, Plus, Search, Star,
+  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp,
+} from "lucide-react";
+import { formatMoney } from "@/lib/format";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/settings/templates")({
+  head: () => ({
+    meta: [
+      { title: "Templates — Settings" },
+      { name: "description", content: "Reusable message, estimate, project plan, and document templates." },
+    ],
+  }),
+  component: TemplatesPage,
+});
+
+// ============ Types & seed data ============
+type TemplateKind = "message" | "estimate" | "plan" | "document";
+type MessageChannel = "email" | "sms";
+
+type BaseTemplate = {
+  id: string;
+  kind: TemplateKind;
+  name: string;
+  category: string;
+  description: string;
+  tags: string[];
+  owner: string;
+  updatedAt: string;
+  uses: number;
+  starred: boolean;
+};
+
+type MessageTemplate = BaseTemplate & {
+  kind: "message";
+  channel: MessageChannel;
+  subject?: string;
+  body: string;
+  openRate?: number;
+  replyRate?: number;
+};
+
+type EstimateLine = { name: string; qty: number; unit: string; price: number };
+type EstimateTemplate = BaseTemplate & {
+  kind: "estimate";
+  projectType: string;
+  lines: EstimateLine[];
+  markup: number; // percent
+  notes: string;
+};
+
+type PlanTask = { name: string; phase: string; days: number; trade?: string };
+type PlanTemplate = BaseTemplate & {
+  kind: "plan";
+  projectType: string;
+  durationDays: number;
+  tasks: PlanTask[];
+};
+
+type DocumentTemplate = BaseTemplate & {
+  kind: "document";
+  docType: string;
+  body: string;
+};
+
+type AnyTemplate = MessageTemplate | EstimateTemplate | PlanTemplate | DocumentTemplate;
+
+const MERGE_TAGS = [
+  "{{first_name}}", "{{last_name}}", "{{project_address}}", "{{project_type}}",
+  "{{owner_name}}", "{{company_name}}", "{{deposit_amount}}", "{{start_date}}",
+  "{{estimate_total}}", "{{deposit_due}}",
+];
+
+const SEED: AnyTemplate[] = [
+  // Messages — Email
+  {
+    id: "m1", kind: "message", channel: "email", name: "New lead — welcome",
+    category: "Welcome", description: "First touch within 5 minutes of an inbound lead.",
+    tags: ["welcome", "speed-to-lead"], owner: "Maria Chen", updatedAt: "2026-04-12", uses: 482, starred: true,
+    subject: "Thanks for reaching out, {{first_name}}!",
+    body: "Hi {{first_name}},\n\nThanks for considering {{company_name}} for your {{project_type}} project at {{project_address}}. I'd love to schedule a 15-min discovery call to learn more about your goals.\n\nWhat times work best this week?\n\n— {{owner_name}}",
+    openRate: 64, replyRate: 31,
+  },
+  {
+    id: "m2", kind: "message", channel: "email", name: "Estimate follow-up (3 day)",
+    category: "Follow-up", description: "Sent 3 days after estimate delivery if no response.",
+    tags: ["follow-up", "estimate"], owner: "James Park", updatedAt: "2026-04-08", uses: 318, starred: true,
+    subject: "Quick check on your {{project_type}} estimate",
+    body: "Hi {{first_name}},\n\nJust circling back on the {{project_type}} estimate I sent ({{estimate_total}}). Happy to walk you through any line item or adjust scope.\n\nWould a quick call Thursday or Friday work?\n\n— {{owner_name}}",
+    openRate: 58, replyRate: 22,
+  },
+  {
+    id: "m3", kind: "message", channel: "email", name: "Deposit reminder",
+    category: "Billing", description: "Friendly nudge for outstanding deposits.",
+    tags: ["billing", "reminder"], owner: "Priya Shah", updatedAt: "2026-04-01", uses: 164, starred: false,
+    subject: "Reserve your start date — deposit due {{deposit_due}}",
+    body: "Hi {{first_name}},\n\nWe're holding {{start_date}} for your {{project_type}}. To lock it in, we need the {{deposit_amount}} deposit by {{deposit_due}}.\n\nPay securely here: [payment link]\n\n— {{owner_name}}",
+    openRate: 71, replyRate: 44,
+  },
+  {
+    id: "m4", kind: "message", channel: "email", name: "Project complete — review request",
+    category: "Reputation", description: "Sent at substantial completion to invite a Google review.",
+    tags: ["reviews", "reputation"], owner: "Maria Chen", updatedAt: "2026-03-28", uses: 96, starred: false,
+    subject: "It was a pleasure, {{first_name}} 🛠️",
+    body: "Hi {{first_name}},\n\nWe loved working on your {{project_type}} at {{project_address}}. If you have 60 seconds, a quick Google review helps us keep doing what we love:\n\n[review link]\n\nThanks again!\n— {{owner_name}}",
+    openRate: 68, replyRate: 18,
+  },
+  // Messages — SMS
+  {
+    id: "m5", kind: "message", channel: "sms", name: "Speed-to-lead text",
+    category: "Welcome", description: "Auto-text within 60 seconds of new lead.",
+    tags: ["sms", "speed-to-lead"], owner: "James Park", updatedAt: "2026-04-15", uses: 612, starred: true,
+    body: "Hey {{first_name}}, this is {{owner_name}} from {{company_name}}. Got your inquiry for {{project_type}} — got 5 min for a quick chat? Reply YES and I'll call.",
+    openRate: 98, replyRate: 47,
+  },
+  {
+    id: "m6", kind: "message", channel: "sms", name: "Site visit reminder",
+    category: "Scheduling", description: "Day-before SMS reminder with arrival window.",
+    tags: ["sms", "scheduling"], owner: "Priya Shah", updatedAt: "2026-04-10", uses: 287, starred: false,
+    body: "Reminder: {{owner_name}} from {{company_name}} will be at {{project_address}} tomorrow between 9–10am. Reply RESCHED to change.",
+    openRate: 96, replyRate: 12,
+  },
+
+  // Estimate templates
+  {
+    id: "e1", kind: "estimate", name: "Kitchen — Mid-range remodel",
+    category: "Kitchen", description: "Standard 150 sqft kitchen with semi-custom cabinets and quartz.",
+    tags: ["kitchen", "mid-range"], owner: "Maria Chen", updatedAt: "2026-04-11", uses: 142, starred: true,
+    projectType: "Kitchen", markup: 22,
+    lines: [
+      { name: "Demo & disposal", qty: 1, unit: "lot", price: 3800 },
+      { name: "Semi-custom cabinetry", qty: 22, unit: "lf", price: 480 },
+      { name: "Quartz countertops", qty: 48, unit: "sf", price: 95 },
+      { name: "Tile backsplash + install", qty: 32, unit: "sf", price: 28 },
+      { name: "Plumbing rough + finish", qty: 1, unit: "lot", price: 4200 },
+      { name: "Electrical rough + finish", qty: 1, unit: "lot", price: 3600 },
+      { name: "Appliance install", qty: 1, unit: "lot", price: 1200 },
+      { name: "Painting (kitchen + adj. dining)", qty: 1, unit: "lot", price: 2400 },
+      { name: "Project management", qty: 1, unit: "lot", price: 4800 },
+    ],
+    notes: "Excludes flooring, structural changes, and appliance cost. 50% deposit, 40% midpoint, 10% completion.",
+  },
+  {
+    id: "e2", kind: "estimate", name: "Primary bath — full gut",
+    category: "Bath", description: "100 sqft primary bath with tile shower, freestanding tub, double vanity.",
+    tags: ["bath", "premium"], owner: "James Park", updatedAt: "2026-04-05", uses: 88, starred: false,
+    projectType: "Bath", markup: 25,
+    lines: [
+      { name: "Demo & disposal", qty: 1, unit: "lot", price: 2800 },
+      { name: "Plumbing reroute + finish", qty: 1, unit: "lot", price: 5400 },
+      { name: "Curbless shower assembly + waterproofing", qty: 1, unit: "lot", price: 4200 },
+      { name: "Floor + wall tile install", qty: 220, unit: "sf", price: 18 },
+      { name: "Double vanity install", qty: 1, unit: "ea", price: 1800 },
+      { name: "Freestanding tub install", qty: 1, unit: "ea", price: 1400 },
+      { name: "Heated floor mat + thermostat", qty: 1, unit: "lot", price: 1800 },
+      { name: "Project management", qty: 1, unit: "lot", price: 3600 },
+    ],
+    notes: "Tile and fixtures supplied by owner. 14-week lead time on vanity.",
+  },
+  {
+    id: "e3", kind: "estimate", name: "Single-story addition — 400 sqft",
+    category: "Addition", description: "400 sqft slab-on-grade addition, framed, dried-in, finished.",
+    tags: ["addition"], owner: "Priya Shah", updatedAt: "2026-03-29", uses: 31, starred: false,
+    projectType: "Addition", markup: 20,
+    lines: [
+      { name: "Site prep + foundation", qty: 1, unit: "lot", price: 28000 },
+      { name: "Framing + sheathing", qty: 400, unit: "sf", price: 38 },
+      { name: "Roofing + flashing", qty: 1, unit: "lot", price: 9200 },
+      { name: "Windows + exterior doors", qty: 1, unit: "lot", price: 7400 },
+      { name: "MEP rough", qty: 1, unit: "lot", price: 14800 },
+      { name: "Insulation + drywall", qty: 400, unit: "sf", price: 14 },
+      { name: "Interior finish + paint", qty: 1, unit: "lot", price: 12400 },
+      { name: "Permits + inspections", qty: 1, unit: "lot", price: 3800 },
+      { name: "Project management", qty: 1, unit: "lot", price: 14000 },
+    ],
+    notes: "Excludes flooring and HVAC equipment. 12–14 week schedule from permit.",
+  },
+
+  // Project plan templates
+  {
+    id: "p1", kind: "plan", name: "Kitchen remodel — 8 week",
+    category: "Kitchen", description: "Standard kitchen with semi-custom cabinets.",
+    tags: ["kitchen"], owner: "Maria Chen", updatedAt: "2026-04-09", uses: 67, starred: true,
+    projectType: "Kitchen", durationDays: 56,
+    tasks: [
+      { name: "Pre-construction meeting", phase: "Pre-con", days: 1 },
+      { name: "Order cabinets + countertops", phase: "Pre-con", days: 1 },
+      { name: "Demo & disposal", phase: "Demo", days: 2, trade: "Labor" },
+      { name: "Plumbing rough", phase: "Rough-in", days: 2, trade: "Plumbing" },
+      { name: "Electrical rough", phase: "Rough-in", days: 2, trade: "Electrical" },
+      { name: "Drywall + paint prep", phase: "Finish prep", days: 4, trade: "Drywall" },
+      { name: "Cabinet install", phase: "Install", days: 3, trade: "Carpentry" },
+      { name: "Countertop template + install", phase: "Install", days: 7 },
+      { name: "Backsplash tile", phase: "Finish", days: 2, trade: "Tile" },
+      { name: "Plumbing + electrical finish", phase: "Finish", days: 2 },
+      { name: "Appliance install", phase: "Finish", days: 1 },
+      { name: "Punch list + walkthrough", phase: "Closeout", days: 2 },
+    ],
+  },
+  {
+    id: "p2", kind: "plan", name: "Bathroom remodel — 4 week",
+    category: "Bath", description: "Hall bath with tub-to-shower conversion.",
+    tags: ["bath"], owner: "James Park", updatedAt: "2026-04-02", uses: 48, starred: false,
+    projectType: "Bath", durationDays: 28,
+    tasks: [
+      { name: "Demo & disposal", phase: "Demo", days: 1, trade: "Labor" },
+      { name: "Plumbing reroute", phase: "Rough-in", days: 2, trade: "Plumbing" },
+      { name: "Electrical updates", phase: "Rough-in", days: 1, trade: "Electrical" },
+      { name: "Shower pan + waterproofing", phase: "Rough-in", days: 2, trade: "Tile" },
+      { name: "Drywall + skim", phase: "Finish prep", days: 3, trade: "Drywall" },
+      { name: "Tile install", phase: "Finish", days: 5, trade: "Tile" },
+      { name: "Vanity + fixtures install", phase: "Finish", days: 2, trade: "Plumbing" },
+      { name: "Paint + trim", phase: "Finish", days: 2 },
+      { name: "Punch list", phase: "Closeout", days: 1 },
+    ],
+  },
+  {
+    id: "p3", kind: "plan", name: "Whole home — 16 week",
+    category: "Whole Home", description: "Full interior renovation, staying in scope.",
+    tags: ["whole-home", "premium"], owner: "Priya Shah", updatedAt: "2026-03-25", uses: 12, starred: false,
+    projectType: "Whole Home", durationDays: 112,
+    tasks: [
+      { name: "Pre-construction & permitting", phase: "Pre-con", days: 14 },
+      { name: "Demo (all rooms)", phase: "Demo", days: 7 },
+      { name: "Structural framing changes", phase: "Frame", days: 10, trade: "Carpentry" },
+      { name: "MEP rough (all trades)", phase: "Rough-in", days: 14 },
+      { name: "Insulation + drywall", phase: "Finish prep", days: 12, trade: "Drywall" },
+      { name: "Flooring install", phase: "Finish", days: 8, trade: "Flooring" },
+      { name: "Cabinetry + millwork", phase: "Finish", days: 10, trade: "Carpentry" },
+      { name: "Tile + stone", phase: "Finish", days: 12, trade: "Tile" },
+      { name: "Paint + trim", phase: "Finish", days: 10 },
+      { name: "MEP finish + appliances", phase: "Finish", days: 8 },
+      { name: "Final inspections + punch", phase: "Closeout", days: 7 },
+    ],
+  },
+
+  // Document templates
+  {
+    id: "d1", kind: "document", name: "Construction agreement",
+    category: "Contract", description: "Master construction agreement for residential remodels.",
+    tags: ["contract", "legal"], owner: "Maria Chen", updatedAt: "2026-04-01", uses: 156, starred: true,
+    docType: "Contract",
+    body: "CONSTRUCTION AGREEMENT\n\nBetween {{company_name}} (\"Contractor\") and {{first_name}} {{last_name}} (\"Owner\")\nProject location: {{project_address}}\n\n1. SCOPE OF WORK\nContractor shall perform the {{project_type}} work as detailed in the attached Estimate dated [date], totaling {{estimate_total}}.\n\n2. PAYMENT SCHEDULE\n- Deposit: {{deposit_amount}} due upon signing\n- Progress payments per attached schedule\n- Final payment upon substantial completion\n\n3. CHANGE ORDERS\nAll changes must be documented in writing and signed by both parties.\n\n4. WARRANTY\nWorkmanship warranted for one (1) year from substantial completion.\n\n[full terms continue…]\n\nOwner: ____________________  Date: __________\nContractor: ________________  Date: __________",
+  },
+  {
+    id: "d2", kind: "document", name: "Change order",
+    category: "Change Order", description: "Standard CO with cost and schedule impact.",
+    tags: ["change-order"], owner: "James Park", updatedAt: "2026-03-30", uses: 84, starred: false,
+    docType: "Change Order",
+    body: "CHANGE ORDER #__\n\nProject: {{project_type}} at {{project_address}}\nDate: [date]\n\nDESCRIPTION OF CHANGE\n[describe scope change]\n\nCOST IMPACT: $______\nSCHEDULE IMPACT: ___ days\n\nNew contract total: $______\n\nApproved by Owner: ____________________  Date: __________\nApproved by Contractor: ________________  Date: __________",
+  },
+  {
+    id: "d3", kind: "document", name: "Conditional lien waiver",
+    category: "Lien Waiver", description: "Conditional waiver upon progress payment.",
+    tags: ["lien"], owner: "Priya Shah", updatedAt: "2026-03-22", uses: 72, starred: false,
+    docType: "Lien Waiver",
+    body: "CONDITIONAL WAIVER AND RELEASE UPON PROGRESS PAYMENT\n\nProperty: {{project_address}}\nUndersigned: {{company_name}}\nOwner: {{first_name}} {{last_name}}\n\nUpon receipt of payment in the amount of $______, the undersigned waives any mechanic's lien rights through [through date].\n\nSigned: ____________________  Date: __________",
+  },
+  {
+    id: "d4", kind: "document", name: "1-year warranty letter",
+    category: "Warranty", description: "Issued at project closeout.",
+    tags: ["warranty", "closeout"], owner: "Maria Chen", updatedAt: "2026-03-15", uses: 41, starred: false,
+    docType: "Warranty",
+    body: "WORKMANSHIP WARRANTY\n\nDear {{first_name}},\n\nThank you for choosing {{company_name}} for your {{project_type}} at {{project_address}}.\n\n{{company_name}} warrants the workmanship for a period of one (1) year from {{start_date}}. Manufacturer warranties on materials and equipment are passed through and may extend longer.\n\nFor warranty service, contact: warranty@{{company_name}}.com\n\nWarmly,\n{{owner_name}}",
+  },
+];
+
+const KIND_META: Record<TemplateKind, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  message: { label: "Messages", icon: Mail },
+  estimate: { label: "Estimates", icon: FileSpreadsheet },
+  plan: { label: "Project plans", icon: ListChecks },
+  document: { label: "Documents", icon: FileText },
+};
+
+// ============ Component ============
+function TemplatesPage() {
+  const [items, setItems] = useState<AnyTemplate[]>(SEED);
+  const [kind, setKind] = useState<TemplateKind>("message");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string>("All");
+  const [selectedId, setSelectedId] = useState<string>(SEED[0].id);
+
+  const ofKind = useMemo(() => items.filter((t) => t.kind === kind), [items, kind]);
+  const categories = useMemo(() => ["All", ...Array.from(new Set(ofKind.map((t) => t.category)))], [ofKind]);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return ofKind.filter((t) => {
+      if (category !== "All" && t.category !== category) return false;
+      if (!q) return true;
+      return (
+        t.name.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.tags.some((tag) => tag.toLowerCase().includes(q))
+      );
+    });
+  }, [ofKind, query, category]);
+
+  const selected = items.find((t) => t.id === selectedId && t.kind === kind) ?? filtered[0];
+
+  // Reset selection when switching kinds
+  const switchKind = (k: TemplateKind) => {
+    setKind(k);
+    setCategory("All");
+    setQuery("");
+    const first = items.find((t) => t.kind === k);
+    if (first) setSelectedId(first.id);
+  };
+
+  const updateSelected = (patch: Partial<AnyTemplate>) => {
+    if (!selected) return;
+    setItems((prev) =>
+      prev.map((t) => (t.id === selected.id ? ({ ...t, ...patch, updatedAt: new Date().toISOString().slice(0, 10) } as AnyTemplate) : t)),
+    );
+  };
+
+  const toggleStar = (id: string) => {
+    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, starred: !t.starred } : t)));
+  };
+
+  const duplicate = (t: AnyTemplate) => {
+    const copy = { ...t, id: `${t.id}-${Date.now()}`, name: `${t.name} (copy)`, uses: 0, starred: false } as AnyTemplate;
+    setItems((prev) => [copy, ...prev]);
+    setSelectedId(copy.id);
+    toast.success("Template duplicated");
+  };
+
+  const remove = (id: string) => {
+    setItems((prev) => prev.filter((t) => t.id !== id));
+    toast.success("Template deleted");
+  };
+
+  const createNew = () => {
+    const base = {
+      id: `new-${Date.now()}`,
+      name: "Untitled template",
+      category: "General",
+      description: "",
+      tags: [],
+      owner: "Maria Chen",
+      updatedAt: new Date().toISOString().slice(0, 10),
+      uses: 0,
+      starred: false,
+    };
+    let n: AnyTemplate;
+    if (kind === "message") {
+      n = { ...base, kind: "message", channel: "email", subject: "", body: "" };
+    } else if (kind === "estimate") {
+      n = { ...base, kind: "estimate", projectType: "Kitchen", lines: [], markup: 20, notes: "" };
+    } else if (kind === "plan") {
+      n = { ...base, kind: "plan", projectType: "Kitchen", durationDays: 0, tasks: [] };
+    } else {
+      n = { ...base, kind: "document", docType: "Contract", body: "" };
+    }
+    setItems((prev) => [n, ...prev]);
+    setSelectedId(n.id);
+  };
+
+  // Analytics
+  const analytics = useMemo(() => {
+    const totalUses = ofKind.reduce((s, t) => s + t.uses, 0);
+    const msgs = ofKind.filter((t): t is MessageTemplate => t.kind === "message");
+    const avgOpen = msgs.length ? Math.round(msgs.reduce((s, m) => s + (m.openRate ?? 0), 0) / msgs.length) : null;
+    const avgReply = msgs.length ? Math.round(msgs.reduce((s, m) => s + (m.replyRate ?? 0), 0) / msgs.length) : null;
+    const top = [...ofKind].sort((a, b) => b.uses - a.uses)[0];
+    return { totalUses, avgOpen, avgReply, top };
+  }, [ofKind]);
+
+  return (
+    <div className="space-y-4">
+      {/* Kind tabs */}
+      <Tabs value={kind} onValueChange={(v) => switchKind(v as TemplateKind)}>
+        <TabsList>
+          {(Object.keys(KIND_META) as TemplateKind[]).map((k) => {
+            const Icon = KIND_META[k].icon;
+            return (
+              <TabsTrigger key={k} value={k} className="gap-1.5">
+                <Icon className="h-3.5 w-3.5" />
+                {KIND_META[k].label}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
+
+      {/* Analytics strip */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <AnalyticsTile icon={BarChart3} label="Total uses (90d)" value={analytics.totalUses.toLocaleString()} />
+        <AnalyticsTile
+          icon={TrendingUp}
+          label={kind === "message" ? "Avg open rate" : "Templates"}
+          value={kind === "message" && analytics.avgOpen != null ? `${analytics.avgOpen}%` : String(ofKind.length)}
+        />
+        <AnalyticsTile
+          icon={Send}
+          label={kind === "message" ? "Avg reply rate" : "Categories"}
+          value={kind === "message" && analytics.avgReply != null ? `${analytics.avgReply}%` : String(categories.length - 1)}
+        />
+        <AnalyticsTile icon={Clock} label="Most used" value={analytics.top?.name ?? "—"} small />
+      </div>
+
+      {/* Library + editor */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_1fr]">
+        {/* Library */}
+        <Card className="flex flex-col overflow-hidden">
+          <div className="space-y-2 border-b p-3">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search templates…"
+                  className="h-8 pl-7 text-sm"
+                />
+              </div>
+              <Button size="sm" className="h-8" onClick={createNew}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCategory(c)}
+                  className={
+                    "rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors " +
+                    (category === c
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/70")
+                  }
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <ScrollArea className="max-h-[640px] flex-1">
+            <div className="divide-y">
+              {filtered.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedId(t.id)}
+                  className={
+                    "block w-full px-3 py-2.5 text-left transition-colors " +
+                    (selected?.id === t.id ? "bg-primary/5" : "hover:bg-secondary/50")
+                  }
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-medium">{t.name}</span>
+                        {t.kind === "message" && (
+                          <Badge variant="secondary" className="h-4 px-1 text-[9px] uppercase">
+                            {(t as MessageTemplate).channel}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{t.description}</div>
+                      <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>{t.category}</span>
+                        <span>·</span>
+                        <span>{t.uses.toLocaleString()} uses</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleStar(t.id);
+                      }}
+                      className="shrink-0"
+                    >
+                      <Star
+                        className={
+                          "h-3.5 w-3.5 " +
+                          (t.starred ? "fill-amber-400 text-amber-400" : "text-muted-foreground")
+                        }
+                      />
+                    </button>
+                  </div>
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <div className="p-6 text-center text-xs text-muted-foreground">No templates match.</div>
+              )}
+            </div>
+          </ScrollArea>
+        </Card>
+
+        {/* Editor + preview */}
+        <Card className="overflow-hidden">
+          {selected ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2">
+              <div className="space-y-4 border-b p-4 lg:border-b-0 lg:border-r">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-xs">Name</Label>
+                    <Input
+                      value={selected.name}
+                      onChange={(e) => updateSelected({ name: e.target.value } as Partial<AnyTemplate>)}
+                      className="h-9 text-sm font-medium"
+                    />
+                  </div>
+                  <div className="flex gap-1 pt-5">
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => duplicate(selected)}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => remove(selected.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Category</Label>
+                    <Input
+                      value={selected.category}
+                      onChange={(e) => updateSelected({ category: e.target.value } as Partial<AnyTemplate>)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Owner</Label>
+                    <Input
+                      value={selected.owner}
+                      onChange={(e) => updateSelected({ owner: e.target.value } as Partial<AnyTemplate>)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Description</Label>
+                  <Input
+                    value={selected.description}
+                    onChange={(e) => updateSelected({ description: e.target.value } as Partial<AnyTemplate>)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Kind-specific fields */}
+                {selected.kind === "message" && (
+                  <MessageEditor t={selected} onChange={(p) => updateSelected(p)} />
+                )}
+                {selected.kind === "estimate" && (
+                  <EstimateEditor t={selected} onChange={(p) => updateSelected(p)} />
+                )}
+                {selected.kind === "plan" && <PlanEditor t={selected} onChange={(p) => updateSelected(p)} />}
+                {selected.kind === "document" && (
+                  <DocumentEditor t={selected} onChange={(p) => updateSelected(p)} />
+                )}
+
+                <div className="rounded-md border bg-muted/30 p-2.5">
+                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Merge tags
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {MERGE_TAGS.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          navigator.clipboard.writeText(tag).catch(() => {});
+                          toast.success(`Copied ${tag}`);
+                        }}
+                        className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] hover:bg-secondary"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live preview */}
+              <div className="bg-muted/20 p-4">
+                <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Eye className="h-3 w-3" /> Live preview
+                </div>
+                <Card className="overflow-hidden">
+                  <Preview t={selected} />
+                </Card>
+                {selected.kind === "message" &&
+                  ((selected as MessageTemplate).openRate != null || (selected as MessageTemplate).replyRate != null) && (
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-md border bg-background p-2">
+                        <div className="text-[10px] uppercase text-muted-foreground">Open rate</div>
+                        <div className="text-base font-semibold">{(selected as MessageTemplate).openRate}%</div>
+                      </div>
+                      <div className="rounded-md border bg-background p-2">
+                        <div className="text-[10px] uppercase text-muted-foreground">Reply rate</div>
+                        <div className="text-base font-semibold">{(selected as MessageTemplate).replyRate}%</div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-12 text-center text-sm text-muted-foreground">Select a template to edit.</div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ============ Editors ============
+function MessageEditor({ t, onChange }: { t: MessageTemplate; onChange: (p: Partial<MessageTemplate>) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="text-xs">Channel</Label>
+        <Select value={t.channel} onValueChange={(v) => onChange({ channel: v as MessageChannel })}>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="email">
+              <span className="flex items-center gap-1.5">
+                <Mail className="h-3 w-3" /> Email
+              </span>
+            </SelectItem>
+            <SelectItem value="sms">
+              <span className="flex items-center gap-1.5">
+                <MessageSquare className="h-3 w-3" /> SMS
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {t.channel === "email" && (
+        <div className="space-y-1">
+          <Label className="text-xs">Subject</Label>
+          <Input
+            value={t.subject ?? ""}
+            onChange={(e) => onChange({ subject: e.target.value })}
+            className="h-8 text-sm"
+          />
+        </div>
+      )}
+      <div className="space-y-1">
+        <Label className="text-xs">Body</Label>
+        <Textarea
+          value={t.body}
+          onChange={(e) => onChange({ body: e.target.value })}
+          rows={t.channel === "sms" ? 4 : 9}
+          className="text-sm font-mono"
+        />
+        {t.channel === "sms" && (
+          <div className="text-[10px] text-muted-foreground">{t.body.length} / 320 chars</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EstimateEditor({ t, onChange }: { t: EstimateTemplate; onChange: (p: Partial<EstimateTemplate>) => void }) {
+  const subtotal = t.lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const total = subtotal * (1 + t.markup / 100);
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Project type</Label>
+          <Input
+            value={t.projectType}
+            onChange={(e) => onChange({ projectType: e.target.value })}
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Markup %</Label>
+          <Input
+            type="number"
+            value={t.markup}
+            onChange={(e) => onChange({ markup: Number(e.target.value) || 0 })}
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Line items ({t.lines.length})</Label>
+        <div className="max-h-56 overflow-auto rounded-md border">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-2 py-1 text-left font-medium">Item</th>
+                <th className="px-2 py-1 text-right font-medium">Qty</th>
+                <th className="px-2 py-1 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {t.lines.map((l, i) => (
+                <tr key={i} className="border-t">
+                  <td className="px-2 py-1">{l.name}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{l.qty} {l.unit}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{formatMoney(l.qty * l.price)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>Subtotal {formatMoney(subtotal)} · Markup {t.markup}%</span>
+          <span className="font-semibold text-foreground">Total {formatMoney(total)}</span>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Notes</Label>
+        <Textarea value={t.notes} onChange={(e) => onChange({ notes: e.target.value })} rows={3} className="text-sm" />
+      </div>
+    </div>
+  );
+}
+
+function PlanEditor({ t, onChange }: { t: PlanTemplate; onChange: (p: Partial<PlanTemplate>) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Project type</Label>
+          <Input
+            value={t.projectType}
+            onChange={(e) => onChange({ projectType: e.target.value })}
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Duration (days)</Label>
+          <Input
+            type="number"
+            value={t.durationDays}
+            onChange={(e) => onChange({ durationDays: Number(e.target.value) || 0 })}
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Tasks ({t.tasks.length})</Label>
+        <div className="max-h-72 overflow-auto rounded-md border">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-2 py-1 text-left font-medium">Task</th>
+                <th className="px-2 py-1 text-left font-medium">Phase</th>
+                <th className="px-2 py-1 text-right font-medium">Days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {t.tasks.map((task, i) => (
+                <tr key={i} className="border-t">
+                  <td className="px-2 py-1">{task.name}</td>
+                  <td className="px-2 py-1 text-muted-foreground">{task.phase}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{task.days}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentEditor({ t, onChange }: { t: DocumentTemplate; onChange: (p: Partial<DocumentTemplate>) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="text-xs">Document type</Label>
+        <Input
+          value={t.docType}
+          onChange={(e) => onChange({ docType: e.target.value })}
+          className="h-8 text-sm"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Body</Label>
+        <Textarea
+          value={t.body}
+          onChange={(e) => onChange({ body: e.target.value })}
+          rows={14}
+          className="text-sm font-mono"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============ Preview (with merge tag highlighting) ============
+const SAMPLE: Record<string, string> = {
+  first_name: "Sarah",
+  last_name: "Jenkins",
+  project_address: "14 Elm Street, Portland OR",
+  project_type: "Kitchen remodel",
+  owner_name: "Maria Chen",
+  company_name: "RenoMeta Builders",
+  deposit_amount: "$24,000",
+  start_date: "May 12, 2026",
+  estimate_total: "$96,400",
+  deposit_due: "April 28, 2026",
+};
+
+function renderMerged(text: string) {
+  const parts = text.split(/(\{\{[^}]+\}\})/g);
+  return parts.map((p, i) => {
+    const match = p.match(/^\{\{([^}]+)\}\}$/);
+    if (match) {
+      const val = SAMPLE[match[1].trim()];
+      return (
+        <span key={i} className="rounded bg-primary/10 px-1 text-primary">
+          {val ?? p}
+        </span>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
+}
+
+function Preview({ t }: { t: AnyTemplate }) {
+  if (t.kind === "message") {
+    if (t.channel === "email") {
+      return (
+        <div className="bg-background">
+          <div className="border-b px-4 py-2.5 text-xs">
+            <div className="text-muted-foreground">
+              <span className="font-medium text-foreground">To:</span> {SAMPLE.first_name} {SAMPLE.last_name}
+            </div>
+            <div className="mt-0.5 text-muted-foreground">
+              <span className="font-medium text-foreground">Subject:</span> {renderMerged(t.subject ?? "")}
+            </div>
+          </div>
+          <div className="whitespace-pre-wrap p-4 text-sm leading-relaxed">{renderMerged(t.body)}</div>
+        </div>
+      );
+    }
+    return (
+      <div className="bg-background p-4">
+        <div className="ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
+          <div className="whitespace-pre-wrap">{renderMerged(t.body)}</div>
+        </div>
+        <div className="mt-1 text-right text-[10px] text-muted-foreground">{t.body.length} chars</div>
+      </div>
+    );
+  }
+  if (t.kind === "estimate") {
+    const subtotal = t.lines.reduce((s, l) => s + l.qty * l.price, 0);
+    const markupAmt = subtotal * (t.markup / 100);
+    const total = subtotal + markupAmt;
+    return (
+      <div className="bg-background p-4 text-sm">
+        <div className="mb-3">
+          <div className="text-base font-semibold">{t.name}</div>
+          <div className="text-xs text-muted-foreground">{t.projectType} estimate · {SAMPLE.project_address}</div>
+        </div>
+        <table className="w-full text-xs">
+          <thead className="border-b">
+            <tr className="text-left text-muted-foreground">
+              <th className="pb-1.5 font-medium">Description</th>
+              <th className="pb-1.5 text-right font-medium">Qty</th>
+              <th className="pb-1.5 text-right font-medium">Rate</th>
+              <th className="pb-1.5 text-right font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {t.lines.map((l, i) => (
+              <tr key={i} className="border-b last:border-0">
+                <td className="py-1.5">{l.name}</td>
+                <td className="py-1.5 text-right tabular-nums">{l.qty} {l.unit}</td>
+                <td className="py-1.5 text-right tabular-nums">{formatMoney(l.price)}</td>
+                <td className="py-1.5 text-right tabular-nums">{formatMoney(l.qty * l.price)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2">
+            <tr><td colSpan={3} className="pt-2 text-right text-xs text-muted-foreground">Subtotal</td><td className="pt-2 text-right tabular-nums">{formatMoney(subtotal)}</td></tr>
+            <tr><td colSpan={3} className="text-right text-xs text-muted-foreground">Markup ({t.markup}%)</td><td className="text-right tabular-nums">{formatMoney(markupAmt)}</td></tr>
+            <tr><td colSpan={3} className="pt-1 text-right text-sm font-semibold">Total</td><td className="pt-1 text-right text-sm font-semibold tabular-nums">{formatMoney(total)}</td></tr>
+          </tfoot>
+        </table>
+        {t.notes && (
+          <div className="mt-3 rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">{t.notes}</div>
+        )}
+      </div>
+    );
+  }
+  if (t.kind === "plan") {
+    const phases = Array.from(new Set(t.tasks.map((task) => task.phase)));
+    return (
+      <div className="bg-background p-4 text-sm">
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <div className="text-base font-semibold">{t.name}</div>
+            <div className="text-xs text-muted-foreground">{t.projectType} · {t.durationDays} day plan</div>
+          </div>
+          <div className="text-xs text-muted-foreground">{t.tasks.length} tasks</div>
+        </div>
+        {phases.map((phase) => (
+          <div key={phase} className="mb-3">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{phase}</div>
+            <div className="space-y-1">
+              {t.tasks.filter((task) => task.phase === phase).map((task, i) => (
+                <div key={i} className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span>{task.name}</span>
+                    {task.trade && <Badge variant="secondary" className="h-4 px-1 text-[9px]">{task.trade}</Badge>}
+                  </div>
+                  <span className="text-muted-foreground tabular-nums">{task.days}d</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  // document
+  return (
+    <div className="bg-background p-6 text-sm">
+      <div className="mb-3 text-center">
+        <Badge variant="outline" className="text-[10px] uppercase">{t.docType}</Badge>
+      </div>
+      <div className="whitespace-pre-wrap font-serif leading-relaxed text-foreground/90">
+        {renderMerged(t.body)}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsTile({
+  icon: Icon,
+  label,
+  value,
+  small,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  small?: boolean;
+}) {
+  return (
+    <Card className="p-3">
+      <div className="flex items-start justify-between">
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+          <div className={"mt-1 truncate font-semibold " + (small ? "text-sm" : "text-lg")}>{value}</div>
+        </div>
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+      </div>
+    </Card>
+  );
+}
