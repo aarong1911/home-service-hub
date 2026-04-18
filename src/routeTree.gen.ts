@@ -20,7 +20,6 @@ import { Route as SettingsTeamRouteImport } from './routes/settings.team'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
 import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
-import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as FinancialsReportsRouteImport } from './routes/financials.reports'
 import { Route as FinancialsPaymentsRouteImport } from './routes/financials.payments'
 import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invoices'
@@ -82,11 +81,6 @@ const SalesPipelineRoute = SalesPipelineRouteImport.update({
   path: '/sales/pipeline',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
-  id: '/$projectId',
-  path: '/$projectId',
-  getParentRoute: () => ProjectsRoute,
-} as any)
 const FinancialsReportsRoute = FinancialsReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -119,14 +113,13 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
-  '/projects': typeof ProjectsRouteWithChildren
+  '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
@@ -138,14 +131,13 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
-  '/projects': typeof ProjectsRouteWithChildren
+  '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
@@ -158,14 +150,13 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
-  '/projects': typeof ProjectsRouteWithChildren
+  '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/workflows': typeof AutomationWorkflowsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
@@ -186,7 +177,6 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
-    | '/projects/$projectId'
     | '/sales/pipeline'
     | '/settings/billing'
     | '/settings/integrations'
@@ -205,7 +195,6 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
-    | '/projects/$projectId'
     | '/sales/pipeline'
     | '/settings/billing'
     | '/settings/integrations'
@@ -224,7 +213,6 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
-    | '/projects/$projectId'
     | '/sales/pipeline'
     | '/settings/billing'
     | '/settings/integrations'
@@ -237,7 +225,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   FinancialsRoute: typeof FinancialsRouteWithChildren
   InboxRoute: typeof InboxRoute
-  ProjectsRoute: typeof ProjectsRouteWithChildren
+  ProjectsRoute: typeof ProjectsRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   AutomationWorkflowsRoute: typeof AutomationWorkflowsRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
@@ -322,13 +310,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SalesPipelineRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects/$projectId': {
-      id: '/projects/$projectId'
-      path: '/$projectId'
-      fullPath: '/projects/$projectId'
-      preLoaderRoute: typeof ProjectsProjectIdRouteImport
-      parentRoute: typeof ProjectsRoute
-    }
     '/financials/reports': {
       id: '/financials/reports'
       path: '/reports'
@@ -385,18 +366,6 @@ const FinancialsRouteWithChildren = FinancialsRoute._addFileChildren(
   FinancialsRouteChildren,
 )
 
-interface ProjectsRouteChildren {
-  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
-}
-
-const ProjectsRouteChildren: ProjectsRouteChildren = {
-  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
-}
-
-const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
-  ProjectsRouteChildren,
-)
-
 interface SettingsRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
@@ -419,7 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   FinancialsRoute: FinancialsRouteWithChildren,
   InboxRoute: InboxRoute,
-  ProjectsRoute: ProjectsRouteWithChildren,
+  ProjectsRoute: ProjectsRoute,
   SettingsRoute: SettingsRouteWithChildren,
   AutomationWorkflowsRoute: AutomationWorkflowsRoute,
   SalesPipelineRoute: SalesPipelineRoute,
