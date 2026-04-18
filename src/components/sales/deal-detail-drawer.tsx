@@ -1,17 +1,23 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Mail, Phone, MessageSquare, FileText, CheckCircle2, XCircle, StickyNote,
-  TrendingUp, Calendar, User, Building2,
+  TrendingUp, Calendar, User, Building2, AlertCircle,
 } from "lucide-react";
-import { mockContacts, pipelineStages, type Deal } from "@/lib/mock-data";
+import { mockContacts, pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+
+const LOST_REASONS: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 
 type DealActivityKind = "email-out" | "email-in" | "sms" | "call" | "note" | "stage" | "proposal";
 type DealActivity = {
