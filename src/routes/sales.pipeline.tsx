@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,12 @@ const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 
+type PipelineSearch = { dealId?: string };
+
 export const Route = createFileRoute("/sales/pipeline")({
+  validateSearch: (raw: Record<string, unknown>): PipelineSearch => ({
+    dealId: typeof raw.dealId === "string" ? raw.dealId : undefined,
+  }),
   component: PipelinePage,
 });
 
@@ -27,12 +32,25 @@ const VALUE_FILTERS = ["Any value", "< $25k", "$25k–$75k", "> $75k"] as const;
 type ValueFilter = (typeof VALUE_FILTERS)[number];
 
 function PipelinePage() {
+  const { dealId } = useSearch({ from: "/sales/pipeline" });
+  const navigate = useNavigate({ from: "/sales/pipeline" });
   const [deals, setDeals] = useState<Deal[]>(mockDeals);
   const [search, setSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All owners");
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<Deal | null>(null);
+
+  // Deep-link: open the matching deal drawer when ?dealId=... is present.
+  useEffect(() => {
+    if (dealId) {
+      const found = deals.find((d) => d.id === dealId);
+      if (found && found.id !== selected?.id) setSelected(found);
+    } else if (selected) {
+      setSelected(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealId, deals]);
 
   const handleStageChange = (dealId: string, newStage: string) => {
     setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: newStage, lostReason: undefined, lostAt: undefined } : d)));
@@ -255,7 +273,7 @@ function PipelinePage() {
                                   ref={prov.innerRef}
                                   {...prov.draggableProps}
                                   {...prov.dragHandleProps}
-                                  onClick={() => setSelected(deal)}
+                                  onClick={() => navigate({ search: { dealId: deal.id }, replace: true })}
                                   className={`cursor-pointer p-3 transition-shadow ${snap.isDragging ? "rotate-1 shadow-[var(--shadow-elev-2)]" : "hover:shadow-[var(--shadow-elev-1)]"}`}
                                 >
                                   <div className="mb-1.5 flex items-start justify-between gap-2">
@@ -342,7 +360,7 @@ function PipelinePage() {
                   <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">No deals match your filters.</td></tr>
                 )}
                 {filtered.map((d) => (
-                  <tr key={d.id} onClick={() => setSelected(d)} className="cursor-pointer border-b border-border hover:bg-secondary/40">
+                  <tr key={d.id} onClick={() => navigate({ search: { dealId: d.id }, replace: true })} className="cursor-pointer border-b border-border hover:bg-secondary/40">
                     <td className="py-2.5 pl-4 pr-4 font-medium">{d.name}</td>
                     <td className="py-2.5 pr-4 text-muted-foreground">{d.contactName}</td>
                     <td className="py-2.5 pr-4">
@@ -365,7 +383,7 @@ function PipelinePage() {
 
       <DealDetailDrawer
         deal={selected ? deals.find((d) => d.id === selected.id) ?? selected : null}
-        onOpenChange={(o) => !o && setSelected(null)}
+        onOpenChange={(o) => { if (!o) navigate({ search: { dealId: undefined }, replace: true }); }}
         onStageChange={handleStageChange}
         onMarkLost={handleMarkLost}
       />

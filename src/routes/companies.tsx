@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,12 @@ import { mockCompanies, type Company, type CompanyType, type CompanyStatus } fro
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { toast } from "sonner";
 
+type CompaniesSearch = { companyId?: string };
+
 export const Route = createFileRoute("/companies")({
+  validateSearch: (raw: Record<string, unknown>): CompaniesSearch => ({
+    companyId: typeof raw.companyId === "string" ? raw.companyId : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Companies — RenoMeta" },
@@ -59,6 +64,8 @@ const STATUS_TONE: Record<CompanyStatus, string> = {
 };
 
 function CompaniesPage() {
+  const { companyId } = useSearch({ from: "/companies" });
+  const navigate = useNavigate({ from: "/companies" });
   const [companies, setCompanies] = useState<Company[]>(mockCompanies);
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<"All" | CompanyType>("All");
@@ -66,6 +73,17 @@ function CompaniesPage() {
   const [selected, setSelected] = useState<Company | null>(null);
   const [editing, setEditing] = useState<Company | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Deep-link: open the matching company drawer when ?companyId=... is present.
+  useEffect(() => {
+    if (companyId) {
+      const found = companies.find((c) => c.id === companyId);
+      if (found && found.id !== selected?.id) setSelected(found);
+    } else if (selected) {
+      setSelected(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, companies]);
 
   const stats = useMemo(() => {
     const active = companies.filter((c) => c.status === "active");
@@ -212,7 +230,7 @@ function CompaniesPage() {
               <TableRow
                 key={c.id}
                 className="cursor-pointer"
-                onClick={() => setSelected(c)}
+                onClick={() => navigate({ search: { companyId: c.id }, replace: true })}
               >
                 <TableCell>
                   <div className="flex items-center gap-2.5">
@@ -267,7 +285,7 @@ function CompaniesPage() {
 
       <CompanyDetailSheet
         company={selected}
-        onOpenChange={(o) => !o && setSelected(null)}
+        onOpenChange={(o) => { if (!o) navigate({ search: { companyId: undefined }, replace: true }); }}
         onEdit={(c) => setEditing(c)}
       />
 

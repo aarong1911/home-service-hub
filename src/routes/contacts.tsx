@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -25,14 +25,21 @@ import { formatDistanceToNow } from "date-fns";
 import { Mail as MailIcon, Phone as PhoneIcon, MessageSquare, FileText, CheckCircle2, StickyNote, ArrowRight } from "lucide-react";
 import { formatMoney, formatDateShort } from "@/lib/format";
 
-export const Route = createFileRoute("/contacts")({
-  component: ContactsPage,
-});
-
 const TAG_FILTERS = ["All", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
 type TagFilter = (typeof TAG_FILTERS)[number];
 
+type ContactsSearch = { contactId?: string };
+
+export const Route = createFileRoute("/contacts")({
+  validateSearch: (raw: Record<string, unknown>): ContactsSearch => ({
+    contactId: typeof raw.contactId === "string" ? raw.contactId : undefined,
+  }),
+  component: ContactsPage,
+});
+
 function ContactsPage() {
+  const { contactId } = useSearch({ from: "/contacts" });
+  const navigate = useNavigate({ from: "/contacts" });
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<TagFilter>("All");
   const [selected, setSelected] = useState<Contact | null>(null);
@@ -44,6 +51,18 @@ function ContactsPage() {
       return mockContacts;
     },
   });
+
+  // Deep-link: open the matching contact drawer when ?contactId=... is present.
+  useEffect(() => {
+    if (!contacts) return;
+    if (contactId) {
+      const found = contacts.find((c) => c.id === contactId);
+      if (found && found.id !== selected?.id) setSelected(found);
+    } else if (selected) {
+      setSelected(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactId, contacts]);
 
   const stats = useMemo(() => {
     if (!contacts) return { total: 0, newThisMonth: 0, vip: 0, activeWeek: 0 };
@@ -185,7 +204,7 @@ function ContactsPage() {
               {!isLoading && filtered.map((c) => (
                 <tr
                   key={c.id}
-                  onClick={() => setSelected(c)}
+                  onClick={() => navigate({ search: { contactId: c.id }, replace: true })}
                   className="cursor-pointer border-b border-border transition-colors hover:bg-secondary/40"
                 >
                   <td className="py-2.5 pl-4 pr-2" onClick={(e) => e.stopPropagation()}>
@@ -240,7 +259,7 @@ function ContactsPage() {
         </div>
       </Card>
 
-      <ContactDrawer contact={selected} onOpenChange={(o) => !o && setSelected(null)} />
+      <ContactDrawer contact={selected} onOpenChange={(o) => { if (!o) navigate({ search: { contactId: undefined }, replace: true }); }} />
     </>
   );
 }

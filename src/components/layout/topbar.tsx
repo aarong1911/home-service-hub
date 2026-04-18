@@ -138,7 +138,8 @@ export function Topbar() {
                         value={`contact-${c.id}-${c.name}`}
                         onSelect={() => {
                           setOpen(false);
-                          navigate({ to: "/contacts" });
+                          setQuery("");
+                          navigate({ to: "/contacts", search: { contactId: c.id } });
                         }}
                       >
                         <Avatar className="h-5 w-5">
@@ -160,7 +161,8 @@ export function Topbar() {
                         value={`deal-${d.id}-${d.name}`}
                         onSelect={() => {
                           setOpen(false);
-                          navigate({ to: "/sales/pipeline" });
+                          setQuery("");
+                          navigate({ to: "/sales/pipeline", search: { dealId: d.id } });
                         }}
                       >
                         <Briefcase className="text-muted-foreground" />
@@ -178,6 +180,7 @@ export function Topbar() {
                         value={`project-${p.id}-${p.name}`}
                         onSelect={() => {
                           setOpen(false);
+                          setQuery("");
                           navigate({ to: "/projects/$clientSlug", params: { clientSlug: p.slug } });
                         }}
                       >
@@ -196,7 +199,8 @@ export function Topbar() {
                         value={`company-${c.id}-${c.name}`}
                         onSelect={() => {
                           setOpen(false);
-                          navigate({ to: "/companies" });
+                          setQuery("");
+                          navigate({ to: "/companies", search: { companyId: c.id } });
                         }}
                       >
                         <Building2 className="text-muted-foreground" />
