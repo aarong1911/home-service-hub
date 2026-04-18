@@ -17,7 +17,29 @@ import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
   LineChart, Line,
 } from "recharts";
-import { pipelineVelocityData, recentActivity, upcomingTasks } from "@/lib/mock-data";
+import {
+  pipelineVelocityData, recentActivity, upcomingTasks,
+  mockDeals, mockContacts, mockProjects, mockInvoices,
+} from "@/lib/mock-data";
+
+// Map each activity row to a concrete deep-link target.
+// Picks real records from mock data so drawers open with valid IDs.
+type ActivityLink =
+  | { kind: "deal"; dealId: string }
+  | { kind: "contact"; contactId: string }
+  | { kind: "invoice"; invoiceId: string }
+  | { kind: "project"; clientSlug: string }
+  | { kind: "inbox" }
+  | { kind: "workflows" };
+
+const activityLinks: Record<number, ActivityLink> = {
+  1: { kind: "deal", dealId: mockDeals[0]?.id ?? "" },              // signed proposal → deal drawer
+  2: { kind: "contact", contactId: mockContacts[0]?.id ?? "" },     // new lead → contact drawer
+  3: { kind: "invoice", invoiceId: mockInvoices[0]?.id ?? "" },     // paid invoice → invoices
+  4: { kind: "inbox" },                                              // email reply → inbox
+  5: { kind: "project", clientSlug: mockProjects[0]?.slug ?? "" },  // job complete → project page
+  6: { kind: "workflows" },                                          // automation → workflows
+};
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
@@ -225,16 +247,7 @@ function DashboardPage() {
             </div>
             <div className="divide-y divide-border">
               {recentActivity.map((a) => (
-                <div key={a.id} className="flex items-start gap-3 py-3">
-                  <ActivityIcon type={a.type} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px]">
-                      <span className="font-medium">{a.who}</span>
-                      <span className="text-muted-foreground"> {a.what}</span>
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">{a.when}</div>
-                  </div>
-                </div>
+                <ActivityRow key={a.id} activity={a} link={activityLinks[a.id]} />
               ))}
             </div>
           </CardContent>
@@ -371,4 +384,69 @@ function ActivityIcon({ type }: { type: string }) {
       <Icon className="h-3.5 w-3.5" />
     </div>
   );
+}
+
+function ActivityRow({
+  activity,
+  link,
+}: {
+  activity: { id: number; who: string; what: string; when: string; type: string };
+  link?: ActivityLink;
+}) {
+  const content = (
+    <>
+      <ActivityIcon type={activity.type} />
+      <div className="min-w-0 flex-1 text-left">
+        <div className="text-[13px]">
+          <span className="font-medium">{activity.who}</span>
+          <span className="text-muted-foreground"> {activity.what}</span>
+        </div>
+        <div className="mt-0.5 text-[11px] text-muted-foreground">{activity.when}</div>
+      </div>
+    </>
+  );
+
+  const className =
+    "flex w-full items-start gap-3 py-3 text-left transition-colors -mx-2 px-2 rounded-md hover:bg-secondary/60 focus-visible:bg-secondary/60 focus-visible:outline-none";
+
+  if (!link) return <div className={className}>{content}</div>;
+
+  switch (link.kind) {
+    case "deal":
+      return (
+        <Link to="/sales/pipeline" search={{ dealId: link.dealId }} className={className}>
+          {content}
+        </Link>
+      );
+    case "contact":
+      return (
+        <Link to="/contacts" search={{ contactId: link.contactId }} className={className}>
+          {content}
+        </Link>
+      );
+    case "invoice":
+      return (
+        <Link to="/financials/invoices" className={className}>
+          {content}
+        </Link>
+      );
+    case "project":
+      return (
+        <Link to="/projects/$clientSlug" params={{ clientSlug: link.clientSlug }} className={className}>
+          {content}
+        </Link>
+      );
+    case "inbox":
+      return (
+        <Link to="/inbox" className={className}>
+          {content}
+        </Link>
+      );
+    case "workflows":
+      return (
+        <Link to="/automation/workflows" className={className}>
+          {content}
+        </Link>
+      );
+  }
 }
