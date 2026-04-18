@@ -25,14 +25,18 @@ import { formatDistanceToNow } from "date-fns";
 import { Mail as MailIcon, Phone as PhoneIcon, MessageSquare, FileText, CheckCircle2, StickyNote, ArrowRight } from "lucide-react";
 import { formatMoney, formatDateShort } from "@/lib/format";
 
+type ContactsSearch = { contactId?: string };
+
 export const Route = createFileRoute("/contacts")({
+  validateSearch: (raw: Record<string, unknown>): ContactsSearch => ({
+    contactId: typeof raw.contactId === "string" ? raw.contactId : undefined,
+  }),
   component: ContactsPage,
 });
 
-const TAG_FILTERS = ["All", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
-type TagFilter = (typeof TAG_FILTERS)[number];
-
 function ContactsPage() {
+  const { contactId } = useSearch({ from: "/contacts" });
+  const navigate = useNavigate({ from: "/contacts" });
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<TagFilter>("All");
   const [selected, setSelected] = useState<Contact | null>(null);
