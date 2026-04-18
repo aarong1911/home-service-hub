@@ -33,6 +33,7 @@ const CHART2 = "oklch(0.65 0.16 220)";
 const CHART5 = "oklch(0.55 0.18 300)";
 
 function ReportsPage() {
+  const scheduled = useScheduledPayments();
   const collected = mockPayments.reduce((s, p) => s + p.amount, 0);
   const invoiced = mockInvoices.reduce((s, i) => s + i.amount, 0);
   const outstanding = mockInvoices
@@ -54,6 +55,14 @@ function ReportsPage() {
     { label: "60+ days", amount: 3100, color: DESTRUCTIVE },
   ];
   const agingMax = Math.max(...aging.map((a) => a.amount));
+
+  // ----- 90-day weekly cashflow forecast -----
+  const cashflow = useMemo(() => buildCashflow(mockPayments, scheduled), [scheduled]);
+  const cashflowTotals = useMemo(() => {
+    const received = cashflow.reduce((s, w) => s + w.received, 0);
+    const expected = cashflow.reduce((s, w) => s + w.scheduled, 0);
+    return { received, expected, total: received + expected };
+  }, [cashflow]);
 
   return (
     <>
