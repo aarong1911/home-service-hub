@@ -60,8 +60,13 @@ function ReportsPage() {
   ];
   const agingMax = Math.max(...aging.map((a) => a.amount));
 
-  // ----- 90-day weekly cashflow forecast -----
-  const cashflow = useMemo(() => buildCashflow(mockPayments, scheduled), [scheduled]);
+  // ----- bucketed cashflow forecast -----
+  const [bucket, setBucket] = useState<Bucket>("weekly");
+  const [horizon, setHorizon] = useState<Horizon>(90);
+  const cashflow = useMemo(
+    () => buildCashflow(mockPayments, scheduled, bucket, horizon),
+    [scheduled, bucket, horizon],
+  );
   const cashflowTotals = useMemo(() => {
     const received = cashflow.reduce((s, w) => s + w.received, 0);
     const expected = cashflow.reduce((s, w) => s + w.scheduled, 0);
