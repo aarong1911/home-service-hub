@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Search, DollarSign, Building2, CreditCard as CardIcon, Banknote, MoreHorizontal, CalendarClock, AlertTriangle, BellRing } from "lucide-react";
 import { mockPayments, type Payment } from "@/lib/mock-data";
 import { useScheduledPayments } from "@/lib/scheduled-payments";
-import { logReminder } from "@/lib/payment-reminders";
+import { logReminder, useReminders, type ReminderEntry } from "@/lib/payment-reminders";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { PaymentDetailDrawer } from "@/components/financials/payment-detail-drawer";
@@ -30,6 +30,17 @@ function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [selected, setSelected] = useState<Payment | null>(null);
   const scheduled = useScheduledPayments();
+  const reminders = useReminders();
+  const lastReminderByPayment = useMemo(() => {
+    const map = new Map<string, ReminderEntry>();
+    for (const r of reminders) {
+      const prev = map.get(r.paymentId);
+      if (!prev || new Date(r.sentAt).getTime() > new Date(prev.sentAt).getTime()) {
+        map.set(r.paymentId, r);
+      }
+    }
+    return map;
+  }, [reminders]);
 
   const allPayments = useMemo<Payment[]>(
     () => [...scheduled, ...mockPayments],
@@ -157,6 +168,8 @@ function PaymentsPage() {
           <tbody>
             {rows.map((p) => {
               const isScheduled = p.status === "Scheduled";
+              const overdue = isPastDue(p);
+              const lastReminder = overdue ? lastReminderByPayment.get(p.id) : undefined;
               const dateLabel = isScheduled
                 ? scheduledDateLabel(p.dueDate ?? p.receivedAt)
                 : formatDate(p.receivedAt);
@@ -177,7 +190,18 @@ function PaymentsPage() {
                     )}
                   </td>
                   <td className="px-4">
-                    <StatusBadge status={isPastDue(p) ? "Past due" : (p.status ?? "Received")} />
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={overdue ? "Past due" : (p.status ?? "Received")} />
+                      {lastReminder && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          title={`Last reminder ${formatDate(lastReminder.sentAt)} by ${lastReminder.actor}`}
+                        >
+                          <BellRing className="h-2.5 w-2.5" />
+                          Reminded {timeAgo(lastReminder.sentAt)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4">
                     <MethodBadge method={p.method} />
@@ -193,7 +217,7 @@ function PaymentsPage() {
                   </td>
                   <td className="px-4 text-xs text-muted-foreground">{dateLabel}</td>
                   <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    {isPastDue(p) ? (
+                    {overdue ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -206,7 +230,7 @@ function PaymentsPage() {
                         }}
                       >
                         <BellRing className="h-3 w-3" />
-                        Remind
+                        {lastReminder ? "Remind again" : "Remind"}
                       </Button>
                     ) : (
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
@@ -241,6 +265,20 @@ function scheduledDateLabel(iso: string): string {
   if (d === 0) return `Due today · ${formatDate(iso)}`;
   if (d > 0) return `In ${d}d · ${formatDate(iso)}`;
   return `${Math.abs(d)}d overdue · ${formatDate(iso)}`;
+}
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const sec = Math.max(0, Math.round(diffMs / 1000));
+  if (sec < 60) return "just now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  const wk = Math.round(day / 7);
+  return `${wk}w ago`;
 }
 
 function StatusBadge({ status }: { status: "Received" | "Scheduled" | "Past due" }) {
