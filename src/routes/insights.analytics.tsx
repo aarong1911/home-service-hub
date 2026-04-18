@@ -120,7 +120,7 @@ function AnalyticsPage() {
               <div className="mt-2 h-8">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={k.spark.map((v, i) => ({ i, v }))}>
-                    <Line type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} />
+                    <Line type="monotone" dataKey="v" stroke="oklch(0.55 0.205 262)" strokeWidth={1.5} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -137,15 +137,15 @@ function AnalyticsPage() {
               <AreaChart data={pipelineVelocityData}>
                 <defs>
                   <linearGradient id="pv" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    <stop offset="0%" stopColor="oklch(0.55 0.205 262)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="oklch(0.55 0.205 262)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#pv)" strokeWidth={2} />
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.005 250)" />
+                <XAxis dataKey="week" stroke="oklch(0.55 0.02 250)" fontSize={11} />
+                <YAxis stroke="oklch(0.55 0.02 250)" fontSize={11} />
+                <Tooltip contentStyle={{ background: "white", border: "1px solid oklch(0.92 0.005 250)", borderRadius: 8 }} />
+                <Area type="monotone" dataKey="value" stroke="oklch(0.55 0.205 262)" fill="url(#pv)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -159,7 +159,7 @@ function AnalyticsPage() {
                 <Pie data={leadSourceData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
                   {leadSourceData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <Tooltip contentStyle={{ background: "white", border: "1px solid oklch(0.92 0.005 250)", borderRadius: 8 }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="mt-2 space-y-1">
@@ -200,10 +200,10 @@ function AnalyticsPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={cycleTimeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.005 250)" />
+                <XAxis dataKey="month" stroke="oklch(0.55 0.02 250)" fontSize={11} />
+                <YAxis stroke="oklch(0.55 0.02 250)" fontSize={11} />
+                <Tooltip contentStyle={{ background: "white", border: "1px solid oklch(0.92 0.005 250)", borderRadius: 8 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Line type="monotone" dataKey="lead" stroke={CHART_COLORS[0]} strokeWidth={2} name="Lead → qualified" />
                 <Line type="monotone" dataKey="estimate" stroke={CHART_COLORS[1]} strokeWidth={2} name="Estimate sent" />
@@ -220,11 +220,11 @@ function AnalyticsPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={projectMixData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="type" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `$${v / 1000}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} formatter={(v) => formatMoney(Number(v))} />
-                <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.005 250)" />
+                <XAxis dataKey="type" stroke="oklch(0.55 0.02 250)" fontSize={11} />
+                <YAxis stroke="oklch(0.55 0.02 250)" fontSize={11} tickFormatter={(v) => `$${v / 1000}k`} />
+                <Tooltip contentStyle={{ background: "white", border: "1px solid oklch(0.92 0.005 250)", borderRadius: 8 }} formatter={(v) => formatMoney(Number(v))} />
+                <Bar dataKey="revenue" fill="oklch(0.55 0.205 262)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
