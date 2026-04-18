@@ -19,10 +19,22 @@ import {
 } from "lucide-react";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { mockInvoices, type Estimate, type Invoice } from "@/lib/mock-data";
-import { addDraftInvoice, nextDraftInvoiceNumber } from "@/lib/draft-invoices";
+import {
+  addDraftInvoice,
+  nextDraftInvoiceNumber,
+  defaultSchedule,
+  useDraftInvoice,
+  updateDraftInvoice,
+  updateDraftSchedule,
+  type DraftSchedule,
+  type PaymentMilestone,
+} from "@/lib/draft-invoices";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Plus, Trash2, CalendarDays } from "lucide-react";
 
 type Kind = "estimate" | "invoice";
 
