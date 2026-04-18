@@ -262,7 +262,7 @@ function PipelinePage() {
                   <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">No deals match your filters.</td></tr>
                 )}
                 {filtered.map((d) => (
-                  <tr key={d.id} className="border-b border-border hover:bg-secondary/40">
+                  <tr key={d.id} onClick={() => setSelected(d)} className="cursor-pointer border-b border-border hover:bg-secondary/40">
                     <td className="py-2.5 pl-4 pr-4 font-medium">{d.name}</td>
                     <td className="py-2.5 pr-4 text-muted-foreground">{d.contactName}</td>
                     <td className="py-2.5 pr-4">
