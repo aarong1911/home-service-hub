@@ -228,7 +228,113 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
             </div>
           </Section>
 
-          {/* Activity history */}
+          {/* Editable due date + payment schedule for draft invoices */}
+          {isDraft && (
+            <Section title="Payment schedule">
+              <div className="rounded-md border border-border">
+                <div className="flex flex-wrap items-end gap-3 border-b border-border bg-secondary/20 px-3 py-2.5">
+                  <div className="flex-1 min-w-[180px]">
+                    <Label htmlFor="due-date" className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <CalendarDays className="h-3 w-3" /> Final due date
+                    </Label>
+                    <Input
+                      id="due-date"
+                      type="date"
+                      value={currentDue}
+                      onChange={(e) => setDue(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Net{" "}
+                    <span className="font-medium text-foreground">
+                      {Math.max(0, daysFromNow(currentDue))}
+                    </span>{" "}
+                    days from today
+                  </div>
+                </div>
+
+                <div className="divide-y divide-border">
+                  {currentSchedule.milestones.map((m, idx) => {
+                    const amount = Math.round((total * (Number(m.percent) || 0)) / 100);
+                    return (
+                      <div key={m.id} className="grid grid-cols-12 items-center gap-2 px-3 py-2">
+                        <div className="col-span-1 text-[10px] font-mono text-muted-foreground">
+                          {String(idx + 1).padStart(2, "0")}
+                        </div>
+                        <Input
+                          value={m.label}
+                          onChange={(e) => updateMilestone(m.id, { label: e.target.value })}
+                          className="col-span-4 h-7 text-xs"
+                          placeholder="Label"
+                        />
+                        <div className="col-span-2 flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={m.percent}
+                            onChange={(e) =>
+                              updateMilestone(m.id, { percent: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })
+                            }
+                            className="h-7 text-xs tabular-nums"
+                          />
+                          <span className="text-[11px] text-muted-foreground">%</span>
+                        </div>
+                        <Input
+                          type="date"
+                          value={m.dueDate}
+                          onChange={(e) => updateMilestone(m.id, { dueDate: e.target.value })}
+                          className="col-span-3 h-7 text-xs"
+                        />
+                        <div className="col-span-1 text-right text-xs font-medium tabular-nums">
+                          {formatMoney(amount)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeMilestone(m.id)}
+                          disabled={currentSchedule.milestones.length <= 1}
+                          className="col-span-1 inline-flex h-7 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-destructive disabled:opacity-30"
+                          aria-label="Remove milestone"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-border bg-secondary/20 px-3 py-2 text-xs">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={addMilestone}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add milestone
+                  </Button>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={
+                        scheduleBalanced
+                          ? "text-success"
+                          : "text-destructive"
+                      }
+                    >
+                      {percentSum.toFixed(0)}% allocated
+                    </span>
+                    <span className="text-muted-foreground">
+                      Total: <span className="font-medium tabular-nums text-foreground">{formatMoney(total)}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Section>
+          )}
+
+
           <Section title="Activity">
             <ol className="relative space-y-3 border-l border-border pl-4">
               {activity.map((a, i) => (
