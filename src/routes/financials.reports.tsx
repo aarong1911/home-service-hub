@@ -123,7 +123,7 @@ function ReportsPage() {
                 </Pie>
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  formatter={(v: number) => formatMoney(v)}
+                  formatter={(v) => formatMoney(Number(v))}
                 />
               </PieChart>
             </ResponsiveContainer>
