@@ -397,6 +397,7 @@ function stageColor(id: string) {
     proposal: "bg-warning",
     negotiation: "bg-chart-5",
     won: "bg-success",
+    lost: "bg-destructive",
   };
   return map[id] ?? "bg-muted-foreground";
 }
@@ -409,6 +410,7 @@ function stageProgress(id: string) {
     proposal: 70,
     negotiation: 85,
     won: 100,
+    lost: 100,
   };
   return map[id] ?? 0;
 }
