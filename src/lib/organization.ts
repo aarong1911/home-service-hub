@@ -96,9 +96,42 @@ const DEFAULT_TEAM: TeamMember[] = [
   { id: "u5", name: "Sara Holt", email: "sara@renometa.com", role: "accountant", workerType: "subcontractor", status: "active" },
 ];
 
-// ---- Store ----
-let org: Organization = { ...DEFAULT_ORG };
-let team: TeamMember[] = [...DEFAULT_TEAM];
+// ---- Store (persisted to localStorage) ----
+const ORG_KEY = "renometa.org.v1";
+const TEAM_KEY = "renometa.team.v1";
+
+function loadOrg(): Organization {
+  if (typeof window === "undefined") return { ...DEFAULT_ORG };
+  try {
+    const raw = window.localStorage.getItem(ORG_KEY);
+    if (!raw) return { ...DEFAULT_ORG };
+    return { ...DEFAULT_ORG, ...JSON.parse(raw) } as Organization;
+  } catch {
+    return { ...DEFAULT_ORG };
+  }
+}
+function loadTeam(): TeamMember[] {
+  if (typeof window === "undefined") return [...DEFAULT_TEAM];
+  try {
+    const raw = window.localStorage.getItem(TEAM_KEY);
+    if (!raw) return [...DEFAULT_TEAM];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? (parsed as TeamMember[]) : [...DEFAULT_TEAM];
+  } catch {
+    return [...DEFAULT_TEAM];
+  }
+}
+function persistOrg() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(ORG_KEY, JSON.stringify(org)); } catch { /* ignore */ }
+}
+function persistTeam() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(TEAM_KEY, JSON.stringify(team)); } catch { /* ignore */ }
+}
+
+let org: Organization = loadOrg();
+let team: TeamMember[] = loadTeam();
 
 const orgListeners = new Set<() => void>();
 const teamListeners = new Set<() => void>();
@@ -115,6 +148,7 @@ export function getOrganization(): Organization {
 }
 export function updateOrganization(patch: Partial<Organization>) {
   org = { ...org, ...patch };
+  persistOrg();
   emitOrg();
 }
 export function useOrganization(): Organization {
@@ -144,15 +178,18 @@ export function useTeam(): TeamMember[] {
 export function addMember(member: Omit<TeamMember, "id">): TeamMember {
   const next: TeamMember = { ...member, id: `u${Date.now()}` };
   team = [...team, next];
+  persistTeam();
   emitTeam();
   return next;
 }
 export function updateMember(id: string, patch: Partial<TeamMember>) {
   team = team.map((m) => (m.id === id ? { ...m, ...patch } : m));
+  persistTeam();
   emitTeam();
 }
 export function removeMember(id: string) {
   team = team.filter((m) => m.id !== id);
+  persistTeam();
   emitTeam();
 }
 export function memberInitials(name: string): string {
