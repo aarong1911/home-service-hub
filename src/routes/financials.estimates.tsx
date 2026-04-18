@@ -118,6 +118,11 @@ function EstimatesPage() {
           </tbody>
         </table>
       </Card>
+
+      <FinancialDetailDrawer
+        record={selected ? { kind: "estimate", ...selected } : null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </>
   );
 }
