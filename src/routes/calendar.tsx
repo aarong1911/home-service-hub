@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,14 @@ function CalendarPage() {
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(new Date(today.getTime() - 1000 * 60 * 4));
   const [selectedDay, setSelectedDay] = useState<string>(ymd(today));
+  const [nowTick, setNowTick] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const update = () => setNowTick(new Date());
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const events = useMemo(() => buildMockEvents(cursor), [cursor]);
   const filtered = useMemo(
@@ -238,7 +246,7 @@ function CalendarPage() {
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
         <CheckCircle2 className="h-3.5 w-3.5 text-success" />
         <span>
-          {lastSynced ? `Last synced ${formatRelative(lastSynced)}` : "Not yet synced"} · Connected as <span className="font-medium text-foreground">ops@studio.co</span>
+          {lastSynced ? `Last synced ${nowTick ? formatRelative(lastSynced, nowTick) : "recently"}` : "Not yet synced"} · Connected as <span className="font-medium text-foreground">ops@studio.co</span>
         </span>
         <span className="mx-1 text-border">|</span>
         {(Object.keys(TYPE_LABEL) as EventType[]).map((t) => (
@@ -315,6 +323,7 @@ function CalendarPage() {
           <TimeGrid
             days={weekDays}
             today={today}
+            now={nowTick}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
             eventsByDay={eventsByDay}
@@ -325,6 +334,7 @@ function CalendarPage() {
           <TimeGrid
             days={[selectedDate]}
             today={today}
+            now={nowTick}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
             eventsByDay={eventsByDay}
@@ -391,8 +401,8 @@ function buildMonthGrid(anchor: Date): Date[] {
   });
 }
 
-function formatRelative(d: Date): string {
-  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+function formatRelative(d: Date, now: Date): string {
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
   if (diff < 60) return "just now";
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
@@ -410,16 +420,24 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 function TimeGrid({
   days,
   today,
+  now,
   selectedDay,
   onSelectDay,
   eventsByDay,
 }: {
   days: Date[];
   today: Date;
+  now: Date | null;
   selectedDay: string;
   onSelectDay: (d: string) => void;
   eventsByDay: Map<string, CalEvent[]>;
 }) {
+  const todayKey = ymd(today);
+  const nowMinutes = now ? now.getHours() * 60 + now.getMinutes() : null;
+  const nowTop = nowMinutes !== null ? (nowMinutes / 60) * HOUR_PX : 0;
+  const nowLabel = now
+    ? now.toLocaleTimeString("default", { hour: "numeric", minute: "2-digit" })
+    : "";
   return (
     <Card className="overflow-hidden p-0">
       <div
@@ -481,6 +499,7 @@ function TimeGrid({
             const dayEvents = (eventsByDay.get(key) ?? [])
               .slice()
               .sort((a, b) => a.start.localeCompare(b.start));
+            const showNow = nowMinutes !== null && key === todayKey;
             return (
               <div
                 key={key}
@@ -516,6 +535,18 @@ function TimeGrid({
                     </div>
                   );
                 })}
+                {showNow && (
+                  <div
+                    className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                    style={{ top: nowTop }}
+                  >
+                    <span className="-ml-1 h-2 w-2 rounded-full bg-destructive shadow-[0_0_0_2px_var(--background)]" />
+                    <span className="h-px flex-1 bg-destructive" />
+                    <span className="ml-1 rounded bg-destructive px-1 py-0.5 text-[9px] font-semibold text-destructive-foreground">
+                      {nowLabel}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}
