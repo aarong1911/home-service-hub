@@ -14,10 +14,13 @@ import {
   Mail,
   XCircle,
   Clock,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
-import type { Estimate, Invoice } from "@/lib/mock-data";
+import { mockInvoices, type Estimate, type Invoice } from "@/lib/mock-data";
+import { addDraftInvoice, nextDraftInvoiceNumber } from "@/lib/draft-invoices";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -57,6 +60,8 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   const activity = generateActivity(record);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [localStatus, setLocalStatus] = useState<string>(record.status);
+  const [convertedTo, setConvertedTo] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const label = isInvoice ? "Invoice" : "Estimate";
   const handleSend = () => {
@@ -76,6 +81,29 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
   };
   const handleDownload = () => {
     toast.success(`Downloading ${record.number}.pdf`);
+  };
+  const handleConvertToInvoice = () => {
+    if (record.kind !== "estimate") return;
+    const today = new Date();
+    const due = new Date(today.getTime() + 30 * 86_400_000);
+    const number = nextDraftInvoiceNumber(mockInvoices.length);
+    const draft: Invoice = {
+      id: `inv-draft-${Date.now()}`,
+      number,
+      client: record.client,
+      amount: total,
+      status: "Draft",
+      due: due.toISOString().slice(0, 10),
+    };
+    addDraftInvoice(draft);
+    setConvertedTo(number);
+    toast.success(`Created Draft ${number} from ${record.number}`, {
+      description: `${items.length} line items · ${formatMoney(total)}`,
+      action: {
+        label: "Open Invoices",
+        onClick: () => navigate({ to: "/financials/invoices" }),
+      },
+    });
   };
 
   // Header status meta
@@ -189,10 +217,28 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
               <Send className="h-3.5 w-3.5" />
               Send to client
             </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleAccept} disabled={localStatus === "Accepted"}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={handleAccept}
+              disabled={localStatus === "Accepted" || localStatus === "Declined"}
+            >
               <CheckCircle2 className="h-3.5 w-3.5" />
               {localStatus === "Accepted" ? "Accepted" : "Mark accepted"}
             </Button>
+            {localStatus === "Accepted" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 border-success/40 bg-success/10 text-success hover:bg-success/15 hover:text-success"
+                onClick={handleConvertToInvoice}
+                disabled={convertedTo !== null}
+              >
+                <Receipt className="h-3.5 w-3.5" />
+                {convertedTo ? `Converted · ${convertedTo}` : "Convert to invoice"}
+              </Button>
+            )}
           </>
         )}
         <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={handleDownload}>

@@ -3,8 +3,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Receipt, AlertTriangle, CheckCircle2, Clock, MoreHorizontal } from "lucide-react";
+import { Search, Receipt, AlertTriangle, CheckCircle2, Clock, MoreHorizontal, Sparkles } from "lucide-react";
 import { mockInvoices, type Invoice } from "@/lib/mock-data";
+import { useDraftInvoices } from "@/lib/draft-invoices";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { FinancialDetailDrawer } from "@/components/financials/financial-detail-drawer";
@@ -19,34 +20,38 @@ function InvoicesPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Invoice["status"] | "All">("All");
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const drafts = useDraftInvoices();
+
+  const allInvoices = useMemo(() => [...drafts, ...mockInvoices], [drafts]);
 
   const stats = useMemo(() => {
-    const total = mockInvoices.reduce((s, i) => s + i.amount, 0);
-    const paid = mockInvoices.filter((i) => i.status === "Paid");
-    const overdue = mockInvoices.filter((i) => i.status === "Overdue");
-    const outstanding = mockInvoices.filter((i) => i.status !== "Paid" && i.status !== "Draft");
+    const total = allInvoices.reduce((s, i) => s + i.amount, 0);
+    const paid = allInvoices.filter((i) => i.status === "Paid");
+    const overdue = allInvoices.filter((i) => i.status === "Overdue");
+    const outstanding = allInvoices.filter((i) => i.status !== "Paid" && i.status !== "Draft");
     return {
       total,
       paid: paid.reduce((s, i) => s + i.amount, 0),
       overdue: overdue.reduce((s, i) => s + i.amount, 0),
       overdueCount: overdue.length,
       outstanding: outstanding.reduce((s, i) => s + i.amount, 0),
+      count: allInvoices.length,
     };
-  }, []);
+  }, [allInvoices]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return mockInvoices.filter((i) => {
+    return allInvoices.filter((i) => {
       if (status !== "All" && i.status !== status) return false;
       if (!q) return true;
       return i.client.toLowerCase().includes(q) || i.number.toLowerCase().includes(q);
     });
-  }, [query, status]);
+  }, [allInvoices, query, status]);
 
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="Total invoiced" value={formatMoney(stats.total)} sub={`${mockInvoices.length} invoices`} icon={Receipt} tone="primary" />
+        <Kpi label="Total invoiced" value={formatMoney(stats.total)} sub={`${stats.count} invoices${drafts.length ? ` · ${drafts.length} from estimates` : ""}`} icon={Receipt} tone="primary" />
         <Kpi label="Outstanding" value={formatMoney(stats.outstanding)} sub="awaiting payment" icon={Clock} tone="warning" />
         <Kpi label="Overdue" value={formatMoney(stats.overdue)} sub={`${stats.overdueCount} invoices`} icon={AlertTriangle} tone="destructive" />
         <Kpi label="Collected" value={formatMoney(stats.paid)} sub="fully paid" icon={CheckCircle2} tone="success" />
@@ -103,7 +108,16 @@ function InvoicesPage() {
                   onClick={() => setSelected(i)}
                   className="h-12 cursor-pointer border-b border-border last:border-b-0 hover:bg-secondary/30"
                 >
-                  <td className="px-4 font-mono text-xs">{i.number}</td>
+                  <td className="px-4 font-mono text-xs">
+                    <span className="inline-flex items-center gap-1.5">
+                      {i.number}
+                      {i.id.startsWith("inv-draft-") && (
+                        <Badge variant="outline" className="h-4 gap-1 border-primary/40 bg-primary-soft px-1 text-[9px] text-primary">
+                          <Sparkles className="h-2 w-2" /> from estimate
+                        </Badge>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 font-medium">{i.client}</td>
                   <td className="px-4">
                     <InvoiceStatus status={i.status} />
