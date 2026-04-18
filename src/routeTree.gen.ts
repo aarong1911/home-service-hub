@@ -26,6 +26,8 @@ import { Route as FinancialsPaymentsRouteImport } from './routes/financials.paym
 import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invoices'
 import { Route as FinancialsEstimatesRouteImport } from './routes/financials.estimates'
 import { Route as AutomationWorkflowsRouteImport } from './routes/automation.workflows'
+import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
+import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -112,6 +114,18 @@ const AutomationWorkflowsRoute = AutomationWorkflowsRouteImport.update({
   path: '/automation/workflows',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AutomationWorkflowsIndexRoute =
+  AutomationWorkflowsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AutomationWorkflowsRoute,
+  } as any)
+const AutomationWorkflowsWorkflowIdRoute =
+  AutomationWorkflowsWorkflowIdRouteImport.update({
+    id: '/$workflowId',
+    path: '/$workflowId',
+    getParentRoute: () => AutomationWorkflowsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -120,7 +134,7 @@ export interface FileRoutesByFullPath {
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/automation/workflows': typeof AutomationWorkflowsRoute
+  '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
@@ -131,6 +145,8 @@ export interface FileRoutesByFullPath {
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
+  '/automation/workflows/': typeof AutomationWorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -139,7 +155,6 @@ export interface FileRoutesByTo {
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/automation/workflows': typeof AutomationWorkflowsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
@@ -150,6 +165,8 @@ export interface FileRoutesByTo {
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
   '/projects': typeof ProjectsIndexRoute
+  '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
+  '/automation/workflows': typeof AutomationWorkflowsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -159,7 +176,7 @@ export interface FileRoutesById {
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/automation/workflows': typeof AutomationWorkflowsRoute
+  '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
@@ -170,6 +187,8 @@ export interface FileRoutesById {
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/team': typeof SettingsTeamRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
+  '/automation/workflows/': typeof AutomationWorkflowsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -191,6 +210,8 @@ export interface FileRouteTypes {
     | '/settings/integrations'
     | '/settings/team'
     | '/projects/'
+    | '/automation/workflows/$workflowId'
+    | '/automation/workflows/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,7 +220,6 @@ export interface FileRouteTypes {
     | '/financials'
     | '/inbox'
     | '/settings'
-    | '/automation/workflows'
     | '/financials/estimates'
     | '/financials/invoices'
     | '/financials/payments'
@@ -210,6 +230,8 @@ export interface FileRouteTypes {
     | '/settings/integrations'
     | '/settings/team'
     | '/projects'
+    | '/automation/workflows/$workflowId'
+    | '/automation/workflows'
   id:
     | '__root__'
     | '/'
@@ -229,6 +251,8 @@ export interface FileRouteTypes {
     | '/settings/integrations'
     | '/settings/team'
     | '/projects/'
+    | '/automation/workflows/$workflowId'
+    | '/automation/workflows/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -238,7 +262,7 @@ export interface RootRouteChildren {
   FinancialsRoute: typeof FinancialsRouteWithChildren
   InboxRoute: typeof InboxRoute
   SettingsRoute: typeof SettingsRouteWithChildren
-  AutomationWorkflowsRoute: typeof AutomationWorkflowsRoute
+  AutomationWorkflowsRoute: typeof AutomationWorkflowsRouteWithChildren
   ProjectsClientSlugRoute: typeof ProjectsClientSlugRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -365,6 +389,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomationWorkflowsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/automation/workflows/': {
+      id: '/automation/workflows/'
+      path: '/'
+      fullPath: '/automation/workflows/'
+      preLoaderRoute: typeof AutomationWorkflowsIndexRouteImport
+      parentRoute: typeof AutomationWorkflowsRoute
+    }
+    '/automation/workflows/$workflowId': {
+      id: '/automation/workflows/$workflowId'
+      path: '/$workflowId'
+      fullPath: '/automation/workflows/$workflowId'
+      preLoaderRoute: typeof AutomationWorkflowsWorkflowIdRouteImport
+      parentRoute: typeof AutomationWorkflowsRoute
+    }
   }
 }
 
@@ -402,6 +440,19 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
   SettingsRouteChildren,
 )
 
+interface AutomationWorkflowsRouteChildren {
+  AutomationWorkflowsWorkflowIdRoute: typeof AutomationWorkflowsWorkflowIdRoute
+  AutomationWorkflowsIndexRoute: typeof AutomationWorkflowsIndexRoute
+}
+
+const AutomationWorkflowsRouteChildren: AutomationWorkflowsRouteChildren = {
+  AutomationWorkflowsWorkflowIdRoute: AutomationWorkflowsWorkflowIdRoute,
+  AutomationWorkflowsIndexRoute: AutomationWorkflowsIndexRoute,
+}
+
+const AutomationWorkflowsRouteWithChildren =
+  AutomationWorkflowsRoute._addFileChildren(AutomationWorkflowsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
@@ -409,7 +460,7 @@ const rootRouteChildren: RootRouteChildren = {
   FinancialsRoute: FinancialsRouteWithChildren,
   InboxRoute: InboxRoute,
   SettingsRoute: SettingsRouteWithChildren,
-  AutomationWorkflowsRoute: AutomationWorkflowsRoute,
+  AutomationWorkflowsRoute: AutomationWorkflowsRouteWithChildren,
   ProjectsClientSlugRoute: ProjectsClientSlugRoute,
   SalesPipelineRoute: SalesPipelineRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
