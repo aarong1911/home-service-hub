@@ -295,6 +295,7 @@ function PipelinePage() {
         deal={selected ? deals.find((d) => d.id === selected.id) ?? selected : null}
         onOpenChange={(o) => !o && setSelected(null)}
         onStageChange={handleStageChange}
+        onMarkLost={handleMarkLost}
       />
     </>
   );
