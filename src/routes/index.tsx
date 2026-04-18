@@ -50,7 +50,31 @@ function formatDate() {
   return new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 }
 
+type TaskDetail = {
+  assignee: string;
+  location?: string;
+  description: string;
+  related?: string;
+  duration: string;
+};
+
+const taskDetails: Record<number, TaskDetail> = {
+  1: { assignee: "Alex Romero", location: "14 Elm St., Brookline", description: "Walk through with homeowner to confirm scope for kitchen + half-bath remodel. Bring measuring kit and material samples.", related: "Deal: Elm St. Kitchen", duration: "1h 30m" },
+  2: { assignee: "Priya Shah", description: "Send refined proposal v2 with updated tile selections and revised timeline. Reference last week's call notes.", related: "Deal: Thorne Residence", duration: "30m" },
+  3: { assignee: "Priya Shah", description: "Call to confirm budget alignment and next-step site visit for the master bath remodel.", related: "Lead: Becker Family", duration: "20m" },
+  4: { assignee: "Jamal Burke", description: "Place cabinet order with Apex Cabinetry — confirm finish (Matte Linen) and delivery to staging warehouse.", related: "Project: Miller Kitchen", duration: "45m" },
+  5: { assignee: "Alex Romero", description: "Review Q4 pipeline forecast and revenue projections with leadership team.", duration: "1h" },
+};
+
+function priorityLabel(p: string) {
+  return p === "high" ? "High priority" : p === "med" ? "Medium priority" : "Low priority";
+}
+
 function DashboardPage() {
+  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const activeTask = upcomingTasks.find((t) => t.id === activeTaskId) ?? null;
+  const activeDetail = activeTaskId != null ? taskDetails[activeTaskId] : null;
+
   return (
     <>
       <PageHeader
