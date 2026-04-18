@@ -196,12 +196,21 @@ function PipelinePage() {
                                   className={`cursor-pointer p-3 transition-shadow ${snap.isDragging ? "rotate-1 shadow-[var(--shadow-elev-2)]" : "hover:shadow-[var(--shadow-elev-1)]"}`}
                                 >
                                   <div className="mb-1.5 flex items-start justify-between gap-2">
-                                    <div className="text-[13px] font-medium leading-snug">{deal.name}</div>
+                                    <div className={`text-[13px] font-medium leading-snug ${deal.lostReason ? "text-muted-foreground line-through" : ""}`}>
+                                      {deal.name}
+                                    </div>
                                     <div className="text-[13px] font-semibold tabular-nums">
                                       ${(deal.value / 1000).toFixed(1)}k
                                     </div>
                                   </div>
-                                  <div className="mb-2 text-[11px] text-muted-foreground">{deal.contactName}</div>
+                                  <div className="mb-2 flex items-center justify-between gap-2">
+                                    <div className="text-[11px] text-muted-foreground">{deal.contactName}</div>
+                                    {deal.lostReason && (
+                                      <Badge variant="outline" className="h-4 rounded border-destructive/30 bg-destructive/5 px-1 text-[9px] font-medium text-destructive">
+                                        Lost · {deal.lostReason}
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <div className="mb-2 flex items-center gap-1.5">
                                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-secondary">
                                       <div
