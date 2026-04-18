@@ -45,6 +45,15 @@ import {
   type Conversation,
   type Message,
 } from "@/lib/mock-data";
+import {
+  messageTemplates,
+  resolveMergeTags,
+  type MergeContext,
+  type SharedMessageTemplate,
+} from "@/lib/message-templates";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FileText } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/inbox")({
   component: InboxPage,
