@@ -875,7 +875,7 @@ export const mockPayments: Payment[] = Array.from({ length: 12 }, (_, i) => ({
   client: mockContacts[i].name,
   amount: 4200 + ((i * 1987) % 30000),
   method: (["ACH", "Card", "Check", "Wire"] as const)[i % 4],
-  receivedAt: isoDaysAgo(i % 20),
+  receivedAt: isoDaysAgo(3 + i * 7 + ((i * 5) % 4)),
 }));
 
 export const pipelineVelocityData = Array.from({ length: 12 }, (_, i) => ({
