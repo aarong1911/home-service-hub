@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { mockDeals, pipelineStages, type Deal } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
+import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 
 export const Route = createFileRoute("/sales/pipeline")({
   component: PipelinePage,
@@ -30,6 +31,11 @@ function PipelinePage() {
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All owners");
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
   const [view, setView] = useState<"board" | "list">("board");
+  const [selected, setSelected] = useState<Deal | null>(null);
+
+  const handleStageChange = (dealId: string, newStage: string) => {
+    setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: newStage } : d)));
+  };
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -178,7 +184,8 @@ function PipelinePage() {
                                   ref={prov.innerRef}
                                   {...prov.draggableProps}
                                   {...prov.dragHandleProps}
-                                  className={`p-3 transition-shadow ${snap.isDragging ? "rotate-1 shadow-[var(--shadow-elev-2)]" : "hover:shadow-[var(--shadow-elev-1)]"}`}
+                                  onClick={() => setSelected(deal)}
+                                  className={`cursor-pointer p-3 transition-shadow ${snap.isDragging ? "rotate-1 shadow-[var(--shadow-elev-2)]" : "hover:shadow-[var(--shadow-elev-1)]"}`}
                                 >
                                   <div className="mb-1.5 flex items-start justify-between gap-2">
                                     <div className="text-[13px] font-medium leading-snug">{deal.name}</div>
@@ -255,7 +262,7 @@ function PipelinePage() {
                   <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">No deals match your filters.</td></tr>
                 )}
                 {filtered.map((d) => (
-                  <tr key={d.id} className="border-b border-border hover:bg-secondary/40">
+                  <tr key={d.id} onClick={() => setSelected(d)} className="cursor-pointer border-b border-border hover:bg-secondary/40">
                     <td className="py-2.5 pl-4 pr-4 font-medium">{d.name}</td>
                     <td className="py-2.5 pr-4 text-muted-foreground">{d.contactName}</td>
                     <td className="py-2.5 pr-4">
@@ -275,6 +282,12 @@ function PipelinePage() {
           </div>
         </Card>
       )}
+
+      <DealDetailDrawer
+        deal={selected ? deals.find((d) => d.id === selected.id) ?? selected : null}
+        onOpenChange={(o) => !o && setSelected(null)}
+        onStageChange={handleStageChange}
+      />
     </>
   );
 }
