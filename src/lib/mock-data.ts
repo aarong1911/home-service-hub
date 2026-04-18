@@ -739,13 +739,106 @@ export const mockMessages: Message[] = mockConversations.flatMap((cv, ci) => {
 });
 
 export const mockWorkflows: Workflow[] = [
-  { id: "w_1", name: "New lead → Welcome SMS + Email", status: "active", trigger: "Lead created", lastRun: isoDaysAgo(0), successRate: 98, runs: 1247 },
-  { id: "w_2", name: "Estimate sent → Follow-up in 3 days", status: "active", trigger: "Estimate sent", lastRun: isoDaysAgo(0), successRate: 94, runs: 612 },
-  { id: "w_3", name: "Project won → Create project + kickoff tasks", status: "active", trigger: "Deal moved to Won", lastRun: isoDaysAgo(1), successRate: 100, runs: 89 },
-  { id: "w_4", name: "Invoice overdue → Reminder + late fee", status: "active", trigger: "Invoice 7d overdue", lastRun: isoDaysAgo(0), successRate: 88, runs: 142 },
-  { id: "w_5", name: "Project complete → Review request", status: "paused", trigger: "Project status: Completed", lastRun: isoDaysAgo(4), successRate: 76, runs: 64 },
-  { id: "w_6", name: "Cold lead → Re-engagement drip", status: "draft", trigger: "Lead inactive 30d", lastRun: "—", successRate: 0, runs: 0 },
+  {
+    id: "w_1", name: "New lead → Welcome SMS + Email", status: "active",
+    trigger: "Lead created", lastRun: isoDaysAgo(0), successRate: 98, runs: 1247,
+    category: "Sales", folder: "Lead Intake", owner: "Alex Romero", ownerInitials: "AR",
+    description: "Greets new website leads instantly with a personalized SMS and follow-up email, then assigns to the on-call sales rep.",
+    nodes: [
+      { id: "n1", kind: "trigger", title: "Lead created", subtitle: "Source: Website form" },
+      { id: "n2", kind: "send-sms", title: "Send welcome SMS", subtitle: "Hi {{first_name}}, thanks for reaching out…" },
+      { id: "n3", kind: "wait", title: "Wait 5 minutes" },
+      { id: "n4", kind: "send-email", title: "Send intro email", subtitle: "Template: New Lead Welcome" },
+      { id: "n5", kind: "create-task", title: "Assign to rep", subtitle: "Round-robin · Sales team" },
+    ],
+  },
+  {
+    id: "w_2", name: "Estimate sent → Follow-up in 3 days", status: "active",
+    trigger: "Estimate sent", lastRun: isoDaysAgo(0), successRate: 94, runs: 612,
+    category: "Sales", folder: "Estimates", owner: "Priya Shah", ownerInitials: "PS",
+    description: "Nudges prospects who received an estimate but haven't responded.",
+    nodes: [
+      { id: "n1", kind: "trigger", title: "Estimate sent" },
+      { id: "n2", kind: "wait", title: "Wait 3 days" },
+      { id: "n3", kind: "condition", title: "Estimate viewed?", subtitle: "If not viewed → SMS, else → Email" },
+      { id: "n4", kind: "send-sms", title: "Reminder SMS" },
+      { id: "n5", kind: "send-email", title: "Soft check-in email" },
+    ],
+  },
+  {
+    id: "w_3", name: "Project won → Create project + kickoff tasks", status: "active",
+    trigger: "Deal moved to Won", lastRun: isoDaysAgo(1), successRate: 100, runs: 89,
+    category: "Operations", folder: "Project Kickoff", owner: "Jamal Burke", ownerInitials: "JB",
+    description: "Spawns a project record, kickoff tasks, and a welcome packet when a deal closes.",
+    nodes: [
+      { id: "n1", kind: "trigger", title: "Deal stage = Won" },
+      { id: "n2", kind: "update-stage", title: "Create project", subtitle: "Stage: Pre-Construction" },
+      { id: "n3", kind: "create-task", title: "Kickoff checklist", subtitle: "8 tasks assigned to PM" },
+      { id: "n4", kind: "send-email", title: "Send welcome packet" },
+    ],
+  },
+  {
+    id: "w_4", name: "Invoice overdue → Reminder + late fee", status: "active",
+    trigger: "Invoice 7d overdue", lastRun: isoDaysAgo(0), successRate: 88, runs: 142,
+    category: "Finance", folder: "Collections", owner: "Mei Lin", ownerInitials: "ML",
+    description: "Escalates overdue invoices: friendly nudge → firm reminder → late fee assessment.",
+    nodes: [
+      { id: "n1", kind: "trigger", title: "Invoice 7d overdue" },
+      { id: "n2", kind: "send-email", title: "Friendly reminder" },
+      { id: "n3", kind: "wait", title: "Wait 5 days" },
+      { id: "n4", kind: "condition", title: "Still unpaid?" },
+      { id: "n5", kind: "internal-note", title: "Notify finance" },
+    ],
+  },
+  {
+    id: "w_5", name: "Project complete → Review request", status: "paused",
+    trigger: "Project status: Completed", lastRun: isoDaysAgo(4), successRate: 76, runs: 64,
+    category: "Client Care", folder: "Reviews", owner: "Sara Holt", ownerInitials: "SH",
+    description: "Asks happy clients for a Google review 3 days after project completion.",
+    nodes: [
+      { id: "n1", kind: "trigger", title: "Project completed" },
+      { id: "n2", kind: "wait", title: "Wait 3 days" },
+      { id: "n3", kind: "send-email", title: "Review request email" },
+    ],
+  },
+  {
+    id: "w_6", name: "Cold lead → Re-engagement drip", status: "draft",
+    trigger: "Lead inactive 30d", lastRun: "—", successRate: 0, runs: 0,
+    category: "Marketing", folder: "Nurture", owner: "Alex Romero", ownerInitials: "AR",
+    description: "Tries to revive cold leads with a 4-touch drip over 21 days.",
+    nodes: [
+      { id: "n1", kind: "trigger", title: "Lead inactive 30d" },
+      { id: "n2", kind: "send-email", title: "Touch 1: Case study" },
+      { id: "n3", kind: "wait", title: "Wait 7 days" },
+      { id: "n4", kind: "send-sms", title: "Touch 2: Quick check-in" },
+    ],
+  },
 ];
+
+export const mockWorkflowTemplates: WorkflowTemplate[] = [
+  { id: "t_1", name: "Instant lead response (SMS + Email)", category: "Sales", description: "Reply to new leads in under 60 seconds with a personalized text and email.", steps: 5, installs: 2840, trigger: "Lead created", featured: true },
+  { id: "t_2", name: "Estimate signed → Project kickoff", category: "Operations", description: "Auto-create project, assign PM, send welcome packet, and book kickoff call.", steps: 7, installs: 1620, trigger: "Estimate accepted", featured: true },
+  { id: "t_3", name: "Overdue invoice escalation", category: "Finance", description: "Friendly nudge → firm reminder → late fee → finance handoff.", steps: 6, installs: 1190 , trigger: "Invoice overdue"},
+  { id: "t_4", name: "Project complete → Google review", category: "Client Care", description: "Ask for a 5-star Google review 3 days after handoff.", steps: 3, installs: 980, trigger: "Project completed", featured: true },
+  { id: "t_5", name: "Quarterly check-in for past clients", category: "Marketing", description: "Stay top-of-mind for repeat work and referrals.", steps: 4, installs: 612, trigger: "Quarterly schedule" },
+  { id: "t_6", name: "No-show booking recovery", category: "Sales", description: "Re-engage prospects who missed their consult.", steps: 5, installs: 540, trigger: "Booking missed" },
+  { id: "t_7", name: "Subcontractor weekly status request", category: "Operations", description: "Ping subs every Friday for status updates on active jobs.", steps: 3, installs: 410, trigger: "Friday 9am" },
+  { id: "t_8", name: "Birthday & anniversary touch", category: "Client Care", description: "Personalized message on key client dates.", steps: 2, installs: 380, trigger: "Date matches" },
+];
+
+export const mockWorkflowRuns: WorkflowRun[] = Array.from({ length: 40 }, (_, i) => {
+  const wf = mockWorkflows[i % mockWorkflows.length];
+  const statuses: WorkflowRun["status"][] = ["success", "success", "success", "success", "success", "success", "success", "success", "failed", "running"];
+  return {
+    id: `run_${i + 1}`,
+    workflowId: wf.id,
+    contact: mockContacts[i % mockContacts.length].name,
+    startedAt: isoDaysAgo(i % 14, (i * 17) % 60),
+    durationMs: 800 + ((i * 1313) % 9000),
+    status: statuses[i % statuses.length],
+    failedAtNodeId: statuses[i % statuses.length] === "failed" ? wf.nodes[1]?.id : undefined,
+  };
+});
 
 export const mockEstimates: Estimate[] = Array.from({ length: 14 }, (_, i) => ({
   id: `e_${i + 1}`,
