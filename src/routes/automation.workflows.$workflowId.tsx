@@ -63,17 +63,7 @@ function BuilderPage() {
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
       <PageHeader
         title={wf.name}
-        subtitle={
-          <span className="flex items-center gap-2 text-xs">
-            <Link to="/automation/workflows" className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-3 w-3" /> Workflows
-            </Link>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">{wf.folder}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">{wf.nodes.length} steps</span>
-          </span>
-        }
+        subtitle={`${wf.folder} · ${wf.nodes.length} steps · Owned by ${wf.owner}`}
         breadcrumb={["Automation", "Workflows", wf.name]}
         actions={
           <>
