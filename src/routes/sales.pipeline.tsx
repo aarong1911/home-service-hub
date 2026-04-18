@@ -383,7 +383,7 @@ function PipelinePage() {
 
       <DealDetailDrawer
         deal={selected ? deals.find((d) => d.id === selected.id) ?? selected : null}
-        onOpenChange={(o) => !o && setSelected(null)}
+        onOpenChange={(o) => { if (!o) navigate({ search: { dealId: undefined }, replace: true }); }}
         onStageChange={handleStageChange}
         onMarkLost={handleMarkLost}
       />
