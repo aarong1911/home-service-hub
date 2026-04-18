@@ -58,7 +58,7 @@ function ProjectDetailPage() {
 
       <Tabs defaultValue="overview">
         <TabsList className="bg-transparent p-0">
-          {[
+          {([
             ["overview", "Overview", Activity],
             ["tasks", "Tasks", ListTodo],
             ["timeline", "Timeline", GitBranch],
@@ -66,19 +66,16 @@ function ProjectDetailPage() {
             ["financials", "Financials", DollarSign],
             ["team", "Team", Users],
             ["activity", "Activity", Calendar],
-          ].map(([v, l, Icon]) => {
-            const I = Icon as React.ComponentType<{ className?: string }>;
-            return (
-              <TabsTrigger
-                key={v as string}
-                value={v as string}
-                className="data-[state=active]:bg-secondary data-[state=active]:text-foreground rounded-md px-3 text-xs font-medium"
-              >
-                <I className="mr-1.5 h-3.5 w-3.5" />
-                {l}
-              </TabsTrigger>
-            );
-          })}
+          ] as const).map(([v, l, Icon]) => (
+            <TabsTrigger
+              key={v}
+              value={v}
+              className="data-[state=active]:bg-secondary data-[state=active]:text-foreground rounded-md px-3 text-xs font-medium"
+            >
+              <Icon className="mr-1.5 h-3.5 w-3.5" />
+              {l}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
