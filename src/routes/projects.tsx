@@ -241,8 +241,8 @@ function BoardView({ projects, onDragEnd }: { projects: Project[]; onDragEnd: (r
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="-mx-6 flex min-h-0 flex-1 flex-col overflow-hidden px-6">
-        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-3">
-          <div className="flex h-[calc(100vh-13.5rem)] min-w-max gap-3">
+        <div className="flex-1 overflow-x-scroll overflow-y-hidden pb-3 [scrollbar-gutter:stable]">
+          <div className="flex h-[calc(100vh-24rem)] min-h-[28rem] min-w-max gap-3">
           {projectStages.map((stage) => {
             const stageProjects = projects.filter((p) => p.stage === stage.id);
             const stageTotal = stageProjects.reduce((s, p) => s + p.budget, 0);
