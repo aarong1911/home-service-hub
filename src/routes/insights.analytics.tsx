@@ -23,7 +23,16 @@ export const Route = createFileRoute("/insights/analytics")({
   component: AnalyticsPage,
 });
 
-const CHART_COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2, 217 91% 60%))", "hsl(var(--chart-3, 142 71% 45%))", "hsl(var(--chart-4, 38 92% 50%))", "hsl(var(--chart-5, 280 65% 60%))"];
+const CHART_COLORS = [
+  "oklch(0.55 0.205 262)",
+  "oklch(0.65 0.16 220)",
+  "oklch(0.62 0.16 152)",
+  "oklch(0.74 0.16 70)",
+  "oklch(0.55 0.18 300)",
+];
+const PRIMARY = CHART_COLORS[0];
+const BORDER = "oklch(0.92 0.005 250)";
+const MUTED = "oklch(0.55 0.02 250)";
 
 const leadSourceData = [
   { name: "Referral", value: 38, deals: 14 },
