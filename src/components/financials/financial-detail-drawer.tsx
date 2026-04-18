@@ -99,18 +99,19 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
     const today = new Date();
     const due = new Date(today.getTime() + 30 * 86_400_000);
     const number = nextDraftInvoiceNumber(mockInvoices.length);
+    const id = `inv-draft-${Date.now()}`;
     const draft: Invoice = {
-      id: `inv-draft-${Date.now()}`,
+      id,
       number,
       client: record.client,
       amount: total,
       status: "Draft",
       due: due.toISOString().slice(0, 10),
     };
-    addDraftInvoice(draft);
+    addDraftInvoice(draft, defaultSchedule(today.toISOString().slice(0, 10)));
     setConvertedTo(number);
     toast.success(`Created Draft ${number} from ${record.number}`, {
-      description: `${items.length} line items · ${formatMoney(total)}`,
+      description: `${items.length} line items · ${formatMoney(total)} · deposit + 2 milestones`,
       action: {
         label: "Open Invoices",
         onClick: () => navigate({ to: "/financials/invoices" }),
