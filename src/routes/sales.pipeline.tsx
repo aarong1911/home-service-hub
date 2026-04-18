@@ -273,7 +273,7 @@ function PipelinePage() {
                                   ref={prov.innerRef}
                                   {...prov.draggableProps}
                                   {...prov.dragHandleProps}
-                                  onClick={() => setSelected(deal)}
+                                  onClick={() => navigate({ search: { dealId: deal.id }, replace: true })}
                                   className={`cursor-pointer p-3 transition-shadow ${snap.isDragging ? "rotate-1 shadow-[var(--shadow-elev-2)]" : "hover:shadow-[var(--shadow-elev-1)]"}`}
                                 >
                                   <div className="mb-1.5 flex items-start justify-between gap-2">
