@@ -37,29 +37,36 @@ function EstimatesPage() {
   const allEstimates = useMemo(() => [...drafts, ...mockEstimates], [drafts]);
 
   const stats = useMemo(() => {
-    const total = mockEstimates.reduce((s, e) => s + e.amount, 0);
-    const accepted = mockEstimates.filter((e) => e.status === "Accepted");
-    const pending = mockEstimates.filter((e) => e.status === "Sent" || e.status === "Viewed");
+    const total = allEstimates.reduce((s, e) => s + e.amount, 0);
+    const accepted = allEstimates.filter((e) => e.status === "Accepted");
+    const pending = allEstimates.filter((e) => e.status === "Sent" || e.status === "Viewed");
     const winRate = Math.round(
-      (accepted.length / Math.max(1, mockEstimates.filter((e) => e.status !== "Draft").length)) * 100,
+      (accepted.length / Math.max(1, allEstimates.filter((e) => e.status !== "Draft").length)) * 100,
     );
     return {
       total,
       accepted: accepted.reduce((s, e) => s + e.amount, 0),
       pending: pending.reduce((s, e) => s + e.amount, 0),
       winRate,
-      count: mockEstimates.length,
+      count: allEstimates.length,
     };
-  }, []);
+  }, [allEstimates]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return mockEstimates.filter((e) => {
+    return allEstimates.filter((e) => {
       if (status !== "All" && e.status !== status) return false;
       if (!q) return true;
       return e.client.toLowerCase().includes(q) || e.number.toLowerCase().includes(q);
     });
-  }, [query, status]);
+  }, [allEstimates, query, status]);
+
+  const handleCreated = (estimate: Estimate) => {
+    setDrafts((prev) => [estimate, ...prev]);
+    setTplOpen(false);
+    toast.success(`Draft ${estimate.number} created for ${estimate.client}`);
+    setSelected(estimate);
+  };
 
   return (
     <>
