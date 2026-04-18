@@ -217,10 +217,28 @@ function DrawerBody({ record, onClose }: { record: FinancialRecord; onClose: () 
               <Send className="h-3.5 w-3.5" />
               Send to client
             </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleAccept} disabled={localStatus === "Accepted"}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={handleAccept}
+              disabled={localStatus === "Accepted" || localStatus === "Declined"}
+            >
               <CheckCircle2 className="h-3.5 w-3.5" />
               {localStatus === "Accepted" ? "Accepted" : "Mark accepted"}
             </Button>
+            {localStatus === "Accepted" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 border-success/40 bg-success/10 text-success hover:bg-success/15 hover:text-success"
+                onClick={handleConvertToInvoice}
+                disabled={convertedTo !== null}
+              >
+                <Receipt className="h-3.5 w-3.5" />
+                {convertedTo ? `Converted · ${convertedTo}` : "Convert to invoice"}
+              </Button>
+            )}
           </>
         )}
         <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={handleDownload}>
