@@ -108,7 +108,16 @@ function InvoicesPage() {
                   onClick={() => setSelected(i)}
                   className="h-12 cursor-pointer border-b border-border last:border-b-0 hover:bg-secondary/30"
                 >
-                  <td className="px-4 font-mono text-xs">{i.number}</td>
+                  <td className="px-4 font-mono text-xs">
+                    <span className="inline-flex items-center gap-1.5">
+                      {i.number}
+                      {i.id.startsWith("inv-draft-") && (
+                        <Badge variant="outline" className="h-4 gap-1 border-primary/40 bg-primary-soft px-1 text-[9px] text-primary">
+                          <Sparkles className="h-2 w-2" /> from estimate
+                        </Badge>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 font-medium">{i.client}</td>
                   <td className="px-4">
                     <InvoiceStatus status={i.status} />
