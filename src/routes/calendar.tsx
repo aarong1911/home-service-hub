@@ -323,6 +323,7 @@ function CalendarPage() {
           <TimeGrid
             days={weekDays}
             today={today}
+            now={nowTick}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
             eventsByDay={eventsByDay}
@@ -333,6 +334,7 @@ function CalendarPage() {
           <TimeGrid
             days={[selectedDate]}
             today={today}
+            now={nowTick}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
             eventsByDay={eventsByDay}
