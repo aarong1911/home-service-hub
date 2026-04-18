@@ -267,7 +267,7 @@ function InboxPage() {
                     <div className="flex items-center gap-2 text-sm font-semibold">
                       {active.contactName}
                       <Badge variant="outline" className="h-4 px-1.5 text-[9px] uppercase">
-                        {contact.lifecycle ?? "Customer"}
+                        {contact.tags?.[0] ?? "Customer"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
