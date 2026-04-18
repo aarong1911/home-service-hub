@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ChevronLeft, ChevronRight, RefreshCw, Plus, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronLeft, ChevronRight, RefreshCw, Plus, CheckCircle2, Calendar as CalendarIcon, Pencil, Trash2, ExternalLink, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
