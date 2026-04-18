@@ -296,6 +296,12 @@ export type Payment = {
   amount: number;
   method: "ACH" | "Card" | "Check" | "Wire";
   receivedAt: string;
+  /** Optional. When omitted, treated as "Received" for backwards compatibility. */
+  status?: "Received" | "Scheduled";
+  /** For scheduled payments: when the milestone is expected. */
+  dueDate?: string;
+  /** Optional milestone label (e.g. "Deposit", "Progress payment"). */
+  milestoneLabel?: string;
 };
 
 const owners = ["Alex Romero", "Priya Shah", "Jamal Burke", "Mei Lin", "Sara Holt"];
