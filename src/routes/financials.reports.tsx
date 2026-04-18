@@ -88,15 +88,38 @@ function ReportsPage() {
           <div>
             <div className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-primary" />
-              <div className="text-sm font-semibold">Cashflow forecast · next 90 days</div>
+              <div className="text-sm font-semibold">Cashflow forecast · next {horizon} days</div>
             </div>
             <div className="mt-0.5 text-xs text-muted-foreground">
-              Weekly inflows from received payments and scheduled milestones
+              {bucket === "weekly" ? "Weekly" : "Monthly"} inflows from received payments and scheduled milestones
             </div>
           </div>
-          <div className="flex items-center gap-4 text-xs">
-            <Legendish color={SUCCESS} label="Received" value={formatMoney(cashflowTotals.received)} />
-            <Legendish color={PRIMARY} label="Scheduled" value={formatMoney(cashflowTotals.expected)} />
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={bucket}
+              onValueChange={(v) => v && setBucket(v as Bucket)}
+              className="rounded-md border border-border bg-secondary/40 p-0.5"
+            >
+              <ToggleGroupItem value="weekly" className="h-7 px-2 text-xs">Weekly</ToggleGroupItem>
+              <ToggleGroupItem value="monthly" className="h-7 px-2 text-xs">Monthly</ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={String(horizon)}
+              onValueChange={(v) => v && setHorizon(Number(v) as Horizon)}
+              className="rounded-md border border-border bg-secondary/40 p-0.5"
+            >
+              <ToggleGroupItem value="30" className="h-7 px-2 text-xs">30d</ToggleGroupItem>
+              <ToggleGroupItem value="90" className="h-7 px-2 text-xs">90d</ToggleGroupItem>
+              <ToggleGroupItem value="180" className="h-7 px-2 text-xs">180d</ToggleGroupItem>
+            </ToggleGroup>
+            <div className="flex items-center gap-4">
+              <Legendish color={SUCCESS} label="Received" value={formatMoney(cashflowTotals.received)} />
+              <Legendish color={PRIMARY} label="Scheduled" value={formatMoney(cashflowTotals.expected)} />
+            </div>
             <div className="border-l border-border pl-4">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
               <div className="text-sm font-semibold tabular-nums">{formatMoney(cashflowTotals.total)}</div>
