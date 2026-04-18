@@ -224,7 +224,11 @@ function AnalyticsPage() {
                 <XAxis dataKey="type" stroke="oklch(0.55 0.02 250)" fontSize={11} />
                 <YAxis stroke="oklch(0.55 0.02 250)" fontSize={11} tickFormatter={(v) => `$${v / 1000}k`} />
                 <Tooltip contentStyle={{ background: "white", border: "1px solid oklch(0.92 0.005 250)", borderRadius: 8 }} formatter={(v) => formatMoney(Number(v))} />
-                <Bar dataKey="revenue" fill="oklch(0.55 0.205 262)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+                  {projectMixData.map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
