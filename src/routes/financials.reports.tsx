@@ -19,7 +19,11 @@ import { mockInvoices, mockPayments, pipelineVelocityData, type Payment } from "
 import { useScheduledPayments } from "@/lib/scheduled-payments";
 import { formatMoney } from "@/lib/format";
 import { TrendingUp, TrendingDown, ArrowUpRight, Wallet, CalendarClock } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
+type Bucket = "weekly" | "monthly";
+type Horizon = 30 | 90 | 180;
 
 export const Route = createFileRoute("/financials/reports")({
   component: ReportsPage,
@@ -56,8 +60,13 @@ function ReportsPage() {
   ];
   const agingMax = Math.max(...aging.map((a) => a.amount));
 
-  // ----- 90-day weekly cashflow forecast -----
-  const cashflow = useMemo(() => buildCashflow(mockPayments, scheduled), [scheduled]);
+  // ----- bucketed cashflow forecast -----
+  const [bucket, setBucket] = useState<Bucket>("weekly");
+  const [horizon, setHorizon] = useState<Horizon>(90);
+  const cashflow = useMemo(
+    () => buildCashflow(mockPayments, scheduled, bucket, horizon),
+    [scheduled, bucket, horizon],
+  );
   const cashflowTotals = useMemo(() => {
     const received = cashflow.reduce((s, w) => s + w.received, 0);
     const expected = cashflow.reduce((s, w) => s + w.scheduled, 0);
@@ -79,15 +88,38 @@ function ReportsPage() {
           <div>
             <div className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-primary" />
-              <div className="text-sm font-semibold">Cashflow forecast · next 90 days</div>
+              <div className="text-sm font-semibold">Cashflow forecast · next {horizon} days</div>
             </div>
             <div className="mt-0.5 text-xs text-muted-foreground">
-              Weekly inflows from received payments and scheduled milestones
+              {bucket === "weekly" ? "Weekly" : "Monthly"} inflows from received payments and scheduled milestones
             </div>
           </div>
-          <div className="flex items-center gap-4 text-xs">
-            <Legendish color={SUCCESS} label="Received" value={formatMoney(cashflowTotals.received)} />
-            <Legendish color={PRIMARY} label="Scheduled" value={formatMoney(cashflowTotals.expected)} />
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={bucket}
+              onValueChange={(v) => v && setBucket(v as Bucket)}
+              className="rounded-md border border-border bg-secondary/40 p-0.5"
+            >
+              <ToggleGroupItem value="weekly" className="h-7 px-2 text-xs">Weekly</ToggleGroupItem>
+              <ToggleGroupItem value="monthly" className="h-7 px-2 text-xs">Monthly</ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={String(horizon)}
+              onValueChange={(v) => v && setHorizon(Number(v) as Horizon)}
+              className="rounded-md border border-border bg-secondary/40 p-0.5"
+            >
+              <ToggleGroupItem value="30" className="h-7 px-2 text-xs">30d</ToggleGroupItem>
+              <ToggleGroupItem value="90" className="h-7 px-2 text-xs">90d</ToggleGroupItem>
+              <ToggleGroupItem value="180" className="h-7 px-2 text-xs">180d</ToggleGroupItem>
+            </ToggleGroup>
+            <div className="flex items-center gap-4">
+              <Legendish color={SUCCESS} label="Received" value={formatMoney(cashflowTotals.received)} />
+              <Legendish color={PRIMARY} label="Scheduled" value={formatMoney(cashflowTotals.expected)} />
+            </div>
             <div className="border-l border-border pl-4">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
               <div className="text-sm font-semibold tabular-nums">{formatMoney(cashflowTotals.total)}</div>
@@ -114,7 +146,7 @@ function ReportsPage() {
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8 }}
                 formatter={(v) => [formatMoney(Number(v ?? 0))]}
-                labelFormatter={(l) => `Week of ${l}`}
+                labelFormatter={(l) => `${bucket === "weekly" ? "Week of" : "Month of"} ${l}`}
               />
               <Legend
                 verticalAlign="top"
@@ -312,29 +344,61 @@ type CashflowWeek = {
 };
 
 /**
- * 13-week (~90d) bucketed series from the current week's Monday.
+ * Bucketed cashflow series from today, sized by horizon (days) and bucket (weekly|monthly).
  * Received: mockPayments with status omitted/"Received".
  * Scheduled: cross-route scheduled-payments store, bucketed by dueDate.
  */
-function buildCashflow(received: Payment[], scheduled: Payment[]): CashflowWeek[] {
-  const WEEKS = 13;
+function buildCashflow(
+  received: Payment[],
+  scheduled: Payment[],
+  bucket: "weekly" | "monthly",
+  horizonDays: 30 | 90 | 180,
+): CashflowWeek[] {
   const dayMs = 86_400_000;
-  const start = startOfWeek(new Date());
-  const buckets: CashflowWeek[] = Array.from({ length: WEEKS }, (_, i) => {
-    const d = new Date(start.getTime() + i * 7 * dayMs);
-    return {
-      weekStart: d.toISOString().slice(0, 10),
-      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-      received: 0,
-      scheduled: 0,
-    };
-  });
-  const end = new Date(start.getTime() + WEEKS * 7 * dayMs);
+
+  let bucketStarts: Date[];
+  if (bucket === "weekly") {
+    const start = startOfWeek(new Date());
+    const count = Math.max(1, Math.ceil(horizonDays / 7));
+    bucketStarts = Array.from({ length: count }, (_, i) => new Date(start.getTime() + i * 7 * dayMs));
+  } else {
+    const start = startOfMonth(new Date());
+    const count = Math.max(1, Math.ceil(horizonDays / 30));
+    bucketStarts = Array.from({ length: count }, (_, i) => {
+      const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
+      return d;
+    });
+  }
+  const end =
+    bucket === "weekly"
+      ? new Date(bucketStarts[bucketStarts.length - 1].getTime() + 7 * dayMs)
+      : new Date(Date.UTC(
+          bucketStarts[bucketStarts.length - 1].getUTCFullYear(),
+          bucketStarts[bucketStarts.length - 1].getUTCMonth() + 1,
+          1,
+        ));
+
+  const buckets: CashflowWeek[] = bucketStarts.map((d) => ({
+    weekStart: d.toISOString().slice(0, 10),
+    label:
+      bucket === "weekly"
+        ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+        : d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" }),
+    received: 0,
+    scheduled: 0,
+  }));
 
   const indexOf = (iso: string): number => {
     const t = new Date(iso).getTime();
-    if (Number.isNaN(t) || t < start.getTime() || t >= end.getTime()) return -1;
-    return Math.floor((t - start.getTime()) / (7 * dayMs));
+    if (Number.isNaN(t) || t < bucketStarts[0].getTime() || t >= end.getTime()) return -1;
+    if (bucket === "weekly") {
+      return Math.floor((t - bucketStarts[0].getTime()) / (7 * dayMs));
+    }
+    // monthly: find last bucket whose start <= t
+    for (let i = bucketStarts.length - 1; i >= 0; i--) {
+      if (t >= bucketStarts[i].getTime()) return i;
+    }
+    return -1;
   };
 
   for (const p of received) {
@@ -348,6 +412,10 @@ function buildCashflow(received: Payment[], scheduled: Payment[]): CashflowWeek[
     if (idx >= 0) buckets[idx].scheduled += p.amount;
   }
   return buckets;
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 }
 
 function startOfWeek(d: Date): Date {
