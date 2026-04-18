@@ -80,6 +80,22 @@ function buildMockEvents(anchor: Date): CalEvent[] {
 
 type ViewMode = "month" | "week" | "day";
 
+function parseYmd(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function buildWeekDays(anchor: Date): Date[] {
+  const day = anchor.getDay();
+  const offset = (day + 6) % 7;
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - offset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
 const TODAY = new Date(2026, 3, 18); // Stable "now" for SSR — matches src/lib/format.ts
 
 function CalendarPage() {
