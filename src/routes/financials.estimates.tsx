@@ -3,11 +3,23 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, CheckCircle2, Eye, Send, MoreHorizontal } from "lucide-react";
-import { mockEstimates, type Estimate } from "@/lib/mock-data";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Search, FileText, CheckCircle2, Eye, Send, MoreHorizontal, Sparkles, Star, ArrowRight, Trash2, Plus,
+} from "lucide-react";
+import { mockEstimates, mockContacts, type Estimate } from "@/lib/mock-data";
+import {
+  estimateTemplates, estimateTemplateSubtotal, estimateTemplateTotal,
+  type SharedEstimateTemplate, type EstimateLine,
+} from "@/lib/estimate-templates";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { FinancialDetailDrawer } from "@/components/financials/financial-detail-drawer";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/financials/estimates")({
   component: EstimatesPage,
