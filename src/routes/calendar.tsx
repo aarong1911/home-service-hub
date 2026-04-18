@@ -520,20 +520,25 @@ function TimeGrid({
                   const top = (startMin / 60) * HOUR_PX;
                   const height = ((endMin - startMin) / 60) * HOUR_PX - 2;
                   return (
-                    <div
-                      key={e.id}
-                      className={cn(
-                        "absolute left-1 right-1 overflow-hidden rounded border px-1.5 py-1 text-[10px] shadow-sm",
-                        TYPE_STYLES[e.type],
-                      )}
-                      style={{ top, height }}
-                    >
-                      <div className="truncate font-semibold">{e.title}</div>
-                      <div className="truncate opacity-80">
-                        {e.start}–{e.end}
-                        {e.project && ` · ${e.project}`}
-                      </div>
-                    </div>
+                    <Popover key={e.id}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={cn(
+                            "absolute left-1 right-1 cursor-pointer overflow-hidden rounded border px-1.5 py-1 text-left text-[10px] shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            TYPE_STYLES[e.type],
+                          )}
+                          style={{ top, height }}
+                        >
+                          <div className="truncate font-semibold">{e.title}</div>
+                          <div className="truncate opacity-80">
+                            {e.start}–{e.end}
+                            {e.project && ` · ${e.project}`}
+                          </div>
+                        </button>
+                      </PopoverTrigger>
+                      <EventDetailPopover event={e} />
+                    </Popover>
                   );
                 })}
                 {showNow && (
