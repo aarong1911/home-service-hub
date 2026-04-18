@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Search, DollarSign, Building2, CreditCard as CardIcon, Banknote, MoreHorizontal, CalendarClock, AlertTriangle, BellRing } from "lucide-react";
 import { mockPayments, type Payment } from "@/lib/mock-data";
 import { useScheduledPayments } from "@/lib/scheduled-payments";
-import { logReminder } from "@/lib/payment-reminders";
+import { logReminder, useReminders, type ReminderEntry } from "@/lib/payment-reminders";
 import { formatDate, formatMoney, daysFromNow } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { PaymentDetailDrawer } from "@/components/financials/payment-detail-drawer";
