@@ -346,7 +346,7 @@ function CalendarPage() {
           <div className="mb-2 flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">
-              {new Date(selectedDay).toLocaleDateString("default", { weekday: "long", month: "short", day: "numeric" })}
+              {parseYmd(selectedDay).toLocaleDateString("default", { weekday: "long", month: "short", day: "numeric" })}
             </h3>
           </div>
           {selectedEvents.length === 0 ? (
