@@ -9,11 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as FinancialsRouteImport } from './routes/financials'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsTeamRouteImport } from './routes/settings.team'
+import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
+import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
 import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as FinancialsReportsRouteImport } from './routes/financials.reports'
+import { Route as FinancialsPaymentsRouteImport } from './routes/financials.payments'
+import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invoices'
+import { Route as FinancialsEstimatesRouteImport } from './routes/financials.estimates'
+import { Route as AutomationWorkflowsRouteImport } from './routes/automation.workflows'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinancialsRoute = FinancialsRouteImport.update({
+  id: '/financials',
+  path: '/financials',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
@@ -29,9 +62,54 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsTeamRoute = SettingsTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBillingRoute = SettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SalesPipelineRoute = SalesPipelineRouteImport.update({
   id: '/sales/pipeline',
   path: '/sales/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => ProjectsRoute,
+} as any)
+const FinancialsReportsRoute = FinancialsReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => FinancialsRoute,
+} as any)
+const FinancialsPaymentsRoute = FinancialsPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => FinancialsRoute,
+} as any)
+const FinancialsInvoicesRoute = FinancialsInvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
+  getParentRoute: () => FinancialsRoute,
+} as any)
+const FinancialsEstimatesRoute = FinancialsEstimatesRouteImport.update({
+  id: '/estimates',
+  path: '/estimates',
+  getParentRoute: () => FinancialsRoute,
+} as any)
+const AutomationWorkflowsRoute = AutomationWorkflowsRouteImport.update({
+  id: '/automation/workflows',
+  path: '/automation/workflows',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -39,38 +117,162 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/contacts': typeof ContactsRoute
+  '/financials': typeof FinancialsRouteWithChildren
+  '/inbox': typeof InboxRoute
+  '/projects': typeof ProjectsRouteWithChildren
+  '/settings': typeof SettingsRouteWithChildren
+  '/automation/workflows': typeof AutomationWorkflowsRoute
+  '/financials/estimates': typeof FinancialsEstimatesRoute
+  '/financials/invoices': typeof FinancialsInvoicesRoute
+  '/financials/payments': typeof FinancialsPaymentsRoute
+  '/financials/reports': typeof FinancialsReportsRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/sales/pipeline': typeof SalesPipelineRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/team': typeof SettingsTeamRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/contacts': typeof ContactsRoute
+  '/financials': typeof FinancialsRouteWithChildren
+  '/inbox': typeof InboxRoute
+  '/projects': typeof ProjectsRouteWithChildren
+  '/settings': typeof SettingsRouteWithChildren
+  '/automation/workflows': typeof AutomationWorkflowsRoute
+  '/financials/estimates': typeof FinancialsEstimatesRoute
+  '/financials/invoices': typeof FinancialsInvoicesRoute
+  '/financials/payments': typeof FinancialsPaymentsRoute
+  '/financials/reports': typeof FinancialsReportsRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/sales/pipeline': typeof SalesPipelineRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/team': typeof SettingsTeamRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/contacts': typeof ContactsRoute
+  '/financials': typeof FinancialsRouteWithChildren
+  '/inbox': typeof InboxRoute
+  '/projects': typeof ProjectsRouteWithChildren
+  '/settings': typeof SettingsRouteWithChildren
+  '/automation/workflows': typeof AutomationWorkflowsRoute
+  '/financials/estimates': typeof FinancialsEstimatesRoute
+  '/financials/invoices': typeof FinancialsInvoicesRoute
+  '/financials/payments': typeof FinancialsPaymentsRoute
+  '/financials/reports': typeof FinancialsReportsRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/sales/pipeline': typeof SalesPipelineRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/integrations': typeof SettingsIntegrationsRoute
+  '/settings/team': typeof SettingsTeamRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/contacts' | '/sales/pipeline'
+  fullPaths:
+    | '/'
+    | '/$'
+    | '/contacts'
+    | '/financials'
+    | '/inbox'
+    | '/projects'
+    | '/settings'
+    | '/automation/workflows'
+    | '/financials/estimates'
+    | '/financials/invoices'
+    | '/financials/payments'
+    | '/financials/reports'
+    | '/projects/$projectId'
+    | '/sales/pipeline'
+    | '/settings/billing'
+    | '/settings/integrations'
+    | '/settings/team'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/contacts' | '/sales/pipeline'
-  id: '__root__' | '/' | '/$' | '/contacts' | '/sales/pipeline'
+  to:
+    | '/'
+    | '/$'
+    | '/contacts'
+    | '/financials'
+    | '/inbox'
+    | '/projects'
+    | '/settings'
+    | '/automation/workflows'
+    | '/financials/estimates'
+    | '/financials/invoices'
+    | '/financials/payments'
+    | '/financials/reports'
+    | '/projects/$projectId'
+    | '/sales/pipeline'
+    | '/settings/billing'
+    | '/settings/integrations'
+    | '/settings/team'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/contacts'
+    | '/financials'
+    | '/inbox'
+    | '/projects'
+    | '/settings'
+    | '/automation/workflows'
+    | '/financials/estimates'
+    | '/financials/invoices'
+    | '/financials/payments'
+    | '/financials/reports'
+    | '/projects/$projectId'
+    | '/sales/pipeline'
+    | '/settings/billing'
+    | '/settings/integrations'
+    | '/settings/team'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   ContactsRoute: typeof ContactsRoute
+  FinancialsRoute: typeof FinancialsRouteWithChildren
+  InboxRoute: typeof InboxRoute
+  ProjectsRoute: typeof ProjectsRouteWithChildren
+  SettingsRoute: typeof SettingsRouteWithChildren
+  AutomationWorkflowsRoute: typeof AutomationWorkflowsRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/financials': {
+      id: '/financials'
+      path: '/financials'
+      fullPath: '/financials'
+      preLoaderRoute: typeof FinancialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contacts': {
       id: '/contacts'
       path: '/contacts'
@@ -92,6 +294,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/team': {
+      id: '/settings/team'
+      path: '/team'
+      fullPath: '/settings/team'
+      preLoaderRoute: typeof SettingsTeamRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/integrations': {
+      id: '/settings/integrations'
+      path: '/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof SettingsIntegrationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/sales/pipeline': {
       id: '/sales/pipeline'
       path: '/sales/pipeline'
@@ -99,13 +322,106 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SalesPipelineRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof ProjectsRoute
+    }
+    '/financials/reports': {
+      id: '/financials/reports'
+      path: '/reports'
+      fullPath: '/financials/reports'
+      preLoaderRoute: typeof FinancialsReportsRouteImport
+      parentRoute: typeof FinancialsRoute
+    }
+    '/financials/payments': {
+      id: '/financials/payments'
+      path: '/payments'
+      fullPath: '/financials/payments'
+      preLoaderRoute: typeof FinancialsPaymentsRouteImport
+      parentRoute: typeof FinancialsRoute
+    }
+    '/financials/invoices': {
+      id: '/financials/invoices'
+      path: '/invoices'
+      fullPath: '/financials/invoices'
+      preLoaderRoute: typeof FinancialsInvoicesRouteImport
+      parentRoute: typeof FinancialsRoute
+    }
+    '/financials/estimates': {
+      id: '/financials/estimates'
+      path: '/estimates'
+      fullPath: '/financials/estimates'
+      preLoaderRoute: typeof FinancialsEstimatesRouteImport
+      parentRoute: typeof FinancialsRoute
+    }
+    '/automation/workflows': {
+      id: '/automation/workflows'
+      path: '/automation/workflows'
+      fullPath: '/automation/workflows'
+      preLoaderRoute: typeof AutomationWorkflowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
+
+interface FinancialsRouteChildren {
+  FinancialsEstimatesRoute: typeof FinancialsEstimatesRoute
+  FinancialsInvoicesRoute: typeof FinancialsInvoicesRoute
+  FinancialsPaymentsRoute: typeof FinancialsPaymentsRoute
+  FinancialsReportsRoute: typeof FinancialsReportsRoute
+}
+
+const FinancialsRouteChildren: FinancialsRouteChildren = {
+  FinancialsEstimatesRoute: FinancialsEstimatesRoute,
+  FinancialsInvoicesRoute: FinancialsInvoicesRoute,
+  FinancialsPaymentsRoute: FinancialsPaymentsRoute,
+  FinancialsReportsRoute: FinancialsReportsRoute,
+}
+
+const FinancialsRouteWithChildren = FinancialsRoute._addFileChildren(
+  FinancialsRouteChildren,
+)
+
+interface ProjectsRouteChildren {
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+}
+
+const ProjectsRouteChildren: ProjectsRouteChildren = {
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+}
+
+const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
+  ProjectsRouteChildren,
+)
+
+interface SettingsRouteChildren {
+  SettingsBillingRoute: typeof SettingsBillingRoute
+  SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
+  SettingsTeamRoute: typeof SettingsTeamRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsBillingRoute: SettingsBillingRoute,
+  SettingsIntegrationsRoute: SettingsIntegrationsRoute,
+  SettingsTeamRoute: SettingsTeamRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   ContactsRoute: ContactsRoute,
+  FinancialsRoute: FinancialsRouteWithChildren,
+  InboxRoute: InboxRoute,
+  ProjectsRoute: ProjectsRouteWithChildren,
+  SettingsRoute: SettingsRouteWithChildren,
+  AutomationWorkflowsRoute: AutomationWorkflowsRoute,
   SalesPipelineRoute: SalesPipelineRoute,
 }
 export const routeTree = rootRouteImport
