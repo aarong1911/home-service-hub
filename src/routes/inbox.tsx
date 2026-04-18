@@ -87,8 +87,11 @@ function InboxPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [activeId, setActiveId] = useState<string | undefined>(mockConversations[0]?.id);
   const [draft, setDraft] = useState("");
+  const [subject, setSubject] = useState("");
   const [composeChannel, setComposeChannel] = useState<ComposeChannel>("sms");
   const [search, setSearch] = useState("");
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplSearch, setTplSearch] = useState("");
 
   const conversations = useMemo(() => {
     return mockConversations.filter((c) => {
