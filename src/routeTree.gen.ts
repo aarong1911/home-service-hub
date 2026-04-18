@@ -27,6 +27,7 @@ import { Route as FinancialsPaymentsRouteImport } from './routes/financials.paym
 import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invoices'
 import { Route as FinancialsEstimatesRouteImport } from './routes/financials.estimates'
 import { Route as AutomationWorkflowsRouteImport } from './routes/automation.workflows'
+import { Route as AutomationAgentsRouteImport } from './routes/automation.agents'
 import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
 import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
 
@@ -120,6 +121,11 @@ const AutomationWorkflowsRoute = AutomationWorkflowsRouteImport.update({
   path: '/automation/workflows',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AutomationAgentsRoute = AutomationAgentsRouteImport.update({
+  id: '/automation/agents',
+  path: '/automation/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AutomationWorkflowsIndexRoute =
   AutomationWorkflowsIndexRouteImport.update({
     id: '/',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/automation/agents': typeof AutomationAgentsRoute
   '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/automation/agents': typeof AutomationAgentsRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/automation/agents': typeof AutomationAgentsRoute
   '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/financials'
     | '/inbox'
     | '/settings'
+    | '/automation/agents'
     | '/automation/workflows'
     | '/financials/estimates'
     | '/financials/invoices'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/financials'
     | '/inbox'
     | '/settings'
+    | '/automation/agents'
     | '/financials/estimates'
     | '/financials/invoices'
     | '/financials/payments'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/financials'
     | '/inbox'
     | '/settings'
+    | '/automation/agents'
     | '/automation/workflows'
     | '/financials/estimates'
     | '/financials/invoices'
@@ -275,6 +287,7 @@ export interface RootRouteChildren {
   FinancialsRoute: typeof FinancialsRouteWithChildren
   InboxRoute: typeof InboxRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationWorkflowsRoute: typeof AutomationWorkflowsRouteWithChildren
   ProjectsClientSlugRoute: typeof ProjectsClientSlugRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
@@ -409,6 +422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomationWorkflowsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/automation/agents': {
+      id: '/automation/agents'
+      path: '/automation/agents'
+      fullPath: '/automation/agents'
+      preLoaderRoute: typeof AutomationAgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/automation/workflows/': {
       id: '/automation/workflows/'
       path: '/'
@@ -481,6 +501,7 @@ const rootRouteChildren: RootRouteChildren = {
   FinancialsRoute: FinancialsRouteWithChildren,
   InboxRoute: InboxRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationWorkflowsRoute: AutomationWorkflowsRouteWithChildren,
   ProjectsClientSlugRoute: ProjectsClientSlugRoute,
   SalesPipelineRoute: SalesPipelineRoute,
