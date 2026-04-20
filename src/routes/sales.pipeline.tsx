@@ -151,7 +151,7 @@ function PipelinePage() {
         actions={
           <>
             <Button variant="outline" size="sm" className="h-8">
-              Q4 Renovation Pipeline
+              {activePipeline?.name ?? "Default Pipeline"}
               <ChevronDown className="ml-1 h-3.5 w-3.5" />
             </Button>
             <Button size="sm" className="h-8">
