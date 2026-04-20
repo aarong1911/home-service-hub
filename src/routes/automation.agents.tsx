@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { AgentConfigureDialog } from "@/components/automation/agent-configure-dialog";
+import { isAgentConfigured } from "@/lib/agent-config";
 
 export const Route = createFileRoute("/automation/agents")({
   head: () => ({
@@ -573,6 +573,7 @@ function AgentCard({
 }) {
   const Icon = agent.icon;
   const isLive = agent.status === "active";
+  const configured = useIsConfigured(agent.id);
   return (
     <Card
       className={cn(
@@ -599,6 +600,16 @@ function AgentCard({
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
                 </span>
+              )}
+              {configured && (
+                <Badge
+                  variant="secondary"
+                  className="h-4 rounded border border-primary/30 bg-primary/10 px-1 text-[9px] font-medium uppercase tracking-wider text-primary"
+                  title="This agent has custom settings that differ from defaults"
+                >
+                  <Settings2 className="mr-0.5 h-2.5 w-2.5" />
+                  Configured
+                </Badge>
               )}
             </div>
             <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
@@ -641,6 +652,28 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function useIsConfigured(id: string): boolean {
+  const [configured, setConfigured] = useState(false);
+  useEffect(() => {
+    const update = () => setConfigured(isAgentConfigured(id));
+    update();
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id?: string } | undefined;
+      if (!detail?.id || detail.id === id) update();
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === `agent-config:${id}`) update();
+    };
+    window.addEventListener("agent-config-change", onChange);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("agent-config-change", onChange);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [id]);
+  return configured;
+}
+
 function AgentDetailSheet({
   agent,
   onOpenChange,
@@ -662,7 +695,6 @@ function AgentDetailSheet({
 function AgentDetail({ agent, onToggle }: { agent: Agent; onToggle: () => void }) {
   const Icon = agent.icon;
   const isLive = agent.status === "active";
-  const [configOpen, setConfigOpen] = useState(false);
   return (
     <div className="space-y-4">
       <SheetHeader className="space-y-2 px-0 text-left">
@@ -701,18 +733,10 @@ function AgentDetail({ agent, onToggle }: { agent: Agent; onToggle: () => void }
           {isLive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           <span className="text-xs">{isLive ? "Pause agent" : agent.status === "draft" ? "Finish setup" : "Resume agent"}</span>
         </Button>
-        <Button size="sm" variant="outline" className="h-8" onClick={() => setConfigOpen(true)}>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => toast.info("Settings coming soon")}>
           <Settings2 className="h-3.5 w-3.5" />
           <span className="text-xs">Configure</span>
         </Button>
-        <AgentConfigureDialog
-          open={configOpen}
-          onOpenChange={setConfigOpen}
-          agentId={agent.id}
-          agentName={agent.name}
-          triggers={agent.triggers}
-          channels={agent.channels}
-        />
       </div>
 
       <div className="grid grid-cols-3 gap-2">
