@@ -111,14 +111,26 @@ export function Sidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-3">
-          {!collapsed && (
-            favorites.length > 0 && <div className="mb-3 px-2">
-              <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <Pin className="h-3 w-3" /> Favorites
+          {favorites.length > 0 && (
+            <div className={cn("mb-3", collapsed ? "" : "px-2")}>
+              {!collapsed && (
+                <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Pin className="h-3 w-3" /> Favorites
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {favorites.map((item) => (
+                  <NavLinkRow
+                    key={item.to}
+                    item={item}
+                    active={isNavActive(item.to)}
+                    collapsed={collapsed}
+                  />
+                ))}
               </div>
-              {favorites.map((item) => (
-                <NavLinkRow key={item.to} item={item} active={isNavActive(item.to)} collapsed={false} />
-              ))}
+              {collapsed && (
+                <div className="my-2 border-t border-sidebar-border" />
+              )}
             </div>
           )}
 
