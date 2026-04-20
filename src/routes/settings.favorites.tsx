@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Pin, Star, X } from "lucide-react";
+import { GripVertical, Pin, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   FAVORITE_CATALOG,
@@ -20,6 +19,8 @@ export const Route = createFileRoute("/settings/favorites")({
 
 function FavoritesSettings() {
   const favs = useFavorites();
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
   const grouped = useMemo(() => {
     const g = new Map<string, typeof FAVORITE_CATALOG>();
     for (const opt of FAVORITE_CATALOG) {
@@ -32,6 +33,14 @@ function FavoritesSettings() {
   const selected = favs
     .map((to) => FAVORITE_CATALOG.find((o) => o.to === to))
     .filter((x): x is (typeof FAVORITE_CATALOG)[number] => !!x);
+
+  function reorder(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= favs.length || to >= favs.length) return;
+    const next = [...favs];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setFavorites(next);
+  }
 
   return (
     <Card className="p-6">
@@ -67,29 +76,70 @@ function FavoritesSettings() {
             No favorites pinned yet. Select up to {MAX_FAVORITES} below.
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {selected.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <Badge
-                  key={opt.to}
-                  variant="secondary"
-                  className="gap-1.5 pr-1 text-xs"
-                >
-                  <Icon className="h-3 w-3" />
-                  {opt.label}
-                  <button
-                    type="button"
-                    onClick={() => toggleFavorite(opt.to)}
-                    className="ml-0.5 rounded p-0.5 hover:bg-muted"
-                    aria-label={`Remove ${opt.label}`}
+          <>
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              Drag to reorder — the top item appears first in the sidebar.
+            </p>
+            <ul className="space-y-1.5">
+              {selected.map((opt, index) => {
+                const Icon = opt.icon;
+                const isDragging = dragIndex === index;
+                const isOver = overIndex === index && dragIndex !== null && dragIndex !== index;
+                return (
+                  <li
+                    key={opt.to}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragIndex(index);
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", String(index));
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (overIndex !== index) setOverIndex(index);
+                    }}
+                    onDragLeave={() => {
+                      if (overIndex === index) setOverIndex(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null) {
+                        reorder(dragIndex, index);
+                        toast.success("Favorites reordered");
+                      }
+                      setDragIndex(null);
+                      setOverIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setOverIndex(null);
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm transition-colors",
+                      isDragging && "opacity-40",
+                      isOver && "border-primary ring-1 ring-primary",
+                    )}
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              );
-            })}
-          </div>
+                    <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground active:cursor-grabbing" />
+                    <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <Icon className="h-4 w-4" />
+                    <span className="flex-1 font-medium">{opt.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleFavorite(opt.to)}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={`Remove ${opt.label}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
 
