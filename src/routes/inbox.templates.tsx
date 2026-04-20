@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   MessageSquare, Mail, Search, Star, Sparkles, ArrowRight, Settings as SettingsIcon, Inbox,
+  Clock,
 } from "lucide-react";
 import { messageTemplates, type SharedMessageTemplate, type MessageChannel } from "@/lib/message-templates";
+import { useRecentTemplateIds, recordTemplateUse, clearRecentTemplates } from "@/lib/recent-templates";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -23,6 +25,13 @@ function TemplatesPickerPage() {
   const [channel, setChannel] = useState<ChannelFilter>("all");
   const [category, setCategory] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const recentIds = useRecentTemplateIds();
+
+  const recent = useMemo(() => {
+    return recentIds
+      .map((id) => messageTemplates.find((t) => t.id === id))
+      .filter((t): t is SharedMessageTemplate => Boolean(t));
+  }, [recentIds]);
 
   const categories = useMemo(() => {
     const set = new Set(messageTemplates.map((t) => t.category));
@@ -56,6 +65,7 @@ function TemplatesPickerPage() {
   }, [channel, category, query]);
 
   function insert(t: SharedMessageTemplate) {
+    recordTemplateUse(t.id);
     toast.success(`Inserting "${t.name}" into reply…`);
     navigate({ to: "/inbox", search: { templateId: t.id } });
   }
@@ -135,6 +145,48 @@ function TemplatesPickerPage() {
           </button>
         ))}
       </div>
+
+      {/* Recently used */}
+      {recent.length > 0 && (
+        <div className="mb-4 rounded-lg border bg-card p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Recently used
+              </h2>
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-medium">
+                {recent.length}
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={() => clearRecentTemplates()}
+            >
+              Clear
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {recent.map((t) => {
+              const Icon = t.channel === "email" ? Mail : MessageSquare;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => insert(t)}
+                  className="group inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary-soft hover:text-primary"
+                  title={t.description}
+                >
+                  <Icon className="h-3 w-3" />
+                  <span className="max-w-[180px] truncate">{t.name}</span>
+                  <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Grid */}
       {visible.length === 0 ? (

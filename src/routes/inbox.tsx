@@ -51,6 +51,7 @@ import {
   type MergeContext,
   type SharedMessageTemplate,
 } from "@/lib/message-templates";
+import { recordTemplateUse } from "@/lib/recent-templates";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -191,6 +192,7 @@ function InboxPage() {
     }
     setTplOpen(false);
     setTplSearch("");
+    recordTemplateUse(t.id);
     toast.success(`Inserted "${t.name}"`);
   };
 
