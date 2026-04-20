@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { isAgentConfigured } from "@/lib/agent-config";
 
 export const Route = createFileRoute("/automation/agents")({
   head: () => ({
@@ -572,6 +573,7 @@ function AgentCard({
 }) {
   const Icon = agent.icon;
   const isLive = agent.status === "active";
+  const configured = useIsConfigured(agent.id);
   return (
     <Card
       className={cn(
@@ -598,6 +600,16 @@ function AgentCard({
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
                 </span>
+              )}
+              {configured && (
+                <Badge
+                  variant="secondary"
+                  className="h-4 rounded border border-primary/30 bg-primary/10 px-1 text-[9px] font-medium uppercase tracking-wider text-primary"
+                  title="This agent has custom settings that differ from defaults"
+                >
+                  <Settings2 className="mr-0.5 h-2.5 w-2.5" />
+                  Configured
+                </Badge>
               )}
             </div>
             <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
