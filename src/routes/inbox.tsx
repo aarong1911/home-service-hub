@@ -194,6 +194,15 @@ function InboxPage() {
     toast.success(`Inserted "${t.name}"`);
   };
 
+  // Deep-link from /inbox/templates: ?templateId=… inserts and clears the param.
+  useEffect(() => {
+    if (!templateId) return;
+    const tpl = messageTemplates.find((t) => t.id === templateId);
+    if (tpl) applyTemplate(tpl);
+    navigate({ search: { templateId: undefined }, replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId]);
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
       <PageHeader
