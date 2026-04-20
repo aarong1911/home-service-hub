@@ -7,6 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useFavoriteOptions } from "@/lib/favorites";
 
 type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }> };
 type NavGroup = { label: string; items: NavItem[] };
@@ -67,11 +68,6 @@ const groups: NavGroup[] = [
   },
 ];
 
-const favorites: NavItem[] = [
-  { to: "/sales/pipeline", label: "Q4 Pipeline", icon: Star },
-  { to: "/projects", label: "Active Projects", icon: Star },
-];
-
 export function Sidebar({
   collapsed,
   onToggle,
@@ -81,6 +77,7 @@ export function Sidebar({
 }) {
   const location = useLocation();
   const pathname = location.pathname;
+  const favorites = useFavoriteOptions();
 
   const isActive = (to: string) =>
     to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(to + "/");
@@ -115,12 +112,12 @@ export function Sidebar({
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-3">
           {!collapsed && (
-            <div className="mb-3 px-2">
+            favorites.length > 0 && <div className="mb-3 px-2">
               <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <Pin className="h-3 w-3" /> Favorites
               </div>
               {favorites.map((item) => (
-                <NavLinkRow key={item.label} item={item} active={false} collapsed={false} />
+                <NavLinkRow key={item.to} item={item} active={isNavActive(item.to)} collapsed={false} />
               ))}
             </div>
           )}

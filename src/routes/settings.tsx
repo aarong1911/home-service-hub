@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/app-shell";
 import {
-  Building2, Users, Plug, CreditCard, Wand2, Palette, Key, Bell, FileText,
+  Building2, Users, Plug, CreditCard, Wand2, Palette, Key, Bell, FileText, Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrganizationSettings } from "@/components/organization/organization-settings";
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/settings")({
 const sections = [
   { to: "/settings", label: "Organization", icon: Building2, exact: true },
   { to: "/settings/team", label: "Team & Roles", icon: Users },
+  { to: "/settings/favorites", label: "Favorites", icon: Pin },
   { to: "/settings/integrations", label: "Integrations", icon: Plug },
   { to: "/settings/billing", label: "Plans & Billing", icon: CreditCard },
   { to: "/settings/templates", label: "Templates", icon: FileText },
