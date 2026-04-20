@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, Building2, Target, Briefcase, ListTodo, Calendar, FolderOpen,
   Inbox, MessageSquare, Megaphone, Workflow, Bot, Bell, Receipt, FileText,
-  CreditCard, BarChart3, TrendingUp, Trophy, Star, Settings, ChevronLeft, Pin,
+  CreditCard, BarChart3, TrendingUp, Trophy, Settings, ChevronLeft, Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
