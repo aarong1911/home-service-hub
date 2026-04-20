@@ -192,6 +192,7 @@ function InboxPage() {
     }
     setTplOpen(false);
     setTplSearch("");
+    recordTemplateUse(t.id);
     toast.success(`Inserted "${t.name}"`);
   };
 
