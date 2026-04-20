@@ -53,6 +53,8 @@ import {
 } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { TemplatePicker } from "@/components/inbox/template-picker";
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
