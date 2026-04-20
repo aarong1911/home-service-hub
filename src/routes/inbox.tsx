@@ -98,6 +98,8 @@ const channelTabs: { id: ChannelFilter; label: string; icon: typeof Mail }[] = [
 const NOW = Date.UTC(2026, 3, 18);
 
 function InboxPage() {
+  const { templateId } = Route.useSearch();
+  const navigate = useNavigate({ from: "/inbox" });
   const [folder, setFolder] = useState<FolderId>("all");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [activeId, setActiveId] = useState<string | undefined>(mockConversations[0]?.id);
