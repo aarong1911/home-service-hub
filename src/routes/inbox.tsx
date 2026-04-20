@@ -664,6 +664,28 @@ function InboxPage() {
         </aside>
       </div>
     </div>
+
+    <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetHeader>
+          <SheetTitle>Pick a template</SheetTitle>
+          <SheetDescription>
+            Insert a pre-written email or SMS template into your reply. Merge tags are resolved using the active conversation's contact.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="mt-4">
+          <TemplatePicker
+            compact
+            initialChannel={composeChannel === "email" ? "email" : composeChannel === "sms" ? "sms" : "all"}
+            onInsert={(t) => {
+              applyTemplate(t);
+              setPickerOpen(false);
+            }}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }
 
