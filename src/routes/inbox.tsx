@@ -1,5 +1,5 @@
-import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
+type InboxSearch = { templateId?: string };
+
 export const Route = createFileRoute("/inbox")({
+  validateSearch: (raw: Record<string, unknown>): InboxSearch => ({
+    templateId: typeof raw.templateId === "string" && raw.templateId ? raw.templateId : undefined,
+  }),
   component: InboxLayout,
 });
 
@@ -93,6 +98,8 @@ const channelTabs: { id: ChannelFilter; label: string; icon: typeof Mail }[] = [
 const NOW = Date.UTC(2026, 3, 18);
 
 function InboxPage() {
+  const { templateId } = Route.useSearch();
+  const navigate = useNavigate({ from: "/inbox" });
   const [folder, setFolder] = useState<FolderId>("all");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [activeId, setActiveId] = useState<string | undefined>(mockConversations[0]?.id);
@@ -186,6 +193,15 @@ function InboxPage() {
     setTplSearch("");
     toast.success(`Inserted "${t.name}"`);
   };
+
+  // Deep-link from /inbox/templates: ?templateId=… inserts and clears the param.
+  useEffect(() => {
+    if (!templateId) return;
+    const tpl = messageTemplates.find((t) => t.id === templateId);
+    if (tpl) applyTemplate(tpl);
+    navigate({ search: { templateId: undefined }, replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId]);
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
