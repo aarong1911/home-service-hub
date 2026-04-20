@@ -21,6 +21,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as SettingsTemplatesRouteImport } from './routes/settings.templates'
 import { Route as SettingsTeamRouteImport } from './routes/settings.team'
+import { Route as SettingsPipelinesRouteImport } from './routes/settings.pipelines'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 import { Route as SettingsFavoritesRouteImport } from './routes/settings.favorites'
@@ -102,6 +103,11 @@ const SettingsTemplatesRoute = SettingsTemplatesRouteImport.update({
 const SettingsTeamRoute = SettingsTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsPipelinesRoute = SettingsPipelinesRouteImport.update({
+  id: '/pipelines',
+  path: '/pipelines',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/pipelines': typeof SettingsPipelinesRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -282,6 +289,7 @@ export interface FileRoutesByTo {
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/pipelines': typeof SettingsPipelinesRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
   '/projects': typeof ProjectsIndexRoute
@@ -319,6 +327,7 @@ export interface FileRoutesById {
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/pipelines': typeof SettingsPipelinesRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
+    | '/settings/pipelines'
     | '/settings/team'
     | '/settings/templates'
     | '/projects/'
@@ -392,6 +402,7 @@ export interface FileRouteTypes {
     | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
+    | '/settings/pipelines'
     | '/settings/team'
     | '/settings/templates'
     | '/projects'
@@ -428,6 +439,7 @@ export interface FileRouteTypes {
     | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
+    | '/settings/pipelines'
     | '/settings/team'
     | '/settings/templates'
     | '/projects/'
@@ -539,6 +551,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/settings/team'
       preLoaderRoute: typeof SettingsTeamRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/pipelines': {
+      id: '/settings/pipelines'
+      path: '/pipelines'
+      fullPath: '/settings/pipelines'
+      preLoaderRoute: typeof SettingsPipelinesRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/notifications': {
@@ -736,6 +755,7 @@ interface SettingsRouteChildren {
   SettingsFavoritesRoute: typeof SettingsFavoritesRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsPipelinesRoute: typeof SettingsPipelinesRoute
   SettingsTeamRoute: typeof SettingsTeamRoute
   SettingsTemplatesRoute: typeof SettingsTemplatesRoute
 }
@@ -748,6 +768,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsFavoritesRoute: SettingsFavoritesRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsPipelinesRoute: SettingsPipelinesRoute,
   SettingsTeamRoute: SettingsTeamRoute,
   SettingsTemplatesRoute: SettingsTemplatesRoute,
 }
