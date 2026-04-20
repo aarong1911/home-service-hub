@@ -15,6 +15,7 @@ import { mockDeals, pipelineStages, type Deal, type LostReason } from "@/lib/moc
 const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
+import { STAGE_COLOR_CLASS, useActivePipelineId, usePipelines } from "@/lib/pipelines";
 
 type PipelineSearch = { dealId?: string };
 
@@ -40,6 +41,35 @@ function PipelinePage() {
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<Deal | null>(null);
+
+  const pipelines = usePipelines();
+  const activeId = useActivePipelineId();
+  const activePipeline = useMemo(
+    () => pipelines.find((p) => p.id === activeId) ?? null,
+    [pipelines, activeId],
+  );
+  // Stages displayed on the board: active pipeline stages + terminal Won/Lost.
+  const boardStages = useMemo(() => {
+    if (!activePipeline) {
+      return pipelineStages.map((s) => ({ id: s.id, name: s.name, colorClass: stageColor(s.id) }));
+    }
+    const custom = activePipeline.stages.map((s) => ({
+      id: s.id,
+      name: s.name,
+      colorClass: STAGE_COLOR_CLASS[s.color],
+    }));
+    return [
+      ...custom,
+      { id: "won", name: "Won", colorClass: "bg-success" },
+      { id: "lost", name: "Lost", colorClass: "bg-destructive" },
+    ];
+  }, [activePipeline]);
+  const stageNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    boardStages.forEach((s) => { map[s.id] = s.name; });
+    pipelineStages.forEach((s) => { if (!map[s.id]) map[s.id] = s.name; });
+    return map;
+  }, [boardStages]);
 
   // Deep-link: open the matching deal drawer when ?dealId=... is present.
   useEffect(() => {
