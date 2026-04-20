@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   MessageSquare, Mail, Search, Star, Sparkles, ArrowRight, Settings as SettingsIcon, Inbox,
+  Clock,
 } from "lucide-react";
 import { messageTemplates, type SharedMessageTemplate, type MessageChannel } from "@/lib/message-templates";
 import { useRecentTemplateIds, recordTemplateUse, clearRecentTemplates } from "@/lib/recent-templates";
