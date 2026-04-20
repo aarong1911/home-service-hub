@@ -31,6 +31,7 @@ import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
 import { Route as ProjectsClientSlugRouteImport } from './routes/projects.$clientSlug'
 import { Route as InsightsReputationRouteImport } from './routes/insights.reputation'
 import { Route as InsightsAnalyticsRouteImport } from './routes/insights.analytics'
+import { Route as InboxBroadcastsRouteImport } from './routes/inbox.broadcasts'
 import { Route as FinancialsReportsRouteImport } from './routes/financials.reports'
 import { Route as FinancialsPaymentsRouteImport } from './routes/financials.payments'
 import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invoices'
@@ -151,6 +152,11 @@ const InsightsAnalyticsRoute = InsightsAnalyticsRouteImport.update({
   path: '/insights/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InboxBroadcastsRoute = InboxBroadcastsRouteImport.update({
+  id: '/broadcasts',
+  path: '/broadcasts',
+  getParentRoute: () => InboxRoute,
+} as any)
 const FinancialsReportsRoute = FinancialsReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -207,7 +213,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
-  '/inbox': typeof InboxRoute
+  '/inbox': typeof InboxRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
+  '/inbox/broadcasts': typeof InboxBroadcastsRoute
   '/insights/analytics': typeof InsightsAnalyticsRoute
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
@@ -240,7 +247,7 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
-  '/inbox': typeof InboxRoute
+  '/inbox': typeof InboxRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -248,6 +255,7 @@ export interface FileRoutesByTo {
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
+  '/inbox/broadcasts': typeof InboxBroadcastsRoute
   '/insights/analytics': typeof InsightsAnalyticsRoute
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
@@ -273,7 +281,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
-  '/inbox': typeof InboxRoute
+  '/inbox': typeof InboxRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -282,6 +290,7 @@ export interface FileRoutesById {
   '/financials/invoices': typeof FinancialsInvoicesRoute
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
+  '/inbox/broadcasts': typeof InboxBroadcastsRoute
   '/insights/analytics': typeof InsightsAnalyticsRoute
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
@@ -317,6 +326,7 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
+    | '/inbox/broadcasts'
     | '/insights/analytics'
     | '/insights/reputation'
     | '/projects/$clientSlug'
@@ -349,6 +359,7 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
+    | '/inbox/broadcasts'
     | '/insights/analytics'
     | '/insights/reputation'
     | '/projects/$clientSlug'
@@ -382,6 +393,7 @@ export interface FileRouteTypes {
     | '/financials/invoices'
     | '/financials/payments'
     | '/financials/reports'
+    | '/inbox/broadcasts'
     | '/insights/analytics'
     | '/insights/reputation'
     | '/projects/$clientSlug'
@@ -407,7 +419,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   FilesRoute: typeof FilesRoute
   FinancialsRoute: typeof FinancialsRouteWithChildren
-  InboxRoute: typeof InboxRoute
+  InboxRoute: typeof InboxRouteWithChildren
   SettingsRoute: typeof SettingsRouteWithChildren
   AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
@@ -575,6 +587,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InsightsAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inbox/broadcasts': {
+      id: '/inbox/broadcasts'
+      path: '/broadcasts'
+      fullPath: '/inbox/broadcasts'
+      preLoaderRoute: typeof InboxBroadcastsRouteImport
+      parentRoute: typeof InboxRoute
+    }
     '/financials/reports': {
       id: '/financials/reports'
       path: '/reports'
@@ -659,6 +678,16 @@ const FinancialsRouteWithChildren = FinancialsRoute._addFileChildren(
   FinancialsRouteChildren,
 )
 
+interface InboxRouteChildren {
+  InboxBroadcastsRoute: typeof InboxBroadcastsRoute
+}
+
+const InboxRouteChildren: InboxRouteChildren = {
+  InboxBroadcastsRoute: InboxBroadcastsRoute,
+}
+
+const InboxRouteWithChildren = InboxRoute._addFileChildren(InboxRouteChildren)
+
 interface SettingsRouteChildren {
   SettingsApiKeysRoute: typeof SettingsApiKeysRoute
   SettingsBillingRoute: typeof SettingsBillingRoute
@@ -706,7 +735,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   FilesRoute: FilesRoute,
   FinancialsRoute: FinancialsRouteWithChildren,
-  InboxRoute: InboxRoute,
+  InboxRoute: InboxRouteWithChildren,
   SettingsRoute: SettingsRouteWithChildren,
   AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
