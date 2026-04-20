@@ -701,7 +701,7 @@ function AgentDetail({ agent, onToggle }: { agent: Agent; onToggle: () => void }
           {isLive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           <span className="text-xs">{isLive ? "Pause agent" : agent.status === "draft" ? "Finish setup" : "Resume agent"}</span>
         </Button>
-        <Button size="sm" variant="outline" className="h-8" onClick={() => toast.info("Settings coming soon")}>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => setConfigOpen(true)}>
           <Settings2 className="h-3.5 w-3.5" />
           <span className="text-xs">Configure</span>
         </Button>
