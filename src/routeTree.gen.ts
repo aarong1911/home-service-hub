@@ -31,6 +31,7 @@ import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
 import { Route as ProjectsClientSlugRouteImport } from './routes/projects.$clientSlug'
 import { Route as InsightsReputationRouteImport } from './routes/insights.reputation'
 import { Route as InsightsAnalyticsRouteImport } from './routes/insights.analytics'
+import { Route as InboxTemplatesRouteImport } from './routes/inbox.templates'
 import { Route as InboxBroadcastsRouteImport } from './routes/inbox.broadcasts'
 import { Route as FinancialsReportsRouteImport } from './routes/financials.reports'
 import { Route as FinancialsPaymentsRouteImport } from './routes/financials.payments'
@@ -152,6 +153,11 @@ const InsightsAnalyticsRoute = InsightsAnalyticsRouteImport.update({
   path: '/insights/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InboxTemplatesRoute = InboxTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => InboxRoute,
+} as any)
 const InboxBroadcastsRoute = InboxBroadcastsRouteImport.update({
   id: '/broadcasts',
   path: '/broadcasts',
@@ -223,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
   '/inbox/broadcasts': typeof InboxBroadcastsRoute
+  '/inbox/templates': typeof InboxTemplatesRoute
   '/insights/analytics': typeof InsightsAnalyticsRoute
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
   '/inbox/broadcasts': typeof InboxBroadcastsRoute
+  '/inbox/templates': typeof InboxTemplatesRoute
   '/insights/analytics': typeof InsightsAnalyticsRoute
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
@@ -291,6 +299,7 @@ export interface FileRoutesById {
   '/financials/payments': typeof FinancialsPaymentsRoute
   '/financials/reports': typeof FinancialsReportsRoute
   '/inbox/broadcasts': typeof InboxBroadcastsRoute
+  '/inbox/templates': typeof InboxTemplatesRoute
   '/insights/analytics': typeof InsightsAnalyticsRoute
   '/insights/reputation': typeof InsightsReputationRoute
   '/projects/$clientSlug': typeof ProjectsClientSlugRoute
@@ -327,6 +336,7 @@ export interface FileRouteTypes {
     | '/financials/payments'
     | '/financials/reports'
     | '/inbox/broadcasts'
+    | '/inbox/templates'
     | '/insights/analytics'
     | '/insights/reputation'
     | '/projects/$clientSlug'
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/financials/payments'
     | '/financials/reports'
     | '/inbox/broadcasts'
+    | '/inbox/templates'
     | '/insights/analytics'
     | '/insights/reputation'
     | '/projects/$clientSlug'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/financials/payments'
     | '/financials/reports'
     | '/inbox/broadcasts'
+    | '/inbox/templates'
     | '/insights/analytics'
     | '/insights/reputation'
     | '/projects/$clientSlug'
@@ -587,6 +599,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InsightsAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inbox/templates': {
+      id: '/inbox/templates'
+      path: '/templates'
+      fullPath: '/inbox/templates'
+      preLoaderRoute: typeof InboxTemplatesRouteImport
+      parentRoute: typeof InboxRoute
+    }
     '/inbox/broadcasts': {
       id: '/inbox/broadcasts'
       path: '/broadcasts'
@@ -680,10 +699,12 @@ const FinancialsRouteWithChildren = FinancialsRoute._addFileChildren(
 
 interface InboxRouteChildren {
   InboxBroadcastsRoute: typeof InboxBroadcastsRoute
+  InboxTemplatesRoute: typeof InboxTemplatesRoute
 }
 
 const InboxRouteChildren: InboxRouteChildren = {
   InboxBroadcastsRoute: InboxBroadcastsRoute,
+  InboxTemplatesRoute: InboxTemplatesRoute,
 }
 
 const InboxRouteWithChildren = InboxRoute._addFileChildren(InboxRouteChildren)

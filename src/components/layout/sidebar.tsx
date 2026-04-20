@@ -85,6 +85,13 @@ export function Sidebar({
   const isActive = (to: string) =>
     to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(to + "/");
 
+  // Inbox root (/inbox) should NOT light up when on a child route like
+  // /inbox/broadcasts or /inbox/templates — those have their own entries.
+  const isNavActive = (to: string) =>
+    to === "/inbox"
+      ? pathname === "/inbox" || pathname === "/inbox/"
+      : isActive(to);
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
@@ -130,7 +137,7 @@ export function Sidebar({
                   <NavLinkRow
                     key={item.to}
                     item={item}
-                    active={isActive(item.to)}
+                    active={isNavActive(item.to)}
                     collapsed={collapsed}
                   />
                 ))}

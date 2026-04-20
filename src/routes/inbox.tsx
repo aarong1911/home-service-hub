@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -56,8 +56,18 @@ import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/inbox")({
-  component: InboxPage,
+  component: InboxLayout,
 });
+
+function InboxLayout() {
+  const { pathname } = useLocation();
+  // When a child route is active (e.g. /inbox/broadcasts), render it instead
+  // of the Conversations UI. /inbox itself still shows InboxPage.
+  if (pathname !== "/inbox" && pathname !== "/inbox/") {
+    return <Outlet />;
+  }
+  return <InboxPage />;
+}
 
 type FolderId = "all" | "unread" | "assigned" | "mentions" | "starred" | "unassigned" | "archived";
 type ChannelFilter = "all" | "email" | "sms" | "voice";
