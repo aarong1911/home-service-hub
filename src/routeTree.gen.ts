@@ -23,6 +23,7 @@ import { Route as SettingsTemplatesRouteImport } from './routes/settings.templat
 import { Route as SettingsTeamRouteImport } from './routes/settings.team'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
+import { Route as SettingsFavoritesRouteImport } from './routes/settings.favorites'
 import { Route as SettingsCustomFieldsRouteImport } from './routes/settings.custom-fields'
 import { Route as SettingsBrandingRouteImport } from './routes/settings.branding'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
@@ -111,6 +112,11 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
 const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsFavoritesRoute = SettingsFavoritesRouteImport.update({
+  id: '/favorites',
+  path: '/favorites',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsCustomFieldsRoute = SettingsCustomFieldsRouteImport.update({
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
+  '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/team': typeof SettingsTeamRoute
@@ -272,6 +279,7 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
+  '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/team': typeof SettingsTeamRoute
@@ -308,6 +316,7 @@ export interface FileRoutesById {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
+  '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/team': typeof SettingsTeamRoute
@@ -345,6 +354,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/branding'
     | '/settings/custom-fields'
+    | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
     | '/settings/team'
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/branding'
     | '/settings/custom-fields'
+    | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
     | '/settings/team'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/branding'
     | '/settings/custom-fields'
+    | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
     | '/settings/team'
@@ -541,6 +553,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations'
       fullPath: '/settings/integrations'
       preLoaderRoute: typeof SettingsIntegrationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/favorites': {
+      id: '/settings/favorites'
+      path: '/favorites'
+      fullPath: '/settings/favorites'
+      preLoaderRoute: typeof SettingsFavoritesRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/custom-fields': {
@@ -714,6 +733,7 @@ interface SettingsRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsCustomFieldsRoute: typeof SettingsCustomFieldsRoute
+  SettingsFavoritesRoute: typeof SettingsFavoritesRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsTeamRoute: typeof SettingsTeamRoute
@@ -725,6 +745,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBillingRoute: SettingsBillingRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsCustomFieldsRoute: SettingsCustomFieldsRoute,
+  SettingsFavoritesRoute: SettingsFavoritesRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsTeamRoute: SettingsTeamRoute,
