@@ -396,7 +396,7 @@ function PipelinePage() {
                     <td className="py-2.5 pr-4">
                       <Badge variant="outline" className="h-5 rounded px-1.5 text-[10px]">
                         <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${stageColor(d.stage)}`} />
-                        {pipelineStages.find((s) => s.id === d.stage)?.name ?? d.stage}
+                        {stageNameById[d.stage] ?? d.stage}
                       </Badge>
                     </td>
                     <td className="py-2.5 pr-4 text-right font-semibold tabular-nums">{formatMoney(d.value)}</td>
