@@ -15,6 +15,7 @@ import { mockDeals, pipelineStages, type Deal, type LostReason } from "@/lib/moc
 const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
+import { STAGE_COLOR_CLASS, useActivePipelineId, usePipelines } from "@/lib/pipelines";
 
 type PipelineSearch = { dealId?: string };
 
@@ -40,6 +41,35 @@ function PipelinePage() {
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<Deal | null>(null);
+
+  const pipelines = usePipelines();
+  const activeId = useActivePipelineId();
+  const activePipeline = useMemo(
+    () => pipelines.find((p) => p.id === activeId) ?? null,
+    [pipelines, activeId],
+  );
+  // Stages displayed on the board: active pipeline stages + terminal Won/Lost.
+  const boardStages = useMemo(() => {
+    if (!activePipeline) {
+      return pipelineStages.map((s) => ({ id: s.id, name: s.name, colorClass: stageColor(s.id) }));
+    }
+    const custom = activePipeline.stages.map((s) => ({
+      id: s.id,
+      name: s.name,
+      colorClass: STAGE_COLOR_CLASS[s.color],
+    }));
+    return [
+      ...custom,
+      { id: "won", name: "Won", colorClass: "bg-success" },
+      { id: "lost", name: "Lost", colorClass: "bg-destructive" },
+    ];
+  }, [activePipeline]);
+  const stageNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    boardStages.forEach((s) => { map[s.id] = s.name; });
+    pipelineStages.forEach((s) => { if (!map[s.id]) map[s.id] = s.name; });
+    return map;
+  }, [boardStages]);
 
   // Deep-link: open the matching deal drawer when ?dealId=... is present.
   useEffect(() => {
@@ -121,7 +151,7 @@ function PipelinePage() {
         actions={
           <>
             <Button variant="outline" size="sm" className="h-8">
-              Q4 Renovation Pipeline
+              {activePipeline?.name ?? "Default Pipeline"}
               <ChevronDown className="ml-1 h-3.5 w-3.5" />
             </Button>
             <Button size="sm" className="h-8">
@@ -241,14 +271,14 @@ function PipelinePage() {
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-auto overflow-y-hidden px-6 pb-3">
             <div className="flex h-full min-w-max gap-3">
-              {pipelineStages.map((stage) => {
+              {boardStages.map((stage) => {
                 const stageDeals = filtered.filter((d) => d.stage === stage.id);
                 const stageTotal = stageDeals.reduce((s, d) => s + d.value, 0);
                 return (
                   <div key={stage.id} className="flex h-full w-[300px] shrink-0 flex-col">
                     <div className="mb-2 flex items-center justify-between px-1">
                       <div className="flex items-center gap-2">
-                        <div className={`h-1.5 w-1.5 rounded-full ${stageColor(stage.id)}`} />
+                        <div className={`h-1.5 w-1.5 rounded-full ${stage.colorClass}`} />
                         <span className="text-sm font-semibold">{stage.name}</span>
                         <Badge variant="secondary" className="h-5 rounded px-1.5 text-[10px]">{stageDeals.length}</Badge>
                       </div>
@@ -366,7 +396,7 @@ function PipelinePage() {
                     <td className="py-2.5 pr-4">
                       <Badge variant="outline" className="h-5 rounded px-1.5 text-[10px]">
                         <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${stageColor(d.stage)}`} />
-                        {pipelineStages.find((s) => s.id === d.stage)?.name ?? d.stage}
+                        {stageNameById[d.stage] ?? d.stage}
                       </Badge>
                     </td>
                     <td className="py-2.5 pr-4 text-right font-semibold tabular-nums">{formatMoney(d.value)}</td>
