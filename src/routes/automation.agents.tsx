@@ -652,6 +652,28 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function useIsConfigured(id: string): boolean {
+  const [configured, setConfigured] = useState(false);
+  useEffect(() => {
+    const update = () => setConfigured(isAgentConfigured(id));
+    update();
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id?: string } | undefined;
+      if (!detail?.id || detail.id === id) update();
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === `agent-config:${id}`) update();
+    };
+    window.addEventListener("agent-config-change", onChange);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("agent-config-change", onChange);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [id]);
+  return configured;
+}
+
 function AgentDetailSheet({
   agent,
   onOpenChange,
