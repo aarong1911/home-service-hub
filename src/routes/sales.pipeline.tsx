@@ -271,14 +271,14 @@ function PipelinePage() {
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-auto overflow-y-hidden px-6 pb-3">
             <div className="flex h-full min-w-max gap-3">
-              {pipelineStages.map((stage) => {
+              {boardStages.map((stage) => {
                 const stageDeals = filtered.filter((d) => d.stage === stage.id);
                 const stageTotal = stageDeals.reduce((s, d) => s + d.value, 0);
                 return (
                   <div key={stage.id} className="flex h-full w-[300px] shrink-0 flex-col">
                     <div className="mb-2 flex items-center justify-between px-1">
                       <div className="flex items-center gap-2">
-                        <div className={`h-1.5 w-1.5 rounded-full ${stageColor(stage.id)}`} />
+                        <div className={`h-1.5 w-1.5 rounded-full ${stage.colorClass}`} />
                         <span className="text-sm font-semibold">{stage.name}</span>
                         <Badge variant="secondary" className="h-5 rounded px-1.5 text-[10px]">{stageDeals.length}</Badge>
                       </div>
