@@ -112,6 +112,7 @@ function InboxPage() {
   const [search, setSearch] = useState("");
   const [tplOpen, setTplOpen] = useState(false);
   const [tplSearch, setTplSearch] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const conversations = useMemo(() => {
     return mockConversations.filter((c) => {
