@@ -482,6 +482,14 @@ function InboxPage() {
                         </div>
                       </PopoverContent>
                     </Popover>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={() => setPickerOpen(true)}
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" /> Pick template
+                    </Button>
                     <Button variant="ghost" size="sm" className="h-7 text-[11px] text-primary hover:text-primary">
                       <Sparkles className="mr-1 h-3 w-3" /> AI Draft
                     </Button>
