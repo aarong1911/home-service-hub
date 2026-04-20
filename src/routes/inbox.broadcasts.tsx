@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { z } from "zod";
+
+
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,13 +40,13 @@ import {
 import { messageTemplates } from "@/lib/message-templates";
 import { cn } from "@/lib/utils";
 
-const searchSchema = z.object({
-  composer: fallback(z.boolean(), false).default(false),
-  broadcastId: fallback(z.string(), "").default(""),
-});
+type BroadcastsSearch = { composer: boolean; broadcastId: string };
 
 export const Route = createFileRoute("/inbox/broadcasts")({
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (raw: Record<string, unknown>): BroadcastsSearch => ({
+    composer: raw.composer === true || raw.composer === "true",
+    broadcastId: typeof raw.broadcastId === "string" ? raw.broadcastId : "",
+  }),
   component: BroadcastsPage,
 });
 
