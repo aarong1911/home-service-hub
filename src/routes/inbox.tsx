@@ -1,5 +1,5 @@
-import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
+type InboxSearch = { templateId: string };
+
 export const Route = createFileRoute("/inbox")({
+  validateSearch: (raw: Record<string, unknown>): InboxSearch => ({
+    templateId: typeof raw.templateId === "string" ? raw.templateId : "",
+  }),
   component: InboxLayout,
 });
 
