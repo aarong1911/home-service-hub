@@ -9,6 +9,7 @@ import {
   MessageSquare, Mail, Search, Star, Sparkles, ArrowRight, Settings as SettingsIcon, Inbox,
 } from "lucide-react";
 import { messageTemplates, type SharedMessageTemplate, type MessageChannel } from "@/lib/message-templates";
+import { useRecentTemplateIds, recordTemplateUse, clearRecentTemplates } from "@/lib/recent-templates";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -23,6 +24,13 @@ function TemplatesPickerPage() {
   const [channel, setChannel] = useState<ChannelFilter>("all");
   const [category, setCategory] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const recentIds = useRecentTemplateIds();
+
+  const recent = useMemo(() => {
+    return recentIds
+      .map((id) => messageTemplates.find((t) => t.id === id))
+      .filter((t): t is SharedMessageTemplate => Boolean(t));
+  }, [recentIds]);
 
   const categories = useMemo(() => {
     const set = new Set(messageTemplates.map((t) => t.category));
@@ -56,6 +64,7 @@ function TemplatesPickerPage() {
   }, [channel, category, query]);
 
   function insert(t: SharedMessageTemplate) {
+    recordTemplateUse(t.id);
     toast.success(`Inserting "${t.name}" into reply…`);
     navigate({ to: "/inbox", search: { templateId: t.id } });
   }
