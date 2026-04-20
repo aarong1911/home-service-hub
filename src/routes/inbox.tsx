@@ -55,11 +55,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
-type InboxSearch = { templateId: string };
+type InboxSearch = { templateId?: string };
 
 export const Route = createFileRoute("/inbox")({
   validateSearch: (raw: Record<string, unknown>): InboxSearch => ({
-    templateId: typeof raw.templateId === "string" ? raw.templateId : "",
+    templateId: typeof raw.templateId === "string" && raw.templateId ? raw.templateId : undefined,
   }),
   component: InboxLayout,
 });
