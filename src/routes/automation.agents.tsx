@@ -46,6 +46,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { isAgentConfigured } from "@/lib/agent-config";
+import { AgentConfigureDialog } from "@/components/automation/agent-configure-dialog";
 
 export const Route = createFileRoute("/automation/agents")({
   head: () => ({
@@ -695,6 +696,7 @@ function AgentDetailSheet({
 function AgentDetail({ agent, onToggle }: { agent: Agent; onToggle: () => void }) {
   const Icon = agent.icon;
   const isLive = agent.status === "active";
+  const [configOpen, setConfigOpen] = useState(false);
   return (
     <div className="space-y-4">
       <SheetHeader className="space-y-2 px-0 text-left">
@@ -733,7 +735,7 @@ function AgentDetail({ agent, onToggle }: { agent: Agent; onToggle: () => void }
           {isLive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           <span className="text-xs">{isLive ? "Pause agent" : agent.status === "draft" ? "Finish setup" : "Resume agent"}</span>
         </Button>
-        <Button size="sm" variant="outline" className="h-8" onClick={() => toast.info("Settings coming soon")}>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => setConfigOpen(true)}>
           <Settings2 className="h-3.5 w-3.5" />
           <span className="text-xs">Configure</span>
         </Button>
@@ -789,6 +791,15 @@ function AgentDetail({ agent, onToggle }: { agent: Agent; onToggle: () => void }
           </p>
         </div>
       )}
+
+      <AgentConfigureDialog
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        agentId={agent.id}
+        agentName={agent.name}
+        triggers={agent.triggers}
+        channels={agent.channels}
+      />
     </div>
   );
 }
