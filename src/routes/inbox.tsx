@@ -53,6 +53,8 @@ import {
 } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { TemplatePicker } from "@/components/inbox/template-picker";
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
@@ -110,6 +112,7 @@ function InboxPage() {
   const [search, setSearch] = useState("");
   const [tplOpen, setTplOpen] = useState(false);
   const [tplSearch, setTplSearch] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const conversations = useMemo(() => {
     return mockConversations.filter((c) => {
@@ -206,6 +209,7 @@ function InboxPage() {
   }, [templateId]);
 
   return (
+    <>
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
       <PageHeader
         title="Inbox"
@@ -479,6 +483,14 @@ function InboxPage() {
                         </div>
                       </PopoverContent>
                     </Popover>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={() => setPickerOpen(true)}
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" /> Pick template
+                    </Button>
                     <Button variant="ghost" size="sm" className="h-7 text-[11px] text-primary hover:text-primary">
                       <Sparkles className="mr-1 h-3 w-3" /> AI Draft
                     </Button>
@@ -652,6 +664,28 @@ function InboxPage() {
         </aside>
       </div>
     </div>
+
+    <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetHeader>
+          <SheetTitle>Pick a template</SheetTitle>
+          <SheetDescription>
+            Insert a pre-written email or SMS template into your reply. Merge tags are resolved using the active conversation's contact.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="mt-4">
+          <TemplatePicker
+            compact
+            initialChannel={composeChannel === "email" ? "email" : composeChannel === "sms" ? "sms" : "all"}
+            onInsert={(t) => {
+              applyTemplate(t);
+              setPickerOpen(false);
+            }}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }
 
