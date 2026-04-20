@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AgentConfigureDialog } from "@/components/automation/agent-configure-dialog";
 
 export const Route = createFileRoute("/automation/agents")({
   head: () => ({
