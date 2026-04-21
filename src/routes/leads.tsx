@@ -178,11 +178,11 @@ function LeadsPage() {
 
   return (
     <>
-      <PageHeader title="Leads" subtitle="Track and qualify inbound leads">
+      <PageHeader title="Leads" subtitle="Track and qualify inbound leads" actions={
         <Button size="sm" onClick={() => setAddOpen(true)}>
           <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Lead
         </Button>
-      </PageHeader>
+      } />
 
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
