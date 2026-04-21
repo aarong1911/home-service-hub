@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import {
   contactsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToContacts,
-  CONTACT_FIELDS, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType,
+  CONTACT_FIELDS, splitTags, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
 } from "@/lib/contacts-csv";
 import { toast } from "sonner";
 import React from "react";
@@ -62,6 +62,7 @@ function ContactsPage() {
   const [csvTotalRows, setCsvTotalRows] = useState(0);
   const [colMapping, setColMapping] = useState<ContactColumnMapping | null>(null);
   const [templateType, setTemplateType] = useState<ContactTemplateType>("contact");
+  const [tagDelimiter, setTagDelimiter] = useState<TagDelimiter>("both");
 
   const { data: contacts, isLoading } = useQuery({
     queryKey: ["contacts"],
@@ -143,7 +144,7 @@ function ContactsPage() {
 
   const handleConfirmImport = () => {
     if (!colMapping) return;
-    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping);
+    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping, tagDelimiter);
     if (parsed.length === 0) {
       toast.error("No contacts imported", { description: errors[0] || "Check your column mapping." });
       return;
@@ -156,9 +157,9 @@ function ContactsPage() {
 
   const importValidation = useMemo(() => {
     if (!colMapping || !csvRaw) return null;
-    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping);
+    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping, tagDelimiter);
     return { validCount: parsed.length, errors };
-  }, [colMapping, csvRaw]);
+  }, [colMapping, csvRaw, tagDelimiter]);
 
   const downloadErrorReport = () => {
     if (!importValidation) return;
@@ -423,11 +424,25 @@ function ContactsPage() {
                 {colMapping && CONTACT_FIELDS.map((field) => {
                   const mapped = colMapping[field.key];
                   const previewVals = csvPreview.map((row) => mapped >= 0 ? (row[mapped] ?? "") : "").filter(Boolean).slice(0, 2);
+                  const isTagsField = field.key === "tags";
                   return (
                     <tr key={field.key} className="border-b border-border last:border-0">
                       <td className="px-3 py-2.5">
                         <span className="font-medium">{field.label}</span>
                         {"required" in field && <span className="ml-1 text-destructive">*</span>}
+                        {isTagsField && mapped >= 0 && (
+                          <div className="mt-1">
+                            <select
+                              className="h-6 rounded border border-input bg-transparent px-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-ring"
+                              value={tagDelimiter}
+                              onChange={(e) => setTagDelimiter(e.target.value as TagDelimiter)}
+                            >
+                              <option value="both">Split on , and ;</option>
+                              <option value="comma">Split on , only</option>
+                              <option value="semicolon">Split on ; only</option>
+                            </select>
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         <Select
@@ -447,7 +462,9 @@ function ContactsPage() {
                       </td>
                       <td className="hidden px-3 py-2.5 sm:table-cell">
                         <span className="line-clamp-1 text-xs text-muted-foreground">
-                          {previewVals.length ? previewVals.join(", ") : "—"}
+                          {isTagsField && previewVals.length
+                            ? previewVals.map((v) => splitTags(v, tagDelimiter).map((t) => `[${t}]`).join(" ")).join(", ")
+                            : previewVals.length ? previewVals.join(", ") : "—"}
                         </span>
                       </td>
                     </tr>
