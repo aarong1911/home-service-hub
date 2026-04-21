@@ -47,7 +47,7 @@ function statusBadgeVariant(status: LeadStatus): "default" | "secondary" | "outl
 
 type InternalNote = { id: string; text: string; at: string };
 
-export function LeadDetailDrawer({
+export function LeadDrawerPanel({
   lead,
   onOpenChange,
   onStatusChange,
