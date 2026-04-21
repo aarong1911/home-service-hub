@@ -144,6 +144,16 @@ export function applyMappingToContacts(csv: string, mapping: ContactColumnMappin
   if (lines.length < 2) return { contacts: [], errors: ["CSV must have a header row and at least one data row."] };
   if (mapping.name < 0) return { contacts: [], errors: ["You must map the Name field."] };
 
+  // Resolve auto-detect by scanning all tag values
+  let resolvedDelimiter: Exclude<TagDelimiter, "auto"> = tagDelimiter === "auto" ? "both" : tagDelimiter;
+  if (tagDelimiter === "auto" && mapping.tags >= 0) {
+    const tagSamples = lines.slice(1).map((l) => {
+      const cols = parseCSVLine(l);
+      return cols[mapping.tags]?.trim() ?? "";
+    }).filter(Boolean);
+    resolvedDelimiter = detectTagDelimiter(tagSamples);
+  }
+
   const errors: string[] = [];
   const parsed: Omit<Contact, "id">[] = [];
   const now = new Date().toISOString();
@@ -159,7 +169,7 @@ export function applyMappingToContacts(csv: string, mapping: ContactColumnMappin
     if (!name) { errors.push(`Row ${i + 1}: missing name, skipped.`); continue; }
 
     const rawTags = get("tags");
-    const tags = splitTags(rawTags, tagDelimiter);
+    const tags = splitTags(rawTags, resolvedDelimiter);
     const owner = get("owner") || "Unassigned";
 
     parsed.push({
