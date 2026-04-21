@@ -489,7 +489,7 @@ function LeadsPage() {
                   type="button"
                   className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
                   onClick={() => {
-                    const sel = (document.getElementById("template-type-select") as HTMLSelectElement)?.value ?? "lead";
+                    const sel = templateType;
                     const templates: Record<string, { headers: string; sample: string; filename: string }> = {
                       lead: {
                         headers: "Name,Email,Phone,Address,Source,Status,Score,Project Type,Est. Budget,Notes,Owner",
