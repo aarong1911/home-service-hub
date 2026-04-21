@@ -20,6 +20,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Link } from "@tanstack/react-router";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 type PipelineSearch = { dealId?: string };
 
@@ -45,6 +50,8 @@ function PipelinePage() {
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<Deal | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newDeal, setNewDeal] = useState({ name: "", contactName: "", value: "", owner: "Alex Romero" });
 
   const pipelines = usePipelines();
   const activeId = useActivePipelineId();
@@ -190,7 +197,7 @@ function PipelinePage() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button size="sm" className="h-8">
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Deal
+              <Plus className="mr-1.5 h-3.5 w-3.5" onClick={() => setAddOpen(true)} /> Add Deal
             </Button>
           </>
         }
