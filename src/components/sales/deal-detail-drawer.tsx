@@ -171,7 +171,7 @@ export function DealDetailDrawer({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 text-left">
                   <Badge variant="outline" className="mb-1.5 h-5 rounded px-1.5 text-[10px]">
-                    {stageName(deal.stage)}
+                    {stageName(deal.stage, stages)}
                   </Badge>
                   <SheetTitle className="text-base leading-snug">{deal.name}</SheetTitle>
                   <SheetDescription className="mt-0.5 text-xs">
@@ -247,7 +247,7 @@ export function DealDetailDrawer({
                 <Fact icon={User} label="Owner" value={deal.owner} />
                 <Fact icon={Building2} label="Company" value={contact?.company ?? "—"} />
                 <Fact icon={Calendar} label="Age in stage" value={`${deal.ageDays}d`} />
-                <Fact icon={TrendingUp} label="Stage" value={stageName(deal.stage)} />
+                <Fact icon={TrendingUp} label="Stage" value={stageName(deal.stage, stages)} />
                 {deal.email && <Fact icon={Mail} label="Email" value={deal.email} />}
                 {deal.phone && <Fact icon={Phone} label="Phone" value={deal.phone} />}
                 {deal.address && <Fact icon={MapPin} label="Address" value={deal.address} />}
