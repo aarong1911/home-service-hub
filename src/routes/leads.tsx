@@ -98,6 +98,7 @@ function LeadsPage() {
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
   const [csvTotalRows, setCsvTotalRows] = useState(0);
   const [colMapping, setColMapping] = useState<ColumnMapping | null>(null);
+  const [templateType, setTemplateType] = useState<TemplateType>("lead");
   const [newLead, setNewLead] = useState({
     name: "", email: "", phone: "", address: "", source: "" as string,
     projectType: "", estimatedBudget: "", score: "" as string, owner: "", notes: "",
