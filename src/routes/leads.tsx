@@ -468,19 +468,46 @@ function LeadsPage() {
             <DialogTitle>Map CSV Columns</DialogTitle>
             <DialogDescription>
               Match your CSV columns to lead fields. {csvTotalRows} row(s) detected.{" "}
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
-                onClick={() => {
-                  const headers = LEAD_FIELDS.map((f) => f.label).join(",");
-                  const sample = "Jane Doe,jane@example.com,555-123-4567,123 Main St,Referral,new,warm,Kitchen Remodel,15000,Interested in quote,Alex";
-                  const csv = `${headers}\n${sample}`;
-                  downloadCSV(csv, "leads-template.csv");
-                }}
-              >
-                <Download className="inline h-3 w-3" />
-                Download template
-              </button>
+              <span className="inline-flex items-center gap-1.5">
+                <select
+                  className="h-6 rounded border border-input bg-transparent px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  id="template-type-select"
+                  defaultValue="lead"
+                >
+                  <option value="lead">Lead</option>
+                  <option value="customer">Customer</option>
+                  <option value="job">Job</option>
+                </select>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
+                  onClick={() => {
+                    const sel = (document.getElementById("template-type-select") as HTMLSelectElement)?.value ?? "lead";
+                    const templates: Record<string, { headers: string; sample: string; filename: string }> = {
+                      lead: {
+                        headers: "Name,Email,Phone,Address,Source,Status,Score,Project Type,Est. Budget,Notes,Owner",
+                        sample: "Jane Doe,jane@example.com,555-123-4567,123 Main St,Referral,new,warm,Kitchen Remodel,15000,Interested in quote,Alex",
+                        filename: "leads-template.csv",
+                      },
+                      customer: {
+                        headers: "Name,Email,Phone,Address,Company,Account Number,Notes",
+                        sample: "John Smith,john@acme.com,555-987-6543,456 Oak Ave,Acme Corp,CUST-001,VIP client",
+                        filename: "customers-template.csv",
+                      },
+                      job: {
+                        headers: "Job Name,Client,Address,Start Date,End Date,Status,Budget,Notes",
+                        sample: "Kitchen Reno,Jane Doe,123 Main St,2026-05-01,2026-06-15,scheduled,25000,Full gut renovation",
+                        filename: "jobs-template.csv",
+                      },
+                    };
+                    const t = templates[sel] ?? templates.lead;
+                    downloadCSV(`${t.headers}\n${t.sample}`, t.filename);
+                  }}
+                >
+                  <Download className="inline h-3 w-3" />
+                  Download template
+                </button>
+              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto">
