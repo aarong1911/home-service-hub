@@ -118,14 +118,20 @@ export function autoMapHeaders(csvHeaders: string[], templateType: ContactTempla
 
 export type TagDelimiter = "auto" | "comma" | "semicolon" | "both";
 
+export interface DelimiterDetectionResult {
+  delimiter: Exclude<TagDelimiter, "auto">;
+  confidence: "high" | "medium" | "low";
+  reason: string;
+}
+
 /**
  * Analyze tag column values and pick the best delimiter.
  * Samples up to 50 rows and weights by which delimiter appears first in each value,
  * giving a more reliable signal than simple occurrence counting.
  */
-export function detectTagDelimiter(values: string[]): Exclude<TagDelimiter, "auto"> {
+export function detectTagDelimiterWithConfidence(values: string[]): DelimiterDetectionResult {
   const sample = values.filter(Boolean).slice(0, 50);
-  if (sample.length === 0) return "comma";
+  if (sample.length === 0) return { delimiter: "comma", confidence: "low", reason: "No tag data found — defaulting to comma" };
 
   let commaScore = 0;
   let semicolonScore = 0;
@@ -147,15 +153,30 @@ export function detectTagDelimiter(values: string[]): Exclude<TagDelimiter, "aut
     }
   }
 
-  if (commaScore > 0 && semicolonScore === 0) return "comma";
-  if (semicolonScore > 0 && commaScore === 0) return "semicolon";
-  if (commaScore > 0 && semicolonScore > 0) {
-    // If one clearly dominates (>2x), pick it; otherwise "both"
-    if (commaScore > semicolonScore * 2) return "comma";
-    if (semicolonScore > commaScore * 2) return "semicolon";
-    return "both";
+  const total = commaScore + semicolonScore;
+  const sampled = sample.length;
+
+  if (commaScore > 0 && semicolonScore === 0) {
+    return { delimiter: "comma", confidence: sampled >= 3 ? "high" : "medium", reason: `Comma found in ${Math.round(commaScore)}/${sampled} rows, no semicolons` };
   }
-  return "comma";
+  if (semicolonScore > 0 && commaScore === 0) {
+    return { delimiter: "semicolon", confidence: sampled >= 3 ? "high" : "medium", reason: `Semicolon found in ${Math.round(semicolonScore)}/${sampled} rows, no commas` };
+  }
+  if (commaScore > 0 && semicolonScore > 0) {
+    if (commaScore > semicolonScore * 2) {
+      return { delimiter: "comma", confidence: "medium", reason: `Comma dominant (${commaScore.toFixed(1)} vs ${semicolonScore.toFixed(1)} score across ${sampled} rows)` };
+    }
+    if (semicolonScore > commaScore * 2) {
+      return { delimiter: "semicolon", confidence: "medium", reason: `Semicolon dominant (${semicolonScore.toFixed(1)} vs ${commaScore.toFixed(1)} score across ${sampled} rows)` };
+    }
+    return { delimiter: "both", confidence: "medium", reason: `Both delimiters used (scores: comma ${commaScore.toFixed(1)}, semicolon ${semicolonScore.toFixed(1)} across ${sampled} rows)` };
+  }
+  return { delimiter: "comma", confidence: "low", reason: "No delimiters found — defaulting to comma" };
+}
+
+/** Simple wrapper that returns just the delimiter for backward compat. */
+export function detectTagDelimiter(values: string[]): Exclude<TagDelimiter, "auto"> {
+  return detectTagDelimiterWithConfidence(values).delimiter;
 }
 
 export function splitTags(raw: string, delimiter: TagDelimiter): string[] {
