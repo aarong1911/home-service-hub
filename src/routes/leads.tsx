@@ -889,3 +889,58 @@ function InternalNotes({ leadId }: { leadId: string }) {
     </section>
   );
 }
+
+function EditableNote({ note, leadId }: { note: { id: string; text: string; createdAt: string }; leadId: string }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(note.text);
+
+  const save = () => {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === note.text) { setEditing(false); return; }
+    updateLeadNote(leadId, note.id, trimmed);
+    setEditing(false);
+    toast.success("Note updated");
+  };
+
+  const cancel = () => { setDraft(note.text); setEditing(false); };
+
+  return (
+    <div className="rounded-md border border-border bg-card p-2.5">
+      {editing ? (
+        <div className="space-y-1.5">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={2}
+            className="resize-none text-sm"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
+              if (e.key === "Escape") cancel();
+            }}
+          />
+          <div className="flex gap-1.5">
+            <Button size="sm" variant="outline" className="h-7 flex-1" onClick={cancel}>
+              <XIcon className="mr-1 h-3 w-3" /> Cancel
+            </Button>
+            <Button size="sm" className="h-7 flex-1" onClick={save} disabled={!draft.trim()}>
+              <Check className="mr-1 h-3 w-3" /> Save
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 flex-1 text-sm text-foreground">{note.text}</p>
+            <button onClick={() => { setDraft(note.text); setEditing(true); }} className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label="Edit note">
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="mt-1 text-[10px] text-muted-foreground">
+            {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
