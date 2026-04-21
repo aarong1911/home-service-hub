@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Download, Upload } from "lucide-react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { StickyNote } from "lucide-react";
 import { type Lead, type LeadSource, type LeadStatus, type LeadScore } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
@@ -37,6 +38,7 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
+import { useLeadNotes, addLeadNote } from "@/lib/leads-store";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
@@ -799,6 +801,10 @@ function LeadDetailDrawer({
             </div>
           </section>
 
+          {/* Internal Notes */}
+          <Separator />
+          <InternalNotes leadId={lead.id} />
+
           {lead.notes && (
             <>
               <Separator />
@@ -835,5 +841,55 @@ function FactCard({ icon: Icon, label, value }: { icon: React.ComponentType<{ cl
       </div>
       <div className="mt-1 truncate text-sm font-medium">{value}</div>
     </div>
+  );
+}
+
+function InternalNotes({ leadId }: { leadId: string }) {
+  const notes = useLeadNotes(leadId);
+  const [text, setText] = useState("");
+
+  const handleAdd = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    addLeadNote(leadId, trimmed);
+    setText("");
+    toast.success("Note added");
+  };
+
+  const recent = notes.slice(0, 3);
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <StickyNote className="h-3 w-3" /> Internal Notes
+      </div>
+      <div className="space-y-2">
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Add a quick note…"
+          rows={2}
+          className="resize-none text-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAdd();
+          }}
+        />
+        <Button size="sm" variant="outline" className="w-full" onClick={handleAdd} disabled={!text.trim()}>
+          Add Note
+        </Button>
+      </div>
+      {recent.length > 0 && (
+        <div className="mt-3 max-h-48 space-y-2 overflow-y-auto scrollbar-thin">
+          {recent.map((n) => (
+            <div key={n.id} className="rounded-md border border-border bg-card p-2.5">
+              <p className="text-sm text-foreground">{n.text}</p>
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
