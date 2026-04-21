@@ -164,11 +164,13 @@ function PipelinePage() {
               <DropdownMenuContent align="end" className="min-w-[180px]">
                 <DropdownMenuLabel>Switch Pipeline</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {pipelines.length === 0 && (
-                  <DropdownMenuItem disabled className="text-muted-foreground text-xs">
-                    No pipelines yet
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem
+                  onSelect={() => setActivePipeline(null)}
+                  className={!activeId ? "font-medium" : ""}
+                >
+                  Default Pipeline
+                  {!activeId && <span className="ml-auto text-xs text-muted-foreground">Active</span>}
+                </DropdownMenuItem>
                 {pipelines.map((p) => (
                   <DropdownMenuItem
                     key={p.id}
