@@ -34,7 +34,7 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
-import { LeadDetailDrawer } from "@/components/leads/lead-detail-drawer";
+import { LeadDetailDrawer as LeadDrawer } from "@/components/leads/lead-detail-drawer";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
@@ -382,7 +382,7 @@ function LeadsPage() {
       </Card>
 
       {/* Detail drawer */}
-      <LeadDetailDrawer
+      <LeadDrawer
         lead={selected ? leads.find((l) => l.id === selected.id) ?? selected : null}
         onOpenChange={(o) => { if (!o) navigate({ search: { leadId: undefined }, replace: true }); }}
         onStatusChange={handleStatusChange}
