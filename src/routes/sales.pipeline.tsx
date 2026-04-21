@@ -155,10 +155,6 @@ function PipelinePage() {
         breadcrumb={["CRM", "Pipeline"]}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
-              {activePipeline?.name ?? "Default Pipeline"}
-              <ChevronDown className="ml-1 h-3.5 w-3.5" />
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8">
