@@ -116,11 +116,26 @@ export function autoMapHeaders(csvHeaders: string[], templateType: ContactTempla
   return mapping;
 }
 
-export type TagDelimiter = "comma" | "semicolon" | "both";
+export type TagDelimiter = "auto" | "comma" | "semicolon" | "both";
+
+/** Analyze tag column values and pick the best delimiter. */
+export function detectTagDelimiter(values: string[]): Exclude<TagDelimiter, "auto"> {
+  let commas = 0;
+  let semicolons = 0;
+  for (const v of values) {
+    if (v.includes(",")) commas++;
+    if (v.includes(";")) semicolons++;
+  }
+  if (commas > 0 && semicolons === 0) return "comma";
+  if (semicolons > 0 && commas === 0) return "semicolon";
+  if (semicolons > 0 && commas > 0) return "both";
+  return "comma"; // default when no delimiters found
+}
 
 export function splitTags(raw: string, delimiter: TagDelimiter): string[] {
   if (!raw) return [];
-  const pattern = delimiter === "comma" ? /,/ : delimiter === "semicolon" ? /;/ : /[;,]/;
+  const effective = delimiter === "auto" ? "both" : delimiter;
+  const pattern = effective === "comma" ? /,/ : effective === "semicolon" ? /;/ : /[;,]/;
   return raw.split(pattern).map((t) => t.trim()).filter(Boolean);
 }
 
