@@ -11,7 +11,8 @@ import {
   Plus, Search, ChevronDown, LayoutGrid, List as ListIcon, AlertTriangle,
   DollarSign, TrendingUp, Target, Clock, SlidersHorizontal, Trophy, XCircle,
 } from "lucide-react";
-import { mockDeals, pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
+import { pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
+import { useDeals, updateDeal, addDeal as storeAddDeal, setDealsState } from "@/lib/deals-store";
 const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
@@ -48,7 +49,7 @@ type ValueFilter = (typeof VALUE_FILTERS)[number];
 function PipelinePage() {
   const { dealId } = useSearch({ from: "/sales/pipeline" });
   const navigate = useNavigate({ from: "/sales/pipeline" });
-  const [deals, setDeals] = useState<Deal[]>(mockDeals);
+  const deals = useDeals();
   const [search, setSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All owners");
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
@@ -98,27 +99,19 @@ function PipelinePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId, deals]);
 
-  const handleStageChange = (dealId: string, newStage: string) => {
-    setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage: newStage, lostReason: undefined, lostAt: undefined } : d)));
+  const handleStageChange = (id: string, newStage: string) => {
+    updateDeal(id, { stage: newStage, lostReason: undefined, lostAt: undefined });
   };
 
-  const handleMarkLost = (dealId: string, reason: LostReason, _notes: string) => {
-    setDeals((prev) =>
-      prev.map((d) =>
-        d.id === dealId
-          ? { ...d, stage: "lost", lostReason: reason, lostAt: new Date().toISOString() }
-          : d,
-      ),
-    );
+  const handleMarkLost = (id: string, reason: LostReason, _notes: string) => {
+    updateDeal(id, { stage: "lost", lostReason: reason, lostAt: new Date().toISOString() });
   };
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-    setDeals((prev) =>
-      prev.map((d) => (d.id === draggableId ? { ...d, stage: destination.droppableId } : d)),
-    );
+    updateDeal(draggableId, { stage: destination.droppableId });
   };
 
   const filtered = useMemo(() => {
