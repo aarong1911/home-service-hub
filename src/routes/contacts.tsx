@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Plus, Search, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download, Upload,
-  Users, UserPlus, Star, Activity, Clock,
+  Users, UserPlus, Star, Activity,
 } from "lucide-react";
 import { mockContacts, mockDeals, mockProjects, pipelineStages, type Contact, type Deal, type Project } from  "@/lib/mock-data";
 import { formatDistanceToNow } from "date-fns";
@@ -37,13 +37,7 @@ import {
 import { toast } from "sonner";
 import React from "react";
 
-const PAST_DUE_DAYS = 30;
-
-function isContactPastDue(c: Contact): boolean {
-  return Date.now() - new Date(c.lastActivity).getTime() > PAST_DUE_DAYS * 86_400_000;
-}
-
-const TAG_FILTERS = ["All", "Past Due", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
+const TAG_FILTERS = ["All", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
 type TagFilter = (typeof TAG_FILTERS)[number];
 
 type ContactsSearch = { contactId?: string };
@@ -91,7 +85,7 @@ function ContactsPage() {
   }, [contactId, contacts]);
 
   const stats = useMemo(() => {
-    if (!contacts) return { total: 0, newThisMonth: 0, vip: 0, activeWeek: 0, pastDue: 0 };
+    if (!contacts) return { total: 0, newThisMonth: 0, vip: 0, activeWeek: 0 };
     const now = Date.now();
     const month = 30 * 86_400_000;
     const week = 7 * 86_400_000;
@@ -100,7 +94,6 @@ function ContactsPage() {
       newThisMonth: contacts.filter((c) => now - new Date(c.createdAt).getTime() < month).length,
       vip: contacts.filter((c) => c.tags.some((t) => /vip/i.test(t))).length,
       activeWeek: contacts.filter((c) => now - new Date(c.lastActivity).getTime() < week).length,
-      pastDue: contacts.filter(isContactPastDue).length,
     };
   }, [contacts]);
 
@@ -108,9 +101,7 @@ function ContactsPage() {
     if (!contacts) return [];
     const q = search.toLowerCase().trim();
     return contacts.filter((c) => {
-      if (tagFilter === "Past Due") {
-        if (!isContactPastDue(c)) return false;
-      } else if (tagFilter !== "All" && !c.tags.some((t) => t.toLowerCase() === tagFilter.toLowerCase())) {
+      if (tagFilter !== "All" && !c.tags.some((t) => t.toLowerCase() === tagFilter.toLowerCase())) {
         return false;
       }
       if (!q) return true;
@@ -217,12 +208,11 @@ function ContactsPage() {
       />
 
       {/* KPIs */}
-      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Total contacts" value={stats.total.toString()} sub="All-time records" icon={Users} tone="primary" />
         <Kpi label="New this month" value={stats.newThisMonth.toString()} sub="Added in last 30 days" icon={UserPlus} tone="success" />
         <Kpi label="VIP" value={stats.vip.toString()} sub="High-priority accounts" icon={Star} tone="warning" />
         <Kpi label="Active this week" value={stats.activeWeek.toString()} sub="Touched in last 7 days" icon={Activity} tone="muted" />
-        <Kpi label="Past due" value={stats.pastDue.toString()} sub={`No activity in ${PAST_DUE_DAYS}+ days`} icon={Clock} tone="destructive" />
       </div>
 
       {/* Filters bar */}
@@ -331,11 +321,6 @@ function ContactsPage() {
                   <td className="py-2.5 pr-4 text-muted-foreground tabular-nums">{c.phone}</td>
                   <td className="py-2.5 pr-4">
                     <div className="flex flex-wrap gap-1">
-                      {isContactPastDue(c) && (
-                        <Badge variant="destructive" className="h-5 rounded px-1.5 text-[10px] font-medium">
-                          Past Due
-                        </Badge>
-                      )}
                       {c.tags.slice(0, 2).map((t) => (
                         <Badge key={t} variant="secondary" className="h-5 rounded px-1.5 text-[10px] font-medium">
                           {t}
@@ -580,14 +565,13 @@ function Kpi({
   value: string;
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "primary" | "success" | "warning" | "muted" | "destructive";
+  tone: "primary" | "success" | "warning" | "muted";
 }) {
   const toneClass = {
     primary: "bg-primary-soft text-primary",
     success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     muted: "bg-secondary text-muted-foreground",
-    destructive: "bg-destructive/10 text-destructive",
   }[tone];
   return (
     <Card className="p-3">
