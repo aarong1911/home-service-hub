@@ -800,6 +800,10 @@ function LeadDetailDrawer({
             </div>
           </section>
 
+          {/* Internal Notes */}
+          <Separator />
+          <InternalNotes leadId={lead.id} />
+
           {lead.notes && (
             <>
               <Separator />
