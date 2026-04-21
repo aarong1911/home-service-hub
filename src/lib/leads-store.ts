@@ -75,3 +75,42 @@ export function importLeads(newLeads: Omit<Lead, "id">[]): number {
   emit();
   return added.length;
 }
+
+/* ---------- Internal Notes ---------- */
+
+export type LeadNote = { id: string; text: string; createdAt: string };
+
+const NOTES_KEY = "renometa.leadnotes.v1";
+
+function loadNotes(): Record<string, LeadNote[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(NOTES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+let notesMap: Record<string, LeadNote[]> = loadNotes();
+const noteListeners = new Set<() => void>();
+function emitNotes() { for (const l of noteListeners) l(); }
+function persistNotes() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(NOTES_KEY, JSON.stringify(notesMap)); } catch { /* */ }
+}
+
+export function useLeadNotes(leadId: string): LeadNote[] {
+  const all = useSyncExternalStore(
+    (cb) => { noteListeners.add(cb); return () => noteListeners.delete(cb); },
+    () => notesMap,
+    () => ({}),
+  );
+  return all[leadId] ?? [];
+}
+
+export function addLeadNote(leadId: string, text: string): LeadNote {
+  const note: LeadNote = { id: `note-${Date.now()}`, text, createdAt: new Date().toISOString() };
+  notesMap = { ...notesMap, [leadId]: [note, ...(notesMap[leadId] ?? [])] };
+  persistNotes();
+  emitNotes();
+  return note;
+}
