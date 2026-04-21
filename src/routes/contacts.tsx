@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import {
   contactsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToContacts,
-  CONTACT_FIELDS, splitTags, detectTagDelimiter, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
+  CONTACT_FIELDS, splitTags, detectTagDelimiter, detectTagDelimiterWithConfidence, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
 } from "@/lib/contacts-csv";
 import { toast } from "sonner";
 import React from "react";
