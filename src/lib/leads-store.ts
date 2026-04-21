@@ -102,7 +102,7 @@ export function useLeadNotes(leadId: string): LeadNote[] {
   const all = useSyncExternalStore(
     (cb) => { noteListeners.add(cb); return () => noteListeners.delete(cb); },
     () => notesMap,
-    () => ({}),
+    () => ({} as Record<string, LeadNote[]>),
   );
   return all[leadId] ?? [];
 }
