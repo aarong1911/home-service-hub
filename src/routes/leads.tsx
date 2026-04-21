@@ -666,3 +666,4 @@ function KpiCard({ label, value, icon: Icon }: { label: string; value: string; i
     </Card>
   );
 }
+
