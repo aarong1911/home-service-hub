@@ -91,7 +91,7 @@ function ContactsPage() {
   }, [contactId, contacts]);
 
   const stats = useMemo(() => {
-    if (!contacts) return { total: 0, newThisMonth: 0, vip: 0, activeWeek: 0 };
+    if (!contacts) return { total: 0, newThisMonth: 0, vip: 0, activeWeek: 0, pastDue: 0 };
     const now = Date.now();
     const month = 30 * 86_400_000;
     const week = 7 * 86_400_000;
@@ -100,6 +100,7 @@ function ContactsPage() {
       newThisMonth: contacts.filter((c) => now - new Date(c.createdAt).getTime() < month).length,
       vip: contacts.filter((c) => c.tags.some((t) => /vip/i.test(t))).length,
       activeWeek: contacts.filter((c) => now - new Date(c.lastActivity).getTime() < week).length,
+      pastDue: contacts.filter(isContactPastDue).length,
     };
   }, [contacts]);
 
@@ -107,7 +108,9 @@ function ContactsPage() {
     if (!contacts) return [];
     const q = search.toLowerCase().trim();
     return contacts.filter((c) => {
-      if (tagFilter !== "All" && !c.tags.some((t) => t.toLowerCase() === tagFilter.toLowerCase())) {
+      if (tagFilter === "Past Due") {
+        if (!isContactPastDue(c)) return false;
+      } else if (tagFilter !== "All" && !c.tags.some((t) => t.toLowerCase() === tagFilter.toLowerCase())) {
         return false;
       }
       if (!q) return true;
