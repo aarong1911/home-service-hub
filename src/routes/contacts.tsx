@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import {
   contactsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToContacts,
-  CONTACT_FIELDS, splitTags, detectTagDelimiter, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
+  CONTACT_FIELDS, splitTags, detectTagDelimiter, detectTagDelimiterWithConfidence, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
 } from "@/lib/contacts-csv";
 import { toast } from "sonner";
 import React from "react";
@@ -425,9 +425,14 @@ function ContactsPage() {
                   const mapped = colMapping[field.key];
                   const previewVals = csvPreview.map((row) => mapped >= 0 ? (row[mapped] ?? "") : "").filter(Boolean).slice(0, 2);
                   const isTagsField = field.key === "tags";
-                  const effectiveDelimiter = isTagsField && tagDelimiter === "auto"
-                    ? detectTagDelimiter(previewVals)
-                    : tagDelimiter;
+                  const tagDetection = isTagsField && tagDelimiter === "auto" && mapped >= 0
+                    ? detectTagDelimiterWithConfidence(
+                        csvPreview.map((row) => row[mapped] ?? "").filter(Boolean)
+                      )
+                    : null;
+                  const effectiveDelimiter = tagDetection
+                    ? tagDetection.delimiter
+                    : (isTagsField && tagDelimiter === "auto" ? detectTagDelimiter(previewVals) : tagDelimiter);
                   return (
                     <tr key={field.key} className="border-b border-border last:border-0">
                       <td className="px-3 py-2.5">
@@ -441,15 +446,16 @@ function ContactsPage() {
                               onChange={(e) => setTagDelimiter(e.target.value as TagDelimiter)}
                             >
                               <option value="auto">Auto-detect</option>
-                            {isTagsField && tagDelimiter === "auto" && previewVals.length > 0 && (
-                              <option disabled value="__detected">
-                                ↳ detected: {detectTagDelimiter(previewVals) === "comma" ? "," : detectTagDelimiter(previewVals) === "semicolon" ? ";" : ", and ;"}
-                              </option>
-                            )}
                               <option value="both">Split on , and ;</option>
                               <option value="comma">Split on , only</option>
                               <option value="semicolon">Split on ; only</option>
                             </select>
+                            {tagDetection && (
+                              <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+                                <span className={`inline-block h-1.5 w-1.5 rounded-full ${tagDetection.confidence === "high" ? "bg-emerald-500" : tagDetection.confidence === "medium" ? "bg-amber-500" : "bg-muted-foreground/50"}`} />
+                                <span className="text-muted-foreground">{tagDetection.reason}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
