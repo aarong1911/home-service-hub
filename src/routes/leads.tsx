@@ -429,6 +429,70 @@ function LeadsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Column mapping dialog */}
+      <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Map CSV Columns</DialogTitle>
+            <DialogDescription>
+              Match your CSV columns to lead fields. {csvTotalRows} row(s) detected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2">Lead Field</th>
+                  <th className="px-3 py-2">CSV Column</th>
+                  <th className="hidden px-3 py-2 sm:table-cell">Preview</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colMapping && LEAD_FIELDS.map((field) => {
+                  const mapped = colMapping[field.key];
+                  const previewVals = csvPreview.map((row) => mapped >= 0 ? (row[mapped] ?? "") : "").filter(Boolean).slice(0, 2);
+                  return (
+                    <tr key={field.key} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2.5">
+                        <span className="font-medium">{field.label}</span>
+                        {field.required && <span className="ml-1 text-destructive">*</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Select
+                          value={String(mapped)}
+                          onValueChange={(v) => setColMapping((prev) => prev ? { ...prev, [field.key]: Number(v) } : prev)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="-1" className="text-xs text-muted-foreground">— Skip —</SelectItem>
+                            {csvHeaders.map((h, i) => (
+                              <SelectItem key={i} value={String(i)} className="text-xs">{h}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="hidden px-3 py-2.5 sm:table-cell">
+                        <span className="line-clamp-1 text-xs text-muted-foreground">
+                          {previewVals.length ? previewVals.join(", ") : "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setMapOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmImport} disabled={!colMapping || colMapping.name < 0}>
+              Import {csvTotalRows} Lead{csvTotalRows !== 1 ? "s" : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
