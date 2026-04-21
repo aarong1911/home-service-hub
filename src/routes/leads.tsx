@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,13 +26,15 @@ import {
   ArrowRight, MoreHorizontal, DollarSign, Calendar, User, Building2,
   ExternalLink, SlidersHorizontal,
 } from "lucide-react";
-import {
-  mockLeads, type Lead, type LeadSource, type LeadStatus, type LeadScore,
-} from "@/lib/mock-data";
+import { type Lead, type LeadSource, type LeadStatus, type LeadScore } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useTeam } from "@/lib/organization";
+import {
+  useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
+  updateLeadScore as storeUpdateScore, convertLead as storeConvertLead,
+} from "@/lib/leads-store";
 
 type LeadsSearch = { leadId?: string };
 
@@ -77,7 +79,7 @@ function LeadsPage() {
   const { leadId } = useSearch({ from: "/leads" });
   const navigate = useNavigate({ from: "/leads" });
   const teamMembers = useTeam();
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const leads = useLeads();
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("All sources");
   const [statusFilter, setStatusFilter] = useState<string>("All statuses");
@@ -127,13 +129,13 @@ function LeadsPage() {
     navigate({ search: { leadId: lead.id }, replace: true });
   };
 
-  const handleStatusChange = (leadId: string, newStatus: LeadStatus) => {
-    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, status: newStatus, lastActivity: new Date().toISOString() } : l));
+  const handleStatusChange = (id: string, newStatus: LeadStatus) => {
+    storeUpdateStatus(id, newStatus);
     toast.success(`Lead status updated to ${STATUS_LABELS[newStatus]}`);
   };
 
-  const handleScoreChange = (leadId: string, newScore: LeadScore) => {
-    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, score: newScore } : l));
+  const handleScoreChange = (id: string, newScore: LeadScore) => {
+    storeUpdateScore(id, newScore);
     toast.success(`Lead score updated to ${newScore}`);
   };
 
@@ -142,9 +144,7 @@ function LeadsPage() {
       toast.error("Lead already converted");
       return;
     }
-    setLeads((prev) => prev.map((l) =>
-      l.id === lead.id ? { ...l, status: "converted" as LeadStatus, convertedDealId: `d_converted_${lead.id}`, lastActivity: new Date().toISOString() } : l,
-    ));
+    storeConvertLead(lead.id);
     toast.success(`${lead.name} converted to deal`, { description: "A new deal has been created in the pipeline." });
     navigate({ search: { leadId: undefined }, replace: true });
   };
@@ -153,8 +153,7 @@ function LeadsPage() {
     if (!newLead.name.trim()) return;
     const owner = newLead.owner || teamMembers[0]?.name || "Unassigned";
     const initials = owner.split(" ").map((p) => p[0]).join("");
-    const lead: Lead = {
-      id: `lead-new-${Date.now()}`,
+    storeAddLead({
       name: newLead.name.trim(),
       email: newLead.email.trim(),
       phone: newLead.phone.trim(),
@@ -169,8 +168,7 @@ function LeadsPage() {
       ownerInitials: initials,
       createdAt: new Date().toISOString(),
       lastActivity: new Date().toISOString(),
-    };
-    setLeads((prev) => [lead, ...prev]);
+    });
     setAddOpen(false);
     setNewLead({ name: "", email: "", phone: "", address: "", source: "", projectType: "", estimatedBudget: "", score: "", owner: "", notes: "" });
     toast.success("Lead added");
