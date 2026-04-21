@@ -25,6 +25,10 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useTeam } from "@/lib/organization";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 type PipelineSearch = { dealId?: string };
 
@@ -51,7 +55,8 @@ function PipelinePage() {
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<Deal | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [newDeal, setNewDeal] = useState({ name: "", contactName: "", value: "", owner: "Alex Romero" });
+  const teamMembers = useTeam();
+  const [newDeal, setNewDeal] = useState({ name: "", contactName: "", value: "", owner: "" });
 
   const pipelines = usePipelines();
   const activeId = useActivePipelineId();
@@ -478,6 +483,19 @@ function PipelinePage() {
               <Label>Value ($)</Label>
               <Input type="number" value={newDeal.value} onChange={(e) => setNewDeal((d) => ({ ...d, value: e.target.value }))} placeholder="25000" />
             </div>
+            <div className="space-y-1.5">
+              <Label>Owner</Label>
+              <Select value={newDeal.owner} onValueChange={(v) => setNewDeal((d) => ({ ...d, owner: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
@@ -485,7 +503,8 @@ function PipelinePage() {
               disabled={!newDeal.name.trim()}
               onClick={() => {
                 const firstStage = boardStages[0]?.id ?? "new";
-                const initials = newDeal.owner.split(" ").map((w) => w[0]).join("");
+                const ownerName = newDeal.owner || teamMembers[0]?.name || "Unassigned";
+                const initials = ownerName.split(" ").map((w) => w[0]).join("");
                 const deal: Deal = {
                   id: Math.random().toString(36).slice(2, 10),
                   name: newDeal.name.trim(),
@@ -494,12 +513,12 @@ function PipelinePage() {
                   value: Number(newDeal.value) || 0,
                   stage: firstStage,
                   expectedClose: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
-                  owner: newDeal.owner,
+                  owner: ownerName,
                   ownerInitials: initials,
                   ageDays: 0,
                 };
                 setDeals((prev) => [deal, ...prev]);
-                setNewDeal({ name: "", contactName: "", value: "", owner: "Alex Romero" });
+                setNewDeal({ name: "", contactName: "", value: "", owner: "" });
                 setAddOpen(false);
                 toast.success(`Deal "${deal.name}" created`);
               }}
