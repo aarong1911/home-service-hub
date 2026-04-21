@@ -39,7 +39,7 @@ import {
 } from "@/lib/leads-store";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
-  LEAD_FIELDS, type ColumnMapping, type LeadFieldKey,
+  LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
 } from "@/lib/leads-csv";
 
 type LeadsSearch = { leadId?: string };
@@ -98,6 +98,7 @@ function LeadsPage() {
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
   const [csvTotalRows, setCsvTotalRows] = useState(0);
   const [colMapping, setColMapping] = useState<ColumnMapping | null>(null);
+  const [templateType, setTemplateType] = useState<TemplateType>("lead");
   const [newLead, setNewLead] = useState({
     name: "", email: "", phone: "", address: "", source: "" as string,
     projectType: "", estimatedBudget: "", score: "" as string, owner: "", notes: "",
@@ -211,7 +212,7 @@ function LeadsPage() {
       setCsvHeaders(headers);
       setCsvPreview(preview);
       setCsvTotalRows(totalRows);
-      setColMapping(autoMapHeaders(headers));
+      setColMapping(autoMapHeaders(headers, templateType));
       setMapOpen(true);
     };
     reader.readAsText(file);
@@ -471,8 +472,14 @@ function LeadsPage() {
               <span className="inline-flex items-center gap-1.5">
                 <select
                   className="h-6 rounded border border-input bg-transparent px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                  id="template-type-select"
-                  defaultValue="lead"
+                  value={templateType}
+                  onChange={(e) => {
+                    const next = e.target.value as TemplateType;
+                    setTemplateType(next);
+                    if (csvHeaders.length > 0) {
+                      setColMapping(autoMapHeaders(csvHeaders, next));
+                    }
+                  }}
                 >
                   <option value="lead">Lead</option>
                   <option value="customer">Customer</option>
@@ -482,7 +489,7 @@ function LeadsPage() {
                   type="button"
                   className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
                   onClick={() => {
-                    const sel = (document.getElementById("template-type-select") as HTMLSelectElement)?.value ?? "lead";
+                    const sel = templateType;
                     const templates: Record<string, { headers: string; sample: string; filename: string }> = {
                       lead: {
                         headers: "Name,Email,Phone,Address,Source,Status,Score,Project Type,Est. Budget,Notes,Owner",
