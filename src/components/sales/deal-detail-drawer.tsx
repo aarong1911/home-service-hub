@@ -58,8 +58,9 @@ function buildActivity(deal: Deal): DealActivity[] {
   }));
 }
 
-function stageName(id: string) {
-  return pipelineStages.find((s) => s.id === id)?.name ?? id;
+function stageName(id: string, stages?: { id: string; name: string }[]) {
+  if (stages) return stages.find((s) => s.id === id)?.name ?? id;
+  return id;
 }
 
 function activityIcon(kind: DealActivityKind) {
