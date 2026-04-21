@@ -8,9 +8,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
-import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -37,6 +34,7 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
+import { LeadDetailDrawer } from "@/components/leads/lead-detail-drawer";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
@@ -666,174 +664,5 @@ function KpiCard({ label, value, icon: Icon }: { label: string; value: string; i
         <div className="text-lg font-semibold tabular-nums">{value}</div>
       </div>
     </Card>
-  );
-}
-
-/* ---------- Detail drawer ---------- */
-
-function LeadDetailDrawer({
-  lead,
-  onOpenChange,
-  onStatusChange,
-  onScoreChange,
-  onConvert,
-  teamMembers,
-}: {
-  lead: Lead | null;
-  onOpenChange: (open: boolean) => void;
-  onStatusChange: (id: string, status: LeadStatus) => void;
-  onScoreChange: (id: string, score: LeadScore) => void;
-  onConvert: (lead: Lead) => void;
-  teamMembers: { id: string; name: string }[];
-}) {
-  if (!lead) return <Sheet open={false} onOpenChange={onOpenChange}><SheetContent className="hidden" /></Sheet>;
-
-  const { Icon: ScoreIcon, className: scoreCls } = scoreIcon(lead.score);
-  const nextStatuses: LeadStatus[] = (() => {
-    switch (lead.status) {
-      case "new": return ["contacted"];
-      case "contacted": return ["qualified", "lost"];
-      case "qualified": return ["lost"];
-      default: return [];
-    }
-  })();
-
-  return (
-    <Sheet open={!!lead} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader className="space-y-3 border-b border-border pb-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 text-left">
-              <div className="mb-1.5 flex items-center gap-2">
-                <Badge variant={statusBadgeVariant(lead.status)} className="text-[10px]">
-                  {STATUS_LABELS[lead.status]}
-                </Badge>
-                <div className="flex items-center gap-1">
-                  <ScoreIcon className={`h-3.5 w-3.5 ${scoreCls}`} />
-                  <span className="text-[11px] capitalize text-muted-foreground">{lead.score}</span>
-                </div>
-              </div>
-              <SheetTitle className="text-base leading-snug">{lead.name}</SheetTitle>
-              <SheetDescription className="mt-0.5 text-xs">
-                {lead.source} · Owned by {lead.owner}
-              </SheetDescription>
-            </div>
-            <div className="text-right">
-              <div className="text-xl font-semibold tabular-nums">{formatMoney(lead.estimatedBudget)}</div>
-              <div className="text-[11px] text-muted-foreground">Est. budget</div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2">
-            {lead.status !== "converted" && lead.status !== "lost" && (
-              <Button size="sm" className="flex-1" onClick={() => onConvert(lead)}>
-                <ArrowRight className="mr-1.5 h-3.5 w-3.5" /> Convert to Deal
-              </Button>
-            )}
-            {nextStatuses.map((ns) => (
-              <Button key={ns} size="sm" variant="outline" className="flex-1" onClick={() => onStatusChange(lead.id, ns)}>
-                {STATUS_LABELS[ns]}
-              </Button>
-            ))}
-          </div>
-        </SheetHeader>
-
-        <div className="mt-4 space-y-5">
-          {/* Contact info */}
-          <section>
-            <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Contact Info</div>
-            <div className="space-y-2">
-              {lead.email && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{lead.email}</span>
-                </div>
-              )}
-              {lead.phone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{lead.phone}</span>
-                </div>
-              )}
-              {lead.address && (
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{lead.address}</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Facts */}
-          <section className="grid grid-cols-2 gap-3">
-            <FactCard icon={User} label="Owner" value={lead.owner} />
-            <FactCard icon={Target} label="Source" value={lead.source} />
-            <FactCard icon={Building2} label="Project" value={lead.projectType} />
-            <FactCard icon={Calendar} label="Created" value={formatDateShort(lead.createdAt)} />
-          </section>
-
-          <Separator />
-
-          {/* Score selector */}
-          <section>
-            <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Lead Score</div>
-            <div className="flex gap-2">
-              {ALL_SCORES.map((s) => {
-                const { Icon: SI, className: sc } = scoreIcon(s);
-                return (
-                  <button
-                    key={s}
-                    onClick={() => onScoreChange(lead.id, s)}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium capitalize transition-colors ${
-                      lead.score === s
-                        ? "border-primary/40 bg-primary-soft text-primary"
-                        : "border-border bg-background text-foreground hover:bg-secondary/60"
-                    }`}
-                  >
-                    <SI className={`h-3.5 w-3.5 ${sc}`} />
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {lead.notes && (
-            <>
-              <Separator />
-              <section>
-                <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Notes</div>
-                <p className="text-sm text-muted-foreground">{lead.notes}</p>
-              </section>
-            </>
-          )}
-
-          {lead.convertedDealId && (
-            <>
-              <Separator />
-              <section>
-                <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Converted Deal</div>
-                <div className="flex items-center gap-2 rounded-md border border-border bg-card p-3 text-sm">
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Deal ID: {lead.convertedDealId}</span>
-                </div>
-              </section>
-            </>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function FactCard({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-border bg-card p-2.5">
-      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        <Icon className="h-3 w-3" /> {label}
-      </div>
-      <div className="mt-1 truncate text-sm font-medium">{value}</div>
-    </div>
   );
 }
