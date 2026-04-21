@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as FinancialsRouteImport } from './routes/financials'
 import { Route as FilesRouteImport } from './routes/files'
@@ -48,6 +49,11 @@ import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/auto
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InboxRoute = InboxRouteImport.update({
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRouteWithChildren
+  '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRouteWithChildren
+  '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
   '/inbox': typeof InboxRouteWithChildren
+  '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -345,6 +354,7 @@ export interface FileRouteTypes {
     | '/files'
     | '/financials'
     | '/inbox'
+    | '/leads'
     | '/settings'
     | '/automation/agents'
     | '/automation/triggers'
@@ -382,6 +392,7 @@ export interface FileRouteTypes {
     | '/files'
     | '/financials'
     | '/inbox'
+    | '/leads'
     | '/settings'
     | '/automation/agents'
     | '/automation/triggers'
@@ -418,6 +429,7 @@ export interface FileRouteTypes {
     | '/files'
     | '/financials'
     | '/inbox'
+    | '/leads'
     | '/settings'
     | '/automation/agents'
     | '/automation/triggers'
@@ -456,6 +468,7 @@ export interface RootRouteChildren {
   FilesRoute: typeof FilesRoute
   FinancialsRoute: typeof FinancialsRouteWithChildren
   InboxRoute: typeof InboxRouteWithChildren
+  LeadsRoute: typeof LeadsRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
@@ -474,6 +487,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inbox': {
@@ -799,6 +819,7 @@ const rootRouteChildren: RootRouteChildren = {
   FilesRoute: FilesRoute,
   FinancialsRoute: FinancialsRouteWithChildren,
   InboxRoute: InboxRouteWithChildren,
+  LeadsRoute: LeadsRoute,
   SettingsRoute: SettingsRouteWithChildren,
   AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
