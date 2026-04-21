@@ -40,6 +40,7 @@ import {
 } from "@/lib/leads-store";
 import { useLeadNotes, addLeadNote } from "@/lib/leads-store";
 import { updateLeadNote } from "@/lib/leads-store";
+import { addDeal as storeAddDeal } from "@/lib/deals-store";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
@@ -161,6 +162,20 @@ function LeadsPage() {
       return;
     }
     storeConvertLead(lead.id);
+    storeAddDeal({
+      name: lead.name,
+      contactId: lead.id,
+      contactName: lead.name,
+      value: lead.estimatedBudget ?? 0,
+      stage: "new-lead",
+      expectedClose: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+      owner: lead.owner,
+      ownerInitials: lead.owner.split(" ").map((p) => p[0]).join(""),
+      ageDays: 0,
+      email: lead.email,
+      phone: lead.phone,
+      address: lead.address,
+    });
     toast.success(`${lead.name} converted to deal`, { description: "A new deal has been created in the pipeline." });
     navigate({ search: { leadId: undefined }, replace: true });
   };
