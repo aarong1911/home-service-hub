@@ -36,7 +36,10 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
-import { leadsToCSV, downloadCSV, parseCSVToLeads } from "@/lib/leads-csv";
+import {
+  leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
+  LEAD_FIELDS, type ColumnMapping, type LeadFieldKey,
+} from "@/lib/leads-csv";
 
 type LeadsSearch = { leadId?: string };
 
@@ -88,6 +91,12 @@ function LeadsPage() {
   const [scoreFilter, setScoreFilter] = useState<string>("All scores");
   const [selected, setSelected] = useState<Lead | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [csvRaw, setCsvRaw] = useState("");
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvPreview, setCsvPreview] = useState<string[][]>([]);
+  const [csvTotalRows, setCsvTotalRows] = useState(0);
+  const [colMapping, setColMapping] = useState<ColumnMapping | null>(null);
   const [newLead, setNewLead] = useState({
     name: "", email: "", phone: "", address: "", source: "" as string,
     projectType: "", estimatedBudget: "", score: "" as string, owner: "", notes: "",
@@ -186,24 +195,40 @@ function LeadsPage() {
     toast.success(`Exported ${leads.length} leads`);
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const { leads: parsed, errors } = parseCSVToLeads(text);
-      if (parsed.length === 0) {
-        toast.error("No leads imported", { description: errors[0] || "Check your CSV format." });
+      const { headers, preview, totalRows } = parseCSVPreview(text);
+      if (headers.length === 0 || totalRows === 0) {
+        toast.error("Empty or invalid CSV file");
         return;
       }
-      const count = importLeads(parsed);
-      toast.success(`Imported ${count} leads`, {
-        description: errors.length ? `${errors.length} row(s) skipped.` : undefined,
-      });
+      setCsvRaw(text);
+      setCsvHeaders(headers);
+      setCsvPreview(preview);
+      setCsvTotalRows(totalRows);
+      setColMapping(autoMapHeaders(headers));
+      setMapOpen(true);
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  const handleConfirmImport = () => {
+    if (!colMapping) return;
+    const { leads: parsed, errors } = applyMappingToLeads(csvRaw, colMapping);
+    if (parsed.length === 0) {
+      toast.error("No leads imported", { description: errors[0] || "Check your column mapping." });
+      return;
+    }
+    const count = importLeads(parsed);
+    toast.success(`Imported ${count} leads`, {
+      description: errors.length ? `${errors.length} row(s) skipped.` : undefined,
+    });
+    setMapOpen(false);
   };
 
   return (
