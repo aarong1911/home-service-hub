@@ -575,13 +575,14 @@ function Kpi({
   value: string;
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "primary" | "success" | "warning" | "muted";
+  tone: "primary" | "success" | "warning" | "muted" | "destructive";
 }) {
   const toneClass = {
     primary: "bg-primary-soft text-primary",
     success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     muted: "bg-secondary text-muted-foreground",
+    destructive: "bg-destructive/10 text-destructive",
   }[tone];
   return (
     <Card className="p-3">
