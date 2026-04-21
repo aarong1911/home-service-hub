@@ -467,7 +467,20 @@ function LeadsPage() {
           <DialogHeader>
             <DialogTitle>Map CSV Columns</DialogTitle>
             <DialogDescription>
-              Match your CSV columns to lead fields. {csvTotalRows} row(s) detected.
+              Match your CSV columns to lead fields. {csvTotalRows} row(s) detected.{" "}
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
+                onClick={() => {
+                  const headers = LEAD_FIELDS.map((f) => f.label).join(",");
+                  const sample = "Jane Doe,jane@example.com,555-123-4567,123 Main St,Referral,new,warm,Kitchen Remodel,15000,Interested in quote,Alex";
+                  const csv = `${headers}\n${sample}`;
+                  downloadCSV(csv, "leads-template.csv");
+                }}
+              >
+                <Download className="inline h-3 w-3" />
+                Download template
+              </button>
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto">
