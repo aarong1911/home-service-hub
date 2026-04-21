@@ -34,7 +34,7 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
-import { LeadDetailDrawer as LeadDrawer } from "@/components/leads/lead-detail-drawer";
+import { LeadDrawerPanel as LeadDrawer } from "@/components/leads/lead-detail-drawer";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
@@ -666,3 +666,4 @@ function KpiCard({ label, value, icon: Icon }: { label: string; value: string; i
     </Card>
   );
 }
+
