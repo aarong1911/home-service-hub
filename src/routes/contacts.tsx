@@ -425,6 +425,9 @@ function ContactsPage() {
                   const mapped = colMapping[field.key];
                   const previewVals = csvPreview.map((row) => mapped >= 0 ? (row[mapped] ?? "") : "").filter(Boolean).slice(0, 2);
                   const isTagsField = field.key === "tags";
+                  const effectiveDelimiter = isTagsField && tagDelimiter === "auto"
+                    ? detectTagDelimiter(previewVals)
+                    : tagDelimiter;
                   return (
                     <tr key={field.key} className="border-b border-border last:border-0">
                       <td className="px-3 py-2.5">
@@ -438,6 +441,11 @@ function ContactsPage() {
                               onChange={(e) => setTagDelimiter(e.target.value as TagDelimiter)}
                             >
                               <option value="auto">Auto-detect</option>
+                            {isTagsField && tagDelimiter === "auto" && previewVals.length > 0 && (
+                              <option disabled value="__detected">
+                                ↳ detected: {detectTagDelimiter(previewVals) === "comma" ? "," : detectTagDelimiter(previewVals) === "semicolon" ? ";" : ", and ;"}
+                              </option>
+                            )}
                               <option value="both">Split on , and ;</option>
                               <option value="comma">Split on , only</option>
                               <option value="semicolon">Split on ; only</option>
@@ -464,7 +472,7 @@ function ContactsPage() {
                       <td className="hidden px-3 py-2.5 sm:table-cell">
                         <span className="line-clamp-1 text-xs text-muted-foreground">
                           {isTagsField && previewVals.length
-                            ? previewVals.map((v) => splitTags(v, tagDelimiter).map((t) => `[${t}]`).join(" ")).join(", ")
+                            ? previewVals.map((v) => splitTags(v, effectiveDelimiter).map((t) => `[${t}]`).join(" ")).join(", ")
                             : previewVals.length ? previewVals.join(", ") : "—"}
                         </span>
                       </td>
