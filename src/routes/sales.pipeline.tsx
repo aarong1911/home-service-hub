@@ -16,6 +16,11 @@ const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 import { STAGE_COLOR_CLASS, useActivePipelineId, usePipelines } from "@/lib/pipelines";
+import { setActivePipeline } from "@/lib/pipelines";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { Link } from "@tanstack/react-router";
 
 type PipelineSearch = { dealId?: string };
 
@@ -154,6 +159,7 @@ function PipelinePage() {
               {activePipeline?.name ?? "Default Pipeline"}
               <ChevronDown className="ml-1 h-3.5 w-3.5" />
             </Button>
+            {/* Replace the above button with a dropdown */}
             <Button size="sm" className="h-8">
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Deal
             </Button>
