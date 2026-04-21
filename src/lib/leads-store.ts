@@ -67,3 +67,11 @@ export function convertLead(id: string): string {
   });
   return dealId;
 }
+
+export function importLeads(newLeads: Omit<Lead, "id">[]): number {
+  const added = newLeads.map((l, i) => ({ ...l, id: `lead-import-${Date.now()}-${i}` } as Lead));
+  leads = [...added, ...leads];
+  persist();
+  emit();
+  return added.length;
+}
