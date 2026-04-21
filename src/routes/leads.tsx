@@ -232,6 +232,28 @@ function LeadsPage() {
     setMapOpen(false);
   };
 
+  const downloadErrorReport = () => {
+    if (!importValidation?.errors.length) return;
+    const lines = [
+      "Import Error Report",
+      `Generated: ${new Date().toLocaleString()}`,
+      `File: ${csvTotalRows} total rows, ${importValidation.validCount} valid, ${importValidation.errors.length} skipped`,
+      "",
+      "Row,Error",
+      ...importValidation.errors.map((err) => {
+        const match = err.match(/^Row (\d+): (.+)$/);
+        return match ? `${match[1]},${match[2]}` : `0,"${err}"`;
+      }),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `import-errors-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Live validation of current mapping
   const importValidation = useMemo(() => {
     if (!colMapping || !csvRaw) return null;
@@ -502,10 +524,15 @@ function LeadsPage() {
                   {importValidation.validCount} valid
                 </span>
                 {importValidation.errors.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-amber-600">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    {importValidation.errors.length} will be skipped
-                  </span>
+                  <>
+                    <span className="flex items-center gap-1.5 text-amber-600">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {importValidation.errors.length} will be skipped
+                    </span>
+                    <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={downloadErrorReport}>
+                      <Download className="mr-1 h-3 w-3" /> Download error report
+                    </Button>
+                  </>
                 )}
               </div>
               {importValidation.errors.length > 0 && (
