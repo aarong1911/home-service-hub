@@ -26,6 +26,9 @@ export type Deal = {
   ageDays: number;
   lostReason?: LostReason;
   lostAt?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
 };
 
 // ============= PROJECTS =============

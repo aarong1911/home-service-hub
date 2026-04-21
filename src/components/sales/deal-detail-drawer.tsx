@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Mail, Phone, MessageSquare, FileText, CheckCircle2, XCircle, StickyNote,
-  TrendingUp, Calendar, User, Building2, AlertCircle,
+  TrendingUp, Calendar, User, Building2, AlertCircle, MapPin,
 } from "lucide-react";
 import { mockContacts, pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
@@ -205,6 +205,9 @@ export function DealDetailDrawer({
                 <Fact icon={Building2} label="Company" value={contact?.company ?? "—"} />
                 <Fact icon={Calendar} label="Age in stage" value={`${deal.ageDays}d`} />
                 <Fact icon={TrendingUp} label="Stage" value={stageName(deal.stage)} />
+                {deal.email && <Fact icon={Mail} label="Email" value={deal.email} />}
+                {deal.phone && <Fact icon={Phone} label="Phone" value={deal.phone} />}
+                {deal.address && <Fact icon={MapPin} label="Address" value={deal.address} />}
               </section>
 
               <Separator />
