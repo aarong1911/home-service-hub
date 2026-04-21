@@ -457,7 +457,7 @@ function PipelinePage() {
         onStageChange={handleStageChange}
         onMarkLost={handleMarkLost}
         onDealUpdate={(dealId, patch) => {
-          setDeals((prev) => prev.map((d) => d.id === dealId ? { ...d, ...patch } : d));
+          updateDeal(dealId, patch);
         }}
         stages={boardStages}
         teamMembers={teamMembers.map((m) => ({ id: m.id, name: m.name }))}
@@ -542,7 +542,7 @@ function PipelinePage() {
                   ownerInitials: initials,
                   ageDays: 0,
                 };
-                setDeals((prev) => [deal, ...prev]);
+                storeAddDeal(deal);
                 setNewDeal({ name: "", contactName: "", value: "", owner: "", stage: "", address: "", phone: "", email: "" });
                 setAddOpen(false);
                 toast.success(`Deal "${deal.name}" created`);
