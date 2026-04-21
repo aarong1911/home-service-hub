@@ -212,7 +212,7 @@ function LeadsPage() {
       setCsvHeaders(headers);
       setCsvPreview(preview);
       setCsvTotalRows(totalRows);
-      setColMapping(autoMapHeaders(headers));
+      setColMapping(autoMapHeaders(headers, templateType));
       setMapOpen(true);
     };
     reader.readAsText(file);
