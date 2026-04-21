@@ -196,8 +196,8 @@ function PipelinePage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" className="h-8">
-              <Plus className="mr-1.5 h-3.5 w-3.5" onClick={() => setAddOpen(true)} /> Add Deal
+            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Deal
             </Button>
           </>
         }
