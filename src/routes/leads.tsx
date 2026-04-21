@@ -26,6 +26,7 @@ import {
   ArrowRight, MoreHorizontal, DollarSign, Calendar, User, Building2,
   ExternalLink, SlidersHorizontal,
 } from "lucide-react";
+import { Download, Upload } from "lucide-react";
 import { type Lead, type LeadSource, type LeadStatus, type LeadScore } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
@@ -33,8 +34,9 @@ import { toast } from "sonner";
 import { useTeam } from "@/lib/organization";
 import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
-  updateLeadScore as storeUpdateScore, convertLead as storeConvertLead,
+  updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
+import { leadsToCSV, downloadCSV, parseCSVToLeads } from "@/lib/leads-csv";
 
 type LeadsSearch = { leadId?: string };
 
@@ -174,12 +176,53 @@ function LeadsPage() {
     toast.success("Lead added");
   };
 
+  const fileInputRef = useCallback((node: HTMLInputElement | null) => {
+    if (node) node.value = "";
+  }, []);
+
+  const handleExport = () => {
+    const csv = leadsToCSV(leads);
+    downloadCSV(csv, `leads-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success(`Exported ${leads.length} leads`);
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const { leads: parsed, errors } = parseCSVToLeads(text);
+      if (parsed.length === 0) {
+        toast.error("No leads imported", { description: errors[0] || "Check your CSV format." });
+        return;
+      }
+      const count = importLeads(parsed);
+      toast.success(`Imported ${count} leads`, {
+        description: errors.length ? `${errors.length} row(s) skipped.` : undefined,
+      });
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   return (
     <>
       <PageHeader title="Leads" subtitle="Track and qualify inbound leads" actions={
-        <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Lead
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={handleExport}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Export
+          </Button>
+          <Button size="sm" variant="outline" className="relative" asChild>
+            <label className="cursor-pointer">
+              <Upload className="mr-1.5 h-3.5 w-3.5" /> Import
+              <input type="file" accept=".csv" className="sr-only" onChange={handleImportFile} />
+            </label>
+          </Button>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Lead
+          </Button>
+        </div>
       } />
 
       {/* KPIs */}
