@@ -68,8 +68,9 @@ function write(pipelines: Pipeline[]) {
 import { useEffect, useState } from "react";
 
 export function usePipelines() {
-  const [pipelines, setPipelines] = useState<Pipeline[]>(() => read());
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   useEffect(() => {
+    setPipelines(read());
     const h = () => setPipelines(read());
     window.addEventListener("pipelines:changed", h);
     return () => window.removeEventListener("pipelines:changed", h);
@@ -78,10 +79,9 @@ export function usePipelines() {
 }
 
 export function useActivePipelineId() {
-  const [id, setId] = useState<string | null>(() =>
-    typeof window === "undefined" ? null : localStorage.getItem(ACTIVE_KEY),
-  );
+  const [id, setId] = useState<string | null>(null);
   useEffect(() => {
+    setId(localStorage.getItem(ACTIVE_KEY));
     const h = () => setId(localStorage.getItem(ACTIVE_KEY));
     window.addEventListener("pipelines:changed", h);
     return () => window.removeEventListener("pipelines:changed", h);
