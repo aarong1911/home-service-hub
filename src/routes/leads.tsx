@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { Download, Upload } from "lucide-react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
-import { StickyNote } from "lucide-react";
+import { StickyNote, Pencil, Check, X as XIcon } from "lucide-react";
 import { type Lead, type LeadSource, type LeadStatus, type LeadScore } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
@@ -39,6 +39,7 @@ import {
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
 import { useLeadNotes, addLeadNote } from "@/lib/leads-store";
+import { updateLeadNote } from "@/lib/leads-store";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
@@ -881,12 +882,7 @@ function InternalNotes({ leadId }: { leadId: string }) {
       {recent.length > 0 && (
         <div className="mt-3 max-h-48 space-y-2 overflow-y-auto scrollbar-thin">
           {recent.map((n) => (
-            <div key={n.id} className="rounded-md border border-border bg-card p-2.5">
-              <p className="text-sm text-foreground">{n.text}</p>
-              <div className="mt-1 text-[10px] text-muted-foreground">
-                {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-              </div>
-            </div>
+            <EditableNote key={n.id} note={n} leadId={leadId} />
           ))}
         </div>
       )}
