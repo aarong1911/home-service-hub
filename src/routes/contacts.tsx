@@ -331,6 +331,11 @@ function ContactsPage() {
                   <td className="py-2.5 pr-4 text-muted-foreground tabular-nums">{c.phone}</td>
                   <td className="py-2.5 pr-4">
                     <div className="flex flex-wrap gap-1">
+                      {isContactPastDue(c) && (
+                        <Badge variant="destructive" className="h-5 rounded px-1.5 text-[10px] font-medium">
+                          Past Due
+                        </Badge>
+                      )}
                       {c.tags.slice(0, 2).map((t) => (
                         <Badge key={t} variant="secondary" className="h-5 rounded px-1.5 text-[10px] font-medium">
                           {t}
