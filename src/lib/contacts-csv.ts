@@ -116,11 +116,26 @@ export function autoMapHeaders(csvHeaders: string[], templateType: ContactTempla
   return mapping;
 }
 
-export type TagDelimiter = "comma" | "semicolon" | "both";
+export type TagDelimiter = "auto" | "comma" | "semicolon" | "both";
+
+/** Analyze tag column values and pick the best delimiter. */
+export function detectTagDelimiter(values: string[]): Exclude<TagDelimiter, "auto"> {
+  let commas = 0;
+  let semicolons = 0;
+  for (const v of values) {
+    if (v.includes(",")) commas++;
+    if (v.includes(";")) semicolons++;
+  }
+  if (commas > 0 && semicolons === 0) return "comma";
+  if (semicolons > 0 && commas === 0) return "semicolon";
+  if (semicolons > 0 && commas > 0) return "both";
+  return "comma"; // default when no delimiters found
+}
 
 export function splitTags(raw: string, delimiter: TagDelimiter): string[] {
   if (!raw) return [];
-  const pattern = delimiter === "comma" ? /,/ : delimiter === "semicolon" ? /;/ : /[;,]/;
+  const effective = delimiter === "auto" ? "both" : delimiter;
+  const pattern = effective === "comma" ? /,/ : effective === "semicolon" ? /;/ : /[;,]/;
   return raw.split(pattern).map((t) => t.trim()).filter(Boolean);
 }
 
@@ -128,6 +143,16 @@ export function applyMappingToContacts(csv: string, mapping: ContactColumnMappin
   const lines = csv.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return { contacts: [], errors: ["CSV must have a header row and at least one data row."] };
   if (mapping.name < 0) return { contacts: [], errors: ["You must map the Name field."] };
+
+  // Resolve auto-detect by scanning all tag values
+  let resolvedDelimiter: Exclude<TagDelimiter, "auto"> = tagDelimiter === "auto" ? "both" : tagDelimiter;
+  if (tagDelimiter === "auto" && mapping.tags >= 0) {
+    const tagSamples = lines.slice(1).map((l) => {
+      const cols = parseCSVLine(l);
+      return cols[mapping.tags]?.trim() ?? "";
+    }).filter(Boolean);
+    resolvedDelimiter = detectTagDelimiter(tagSamples);
+  }
 
   const errors: string[] = [];
   const parsed: Omit<Contact, "id">[] = [];
@@ -144,7 +169,7 @@ export function applyMappingToContacts(csv: string, mapping: ContactColumnMappin
     if (!name) { errors.push(`Row ${i + 1}: missing name, skipped.`); continue; }
 
     const rawTags = get("tags");
-    const tags = splitTags(rawTags, tagDelimiter);
+    const tags = splitTags(rawTags, resolvedDelimiter);
     const owner = get("owner") || "Unassigned";
 
     parsed.push({
