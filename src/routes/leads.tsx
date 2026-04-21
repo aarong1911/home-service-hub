@@ -524,13 +524,15 @@ function LeadsPage() {
                   {importValidation.validCount} valid
                 </span>
                 {importValidation.errors.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-amber-600">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    {importValidation.errors.length} will be skipped
-                  </span>
-                  <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={downloadErrorReport}>
-                    <Download className="mr-1 h-3 w-3" /> Download error report
-                  </Button>
+                  <>
+                    <span className="flex items-center gap-1.5 text-amber-600">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {importValidation.errors.length} will be skipped
+                    </span>
+                    <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={downloadErrorReport}>
+                      <Download className="mr-1 h-3 w-3" /> Download error report
+                    </Button>
+                  </>
                 )}
               </div>
               {importValidation.errors.length > 0 && (
