@@ -8,9 +8,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
-import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
