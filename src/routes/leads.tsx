@@ -39,7 +39,7 @@ import {
 } from "@/lib/leads-store";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
-  LEAD_FIELDS, type ColumnMapping, type LeadFieldKey,
+  LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
 } from "@/lib/leads-csv";
 
 type LeadsSearch = { leadId?: string };
