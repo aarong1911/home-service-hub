@@ -190,7 +190,13 @@ function ContactsPage() {
         breadcrumb={["CRM", "Contacts"]}
         actions={
           <>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" asChild>
+              <label className="cursor-pointer">
+                <Upload className="mr-1.5 h-3.5 w-3.5" /> Import
+                <input type="file" accept=".csv" className="sr-only" onChange={handleImportFile} />
+              </label>
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="mr-1.5 h-3.5 w-3.5" /> Export
             </Button>
             <Button size="sm">
