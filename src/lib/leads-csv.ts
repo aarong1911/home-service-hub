@@ -88,12 +88,10 @@ export function parseCSVPreview(csv: string): { headers: string[]; preview: stri
 }
 
 /** Auto-guess mapping from CSV headers to lead fields */
-export function autoMapHeaders(csvHeaders: string[]): ColumnMapping {
-  const mapping: ColumnMapping = {
-    name: -1, email: -1, phone: -1, address: -1, source: -1,
-    status: -1, score: -1, projectType: -1, estimatedBudget: -1, notes: -1, owner: -1,
-  };
-  const aliases: Record<LeadFieldKey, string[]> = {
+export type TemplateType = "lead" | "customer" | "job";
+
+const TEMPLATE_ALIASES: Record<TemplateType, Record<LeadFieldKey, string[]>> = {
+  lead: {
     name: ["name", "full name", "contact name", "lead name", "client"],
     email: ["email", "e-mail", "email address"],
     phone: ["phone", "telephone", "phone number", "tel", "mobile"],
@@ -105,7 +103,41 @@ export function autoMapHeaders(csvHeaders: string[]): ColumnMapping {
     estimatedBudget: ["estimated budget", "estimatedbudget", "budget", "value", "amount"],
     notes: ["notes", "note", "comments", "description"],
     owner: ["owner", "assigned to", "assignee", "rep", "salesperson"],
+  },
+  customer: {
+    name: ["name", "full name", "customer name", "client name", "contact name", "client"],
+    email: ["email", "e-mail", "email address"],
+    phone: ["phone", "telephone", "phone number", "tel", "mobile"],
+    address: ["address", "street", "location", "street address"],
+    source: ["source", "channel", "company", "account number"],
+    status: ["status", "account status"],
+    score: ["score", "tier", "priority"],
+    projectType: ["project type", "projecttype", "service", "type"],
+    estimatedBudget: ["budget", "value", "amount", "account number"],
+    notes: ["notes", "note", "comments", "description"],
+    owner: ["owner", "assigned to", "account manager", "rep"],
+  },
+  job: {
+    name: ["job name", "job", "title", "name", "project name"],
+    email: ["email", "client email"],
+    phone: ["phone", "client phone"],
+    address: ["address", "job address", "site", "location", "street address"],
+    source: ["source", "client", "customer"],
+    status: ["status", "job status", "stage"],
+    score: ["score", "priority"],
+    projectType: ["project type", "type", "service", "category"],
+    estimatedBudget: ["budget", "estimated budget", "value", "amount", "cost"],
+    notes: ["notes", "note", "comments", "description"],
+    owner: ["owner", "assigned to", "foreman", "crew lead"],
+  },
+};
+
+export function autoMapHeaders(csvHeaders: string[], templateType: TemplateType = "lead"): ColumnMapping {
+  const mapping: ColumnMapping = {
+    name: -1, email: -1, phone: -1, address: -1, source: -1,
+    status: -1, score: -1, projectType: -1, estimatedBudget: -1, notes: -1, owner: -1,
   };
+  const aliases = TEMPLATE_ALIASES[templateType];
   const lower = csvHeaders.map((h) => h.toLowerCase().trim());
   for (const field of LEAD_FIELDS) {
     const fieldAliases = aliases[field.key];
