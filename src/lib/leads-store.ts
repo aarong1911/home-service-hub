@@ -114,3 +114,11 @@ export function addLeadNote(leadId: string, text: string): LeadNote {
   emitNotes();
   return note;
 }
+
+export function updateLeadNote(leadId: string, noteId: string, text: string) {
+  const list = notesMap[leadId];
+  if (!list) return;
+  notesMap = { ...notesMap, [leadId]: list.map((n) => (n.id === noteId ? { ...n, text } : n)) };
+  persistNotes();
+  emitNotes();
+}
