@@ -461,6 +461,7 @@ function LeadsPage() {
       </Dialog>
 
       {/* Column mapping dialog */}
+      <DialogErrorBoundary>
       <Dialog open={mapOpen} onOpenChange={setMapOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
@@ -556,7 +557,9 @@ function LeadsPage() {
         </DialogContent>
       </Dialog>
     </>
-  );
+    </DialogErrorBoundary>
+    </>
+   );
 }
 
 /* ---------- Sub-components ---------- */
