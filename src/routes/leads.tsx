@@ -34,7 +34,7 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
-import { LeadDrawerPanel as LeadDrawer } from "@/components/leads/lead-detail-drawer";
+import { LeadDetailDrawer } from "@/components/leads/lead-detail-drawer";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
@@ -48,38 +48,6 @@ export const Route = createFileRoute("/leads")({
   }),
   component: LeadsPage,
 });
-
-/* ---------- Sub-components ---------- */
-
-class DialogErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { error: Error | null }
-> {
-  state: { error: Error | null } = { error: null };
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[CSVMappingDialog] Render error caught:", error.message, "\nComponent stack:", info.componentStack);
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          <p className="font-medium">CSV mapping dialog failed to render</p>
-          <p className="mt-1 text-xs opacity-80">{this.state.error.message}</p>
-          <button
-            className="mt-2 text-xs underline"
-            onClick={() => this.setState({ error: null })}
-          >
-            Try again
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 const SOURCE_FILTERS = ["All sources", "Website", "Referral", "Angi", "Thumbtack", "Google Ads", "Walk-in", "Social Media"] as const;
 const STATUS_FILTERS = ["All statuses", "new", "contacted", "qualified", "converted", "lost"] as const;
@@ -414,7 +382,7 @@ function LeadsPage() {
       </Card>
 
       {/* Detail drawer */}
-      <LeadDrawer
+      <LeadDetailDrawer
         lead={selected ? leads.find((l) => l.id === selected.id) ?? selected : null}
         onOpenChange={(o) => { if (!o) navigate({ search: { leadId: undefined }, replace: true }); }}
         onStatusChange={handleStatusChange}
@@ -638,6 +606,38 @@ function LeadsPage() {
    );
 }
 
+/* ---------- Sub-components ---------- */
+
+class DialogErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[CSVMappingDialog] Render error caught:", error.message, "\nComponent stack:", info.componentStack);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <p className="font-medium">CSV mapping dialog failed to render</p>
+          <p className="mt-1 text-xs opacity-80">{this.state.error.message}</p>
+          <button
+            className="mt-2 text-xs underline"
+            onClick={() => this.setState({ error: null })}
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function FilterSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
   return (
     <Select value={value} onValueChange={onChange}>
@@ -666,4 +666,3 @@ function KpiCard({ label, value, icon: Icon }: { label: string; value: string; i
     </Card>
   );
 }
-
