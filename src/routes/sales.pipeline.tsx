@@ -159,7 +159,39 @@ function PipelinePage() {
               {activePipeline?.name ?? "Default Pipeline"}
               <ChevronDown className="ml-1 h-3.5 w-3.5" />
             </Button>
-            {/* Replace the above button with a dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8">
+                  {activePipeline?.name ?? "Default Pipeline"}
+                  <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[180px]">
+                <DropdownMenuLabel>Switch Pipeline</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {pipelines.length === 0 && (
+                  <DropdownMenuItem disabled className="text-muted-foreground text-xs">
+                    No pipelines yet
+                  </DropdownMenuItem>
+                )}
+                {pipelines.map((p) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    onSelect={() => setActivePipeline(p.id)}
+                    className={p.id === activeId ? "font-semibold bg-accent" : ""}
+                  >
+                    {p.name}
+                    {p.id === activeId && <span className="ml-auto text-xs text-muted-foreground">Active</span>}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/pipelines" className="text-xs">
+                    Manage pipelines…
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button size="sm" className="h-8">
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Deal
             </Button>
