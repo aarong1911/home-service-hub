@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import {
   contactsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToContacts,
-  CONTACT_FIELDS, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType,
+  CONTACT_FIELDS, splitTags, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
 } from "@/lib/contacts-csv";
 import { toast } from "sonner";
 import React from "react";
@@ -62,6 +62,7 @@ function ContactsPage() {
   const [csvTotalRows, setCsvTotalRows] = useState(0);
   const [colMapping, setColMapping] = useState<ContactColumnMapping | null>(null);
   const [templateType, setTemplateType] = useState<ContactTemplateType>("contact");
+  const [tagDelimiter, setTagDelimiter] = useState<TagDelimiter>("both");
 
   const { data: contacts, isLoading } = useQuery({
     queryKey: ["contacts"],
@@ -143,7 +144,7 @@ function ContactsPage() {
 
   const handleConfirmImport = () => {
     if (!colMapping) return;
-    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping);
+    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping, tagDelimiter);
     if (parsed.length === 0) {
       toast.error("No contacts imported", { description: errors[0] || "Check your column mapping." });
       return;
@@ -156,9 +157,9 @@ function ContactsPage() {
 
   const importValidation = useMemo(() => {
     if (!colMapping || !csvRaw) return null;
-    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping);
+    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping, tagDelimiter);
     return { validCount: parsed.length, errors };
-  }, [colMapping, csvRaw]);
+  }, [colMapping, csvRaw, tagDelimiter]);
 
   const downloadErrorReport = () => {
     if (!importValidation) return;
