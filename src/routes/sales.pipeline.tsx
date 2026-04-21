@@ -463,6 +463,11 @@ function PipelinePage() {
         onOpenChange={(o) => { if (!o) navigate({ search: { dealId: undefined }, replace: true }); }}
         onStageChange={handleStageChange}
         onMarkLost={handleMarkLost}
+        onDealUpdate={(dealId, patch) => {
+          setDeals((prev) => prev.map((d) => d.id === dealId ? { ...d, ...patch } : d));
+        }}
+        stages={boardStages}
+        teamMembers={teamMembers.map((m) => ({ id: m.id, name: m.name }))}
       />
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
