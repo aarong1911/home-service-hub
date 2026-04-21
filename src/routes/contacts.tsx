@@ -112,6 +112,76 @@ function ContactsPage() {
     });
   }, [contacts, search, tagFilter]);
 
+  const handleExport = () => {
+    if (!contacts) return;
+    const csv = contactsToCSV(contacts);
+    downloadCSV(csv, `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success(`Exported ${contacts.length} contacts`);
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const { headers, preview, totalRows } = parseCSVPreview(text);
+      if (headers.length === 0 || totalRows === 0) {
+        toast.error("Empty or invalid CSV file");
+        return;
+      }
+      setCsvRaw(text);
+      setCsvHeaders(headers);
+      setCsvPreview(preview);
+      setCsvTotalRows(totalRows);
+      setColMapping(autoMapHeaders(headers, templateType));
+      setMapOpen(true);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleConfirmImport = () => {
+    if (!colMapping) return;
+    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping);
+    if (parsed.length === 0) {
+      toast.error("No contacts imported", { description: errors[0] || "Check your column mapping." });
+      return;
+    }
+    toast.success(`Imported ${parsed.length} contact${parsed.length !== 1 ? "s" : ""}`, {
+      description: errors.length ? `${errors.length} row(s) skipped.` : undefined,
+    });
+    setMapOpen(false);
+  };
+
+  const importValidation = useMemo(() => {
+    if (!colMapping || !csvRaw) return null;
+    const { contacts: parsed, errors } = applyMappingToContacts(csvRaw, colMapping);
+    return { validCount: parsed.length, errors };
+  }, [colMapping, csvRaw]);
+
+  const downloadErrorReport = () => {
+    if (!importValidation) return;
+    const lines = [
+      "Contact Import Error Report",
+      `Generated: ${new Date().toLocaleString()}`,
+      `File: ${csvTotalRows} total rows, ${importValidation.validCount} valid, ${importValidation.errors.length} skipped`,
+      "",
+      "Row,Error",
+      ...importValidation.errors.map((err) => {
+        const match = err.match(/^Row (\d+): (.+)$/);
+        return match ? `${match[1]},"${match[2]}"` : `,"${err}"`;
+      }),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `import-errors-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
       <PageHeader
