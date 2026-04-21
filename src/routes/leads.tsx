@@ -456,7 +456,7 @@ function LeadsPage() {
                     <tr key={field.key} className="border-b border-border last:border-0">
                       <td className="px-3 py-2.5">
                         <span className="font-medium">{field.label}</span>
-                        {field.required && <span className="ml-1 text-destructive">*</span>}
+                        {"required" in field && <span className="ml-1 text-destructive">*</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         <Select
