@@ -17,13 +17,25 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  Plus, Search, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download,
+  Plus, Search, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download, Upload,
   Users, UserPlus, Star, Activity,
 } from "lucide-react";
-import { mockContacts, mockDeals, mockProjects, pipelineStages, type Contact, type Deal, type Project } from "@/lib/mock-data";
+import { mockContacts, mockDeals, mockProjects, pipelineStages, type Contact, type Deal, type Project } from  "@/lib/mock-data";
 import { formatDistanceToNow } from "date-fns";
-import { Mail as MailIcon, Phone as PhoneIcon, MessageSquare, FileText, CheckCircle2, StickyNote, ArrowRight } from "lucide-react";
+import { Mail as MailIcon, Phone as PhoneIcon, MessageSquare, FileText, CheckCircle2, StickyNote, ArrowRight, AlertTriangle } from "lucide-react";
 import { formatMoney, formatDateShort } from "@/lib/format";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  contactsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToContacts,
+  CONTACT_FIELDS, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType,
+} from "@/lib/contacts-csv";
+import { toast } from "sonner";
+import React from "react";
 
 const TAG_FILTERS = ["All", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
 type TagFilter = (typeof TAG_FILTERS)[number];
