@@ -459,6 +459,56 @@ function PipelinePage() {
         onStageChange={handleStageChange}
         onMarkLost={handleMarkLost}
       />
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Deal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Deal name</Label>
+              <Input value={newDeal.name} onChange={(e) => setNewDeal((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. Kitchen remodel" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contact name</Label>
+              <Input value={newDeal.contactName} onChange={(e) => setNewDeal((d) => ({ ...d, contactName: e.target.value }))} placeholder="e.g. John Smith" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Value ($)</Label>
+              <Input type="number" value={newDeal.value} onChange={(e) => setNewDeal((d) => ({ ...d, value: e.target.value }))} placeholder="25000" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!newDeal.name.trim()}
+              onClick={() => {
+                const firstStage = boardStages[0]?.id ?? "new";
+                const initials = newDeal.owner.split(" ").map((w) => w[0]).join("");
+                const deal: Deal = {
+                  id: Math.random().toString(36).slice(2, 10),
+                  name: newDeal.name.trim(),
+                  contactId: Math.random().toString(36).slice(2, 10),
+                  contactName: newDeal.contactName.trim() || "Unknown",
+                  value: Number(newDeal.value) || 0,
+                  stage: firstStage,
+                  expectedClose: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+                  owner: newDeal.owner,
+                  ownerInitials: initials,
+                  ageDays: 0,
+                };
+                setDeals((prev) => [deal, ...prev]);
+                setNewDeal({ name: "", contactName: "", value: "", owner: "Alex Romero" });
+                setAddOpen(false);
+                toast.success(`Deal "${deal.name}" created`);
+              }}
+            >
+              Create Deal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
