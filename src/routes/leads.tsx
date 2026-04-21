@@ -472,8 +472,14 @@ function LeadsPage() {
               <span className="inline-flex items-center gap-1.5">
                 <select
                   className="h-6 rounded border border-input bg-transparent px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                  id="template-type-select"
-                  defaultValue="lead"
+                  value={templateType}
+                  onChange={(e) => {
+                    const next = e.target.value as TemplateType;
+                    setTemplateType(next);
+                    if (csvHeaders.length > 0) {
+                      setColMapping(autoMapHeaders(csvHeaders, next));
+                    }
+                  }}
                 >
                   <option value="lead">Lead</option>
                   <option value="customer">Customer</option>
