@@ -998,3 +998,68 @@ export const mockCompanies: Company[] = _companySeeds.map((s, i) => {
 export function getCompanyBySlug(slug: string): Company | undefined {
   return mockCompanies.find((c) => c.slug === slug);
 }
+
+// ============= LEADS =============
+export type LeadSource = "Website" | "Referral" | "Angi" | "Thumbtack" | "Google Ads" | "Walk-in" | "Social Media";
+export type LeadStatus = "new" | "contacted" | "qualified" | "converted" | "lost";
+export type LeadScore = "hot" | "warm" | "cold";
+
+export type Lead = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  source: LeadSource;
+  status: LeadStatus;
+  score: LeadScore;
+  projectType: string;
+  estimatedBudget: number;
+  notes: string;
+  owner: string;
+  ownerInitials: string;
+  createdAt: string;
+  lastActivity: string;
+  convertedDealId?: string;
+};
+
+const LEAD_SOURCES: LeadSource[] = ["Website", "Referral", "Angi", "Thumbtack", "Google Ads", "Walk-in", "Social Media"];
+const LEAD_STATUSES: LeadStatus[] = ["new", "contacted", "qualified", "converted", "lost"];
+const LEAD_SCORES: LeadScore[] = ["hot", "warm", "cold"];
+const LEAD_PROJECT_TYPES = ["Kitchen Remodel", "Bath Remodel", "Whole Home Renovation", "Basement Finish", "Addition", "Outdoor Living", "Primary Suite"];
+
+const leadSeeds = [
+  { name: "Marcus Webb", email: "marcus.webb@email.com", phone: "(512) 555-0143", address: "1420 Elm St, Austin TX", source: 0, status: 0, score: 0, project: 0, budget: 45000, owner: "Alex Romero" },
+  { name: "Dana Trujillo", email: "dana.t@email.com", phone: "(512) 555-0287", address: "805 Oak Ridge Dr, Round Rock TX", source: 1, status: 1, score: 0, project: 1, budget: 28000, owner: "Priya Shah" },
+  { name: "Kevin Osei", email: "k.osei@email.com", phone: "(512) 555-0391", address: "2311 Magnolia Ave, Cedar Park TX", source: 2, status: 0, score: 1, project: 2, budget: 120000, owner: "Jamal Burke" },
+  { name: "Rachel Stein", email: "r.stein@email.com", phone: "(512) 555-0455", address: "776 Birch Ln, Pflugerville TX", source: 3, status: 2, score: 0, project: 3, budget: 55000, owner: "Alex Romero" },
+  { name: "Tom Nguyen", email: "tom.n@email.com", phone: "(512) 555-0519", address: "1033 Pecan Blvd, Lakeway TX", source: 4, status: 1, score: 1, project: 4, budget: 85000, owner: "Mei Lin" },
+  { name: "Lisa Fernandez", email: "lisaf@email.com", phone: "(512) 555-0602", address: "438 Willow Creek Rd, Georgetown TX", source: 0, status: 0, score: 2, project: 5, budget: 15000, owner: "Sara Holt" },
+  { name: "James Olawale", email: "j.olawale@email.com", phone: "(512) 555-0778", address: "2090 Sunset Dr, Bee Cave TX", source: 5, status: 3, score: 0, project: 0, budget: 62000, owner: "Priya Shah" },
+  { name: "Carla Mendes", email: "carla.m@email.com", phone: "(512) 555-0834", address: "157 Cypress Point, Dripping Springs TX", source: 1, status: 2, score: 1, project: 6, budget: 38000, owner: "Jamal Burke" },
+  { name: "Brian Park", email: "b.park@email.com", phone: "(512) 555-0912", address: "621 Spruce Hill Ave, Leander TX", source: 6, status: 4, score: 2, project: 1, budget: 22000, owner: "Alex Romero" },
+  { name: "Nina Alvarez", email: "nina.a@email.com", phone: "(512) 555-0067", address: "3405 Redwood Ct, Manor TX", source: 2, status: 0, score: 0, project: 2, budget: 95000, owner: "Mei Lin" },
+  { name: "Derek Simmons", email: "derek.s@email.com", phone: "(512) 555-1100", address: "888 Maple Ln, Buda TX", source: 4, status: 1, score: 1, project: 3, budget: 47000, owner: "Sara Holt" },
+  { name: "Priya Kapoor", email: "p.kapoor@email.com", phone: "(512) 555-1234", address: "245 Juniper Way, Kyle TX", source: 3, status: 0, score: 0, project: 4, budget: 73000, owner: "Jamal Burke" },
+];
+
+export const mockLeads: Lead[] = leadSeeds.map((s, i) => {
+  const initials = s.owner.split(" ").map((p) => p[0]).join("");
+  return {
+    id: `lead-${i + 1}`,
+    name: s.name,
+    email: s.email,
+    phone: s.phone,
+    address: s.address,
+    source: LEAD_SOURCES[s.source],
+    status: LEAD_STATUSES[s.status],
+    score: LEAD_SCORES[s.score],
+    projectType: LEAD_PROJECT_TYPES[s.project],
+    estimatedBudget: s.budget,
+    notes: "",
+    owner: s.owner,
+    ownerInitials: initials,
+    createdAt: isoDaysAgo(3 + i * 4),
+    lastActivity: isoDaysAgo(i % 7),
+  };
+});

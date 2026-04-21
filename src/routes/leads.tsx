@@ -1,0 +1,568 @@
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/app-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Plus, Search, Mail, Phone, MapPin, Target, Flame, Thermometer, Snowflake,
+  ArrowRight, MoreHorizontal, DollarSign, Calendar, User, Building2,
+  ExternalLink, SlidersHorizontal,
+} from "lucide-react";
+import {
+  mockLeads, type Lead, type LeadSource, type LeadStatus, type LeadScore,
+} from "@/lib/mock-data";
+import { formatMoney, formatDateShort } from "@/lib/format";
+import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
+import { useTeam } from "@/lib/organization";
+
+type LeadsSearch = { leadId?: string };
+
+export const Route = createFileRoute("/leads")({
+  validateSearch: (raw: Record<string, unknown>): LeadsSearch => ({
+    leadId: typeof raw.leadId === "string" ? raw.leadId : undefined,
+  }),
+  component: LeadsPage,
+});
+
+const SOURCE_FILTERS = ["All sources", "Website", "Referral", "Angi", "Thumbtack", "Google Ads", "Walk-in", "Social Media"] as const;
+const STATUS_FILTERS = ["All statuses", "new", "contacted", "qualified", "converted", "lost"] as const;
+const SCORE_FILTERS = ["All scores", "hot", "warm", "cold"] as const;
+const ALL_SOURCES: LeadSource[] = ["Website", "Referral", "Angi", "Thumbtack", "Google Ads", "Walk-in", "Social Media"];
+const ALL_STATUSES: LeadStatus[] = ["new", "contacted", "qualified", "converted", "lost"];
+const ALL_SCORES: LeadScore[] = ["hot", "warm", "cold"];
+const PROJECT_TYPES = ["Kitchen Remodel", "Bath Remodel", "Whole Home Renovation", "Basement Finish", "Addition", "Outdoor Living", "Primary Suite"];
+
+const STATUS_LABELS: Record<LeadStatus, string> = {
+  new: "New", contacted: "Contacted", qualified: "Qualified", converted: "Converted", lost: "Lost",
+};
+
+function scoreIcon(score: LeadScore) {
+  switch (score) {
+    case "hot": return { Icon: Flame, className: "text-red-500" };
+    case "warm": return { Icon: Thermometer, className: "text-amber-500" };
+    case "cold": return { Icon: Snowflake, className: "text-sky-500" };
+  }
+}
+
+function statusBadgeVariant(status: LeadStatus): "default" | "secondary" | "outline" | "destructive" {
+  switch (status) {
+    case "new": return "default";
+    case "contacted": return "secondary";
+    case "qualified": return "outline";
+    case "converted": return "default";
+    case "lost": return "destructive";
+  }
+}
+
+function LeadsPage() {
+  const { leadId } = useSearch({ from: "/leads" });
+  const navigate = useNavigate({ from: "/leads" });
+  const teamMembers = useTeam();
+  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<string>("All sources");
+  const [statusFilter, setStatusFilter] = useState<string>("All statuses");
+  const [scoreFilter, setScoreFilter] = useState<string>("All scores");
+  const [selected, setSelected] = useState<Lead | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newLead, setNewLead] = useState({
+    name: "", email: "", phone: "", address: "", source: "" as string,
+    projectType: "", estimatedBudget: "", score: "" as string, owner: "", notes: "",
+  });
+
+  // Deep-link
+  useEffect(() => {
+    if (leadId) {
+      const found = leads.find((l) => l.id === leadId);
+      if (found && found.id !== selected?.id) setSelected(found);
+    } else {
+      setSelected(null);
+    }
+  }, [leadId, leads]);
+
+  const filtered = useMemo(() => {
+    let list = leads;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((l) =>
+        l.name.toLowerCase().includes(q) || l.email.toLowerCase().includes(q) || l.phone.includes(q) || l.projectType.toLowerCase().includes(q),
+      );
+    }
+    if (sourceFilter !== "All sources") list = list.filter((l) => l.source === sourceFilter);
+    if (statusFilter !== "All statuses") list = list.filter((l) => l.status === statusFilter);
+    if (scoreFilter !== "All scores") list = list.filter((l) => l.score === scoreFilter);
+    return list;
+  }, [leads, search, sourceFilter, statusFilter, scoreFilter]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = leads.length;
+    const hot = leads.filter((l) => l.score === "hot" && l.status !== "converted" && l.status !== "lost").length;
+    const newCount = leads.filter((l) => l.status === "new").length;
+    const converted = leads.filter((l) => l.status === "converted").length;
+    return { total, hot, newCount, converted };
+  }, [leads]);
+
+  const openLead = (lead: Lead) => {
+    setSelected(lead);
+    navigate({ search: { leadId: lead.id }, replace: true });
+  };
+
+  const handleStatusChange = (leadId: string, newStatus: LeadStatus) => {
+    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, status: newStatus, lastActivity: new Date().toISOString() } : l));
+    toast.success(`Lead status updated to ${STATUS_LABELS[newStatus]}`);
+  };
+
+  const handleScoreChange = (leadId: string, newScore: LeadScore) => {
+    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, score: newScore } : l));
+    toast.success(`Lead score updated to ${newScore}`);
+  };
+
+  const handleConvertToDeal = (lead: Lead) => {
+    if (lead.status === "converted") {
+      toast.error("Lead already converted");
+      return;
+    }
+    setLeads((prev) => prev.map((l) =>
+      l.id === lead.id ? { ...l, status: "converted" as LeadStatus, convertedDealId: `d_converted_${lead.id}`, lastActivity: new Date().toISOString() } : l,
+    ));
+    toast.success(`${lead.name} converted to deal`, { description: "A new deal has been created in the pipeline." });
+    navigate({ search: { leadId: undefined }, replace: true });
+  };
+
+  const handleAddLead = () => {
+    if (!newLead.name.trim()) return;
+    const owner = newLead.owner || teamMembers[0]?.name || "Unassigned";
+    const initials = owner.split(" ").map((p) => p[0]).join("");
+    const lead: Lead = {
+      id: `lead-new-${Date.now()}`,
+      name: newLead.name.trim(),
+      email: newLead.email.trim(),
+      phone: newLead.phone.trim(),
+      address: newLead.address.trim(),
+      source: (newLead.source || "Website") as LeadSource,
+      status: "new",
+      score: (newLead.score || "warm") as LeadScore,
+      projectType: newLead.projectType || "Kitchen Remodel",
+      estimatedBudget: Number(newLead.estimatedBudget) || 0,
+      notes: newLead.notes.trim(),
+      owner,
+      ownerInitials: initials,
+      createdAt: new Date().toISOString(),
+      lastActivity: new Date().toISOString(),
+    };
+    setLeads((prev) => [lead, ...prev]);
+    setAddOpen(false);
+    setNewLead({ name: "", email: "", phone: "", address: "", source: "", projectType: "", estimatedBudget: "", score: "", owner: "", notes: "" });
+    toast.success("Lead added");
+  };
+
+  return (
+    <>
+      <PageHeader title="Leads" subtitle="Track and qualify inbound leads" actions={
+        <Button size="sm" onClick={() => setAddOpen(true)}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Lead
+        </Button>
+      } />
+
+      {/* KPIs */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard label="Total Leads" value={String(stats.total)} icon={Target} />
+        <KpiCard label="New" value={String(stats.newCount)} icon={Plus} />
+        <KpiCard label="Hot Leads" value={String(stats.hot)} icon={Flame} />
+        <KpiCard label="Converted" value={String(stats.converted)} icon={ArrowRight} />
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search leads…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
+        <FilterSelect value={sourceFilter} onChange={setSourceFilter} options={SOURCE_FILTERS as unknown as string[]} />
+        <FilterSelect value={statusFilter} onChange={setStatusFilter} options={STATUS_FILTERS as unknown as string[]} />
+        <FilterSelect value={scoreFilter} onChange={setScoreFilter} options={SCORE_FILTERS as unknown as string[]} />
+      </div>
+
+      {/* Table */}
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <th className="px-4 py-2.5">Lead</th>
+                <th className="px-4 py-2.5">Score</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="hidden px-4 py-2.5 md:table-cell">Source</th>
+                <th className="hidden px-4 py-2.5 lg:table-cell">Project</th>
+                <th className="hidden px-4 py-2.5 sm:table-cell">Budget</th>
+                <th className="hidden px-4 py-2.5 lg:table-cell">Owner</th>
+                <th className="px-4 py-2.5 text-right">Activity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((lead) => {
+                const { Icon: ScoreIcon, className: scoreCls } = scoreIcon(lead.score);
+                return (
+                  <tr
+                    key={lead.id}
+                    className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/30"
+                    onClick={() => openLead(lead)}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback className="bg-primary-soft text-[11px] font-medium text-primary">
+                            {lead.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{lead.name}</div>
+                          <div className="truncate text-[11px] text-muted-foreground">{lead.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <ScoreIcon className={`h-3.5 w-3.5 ${scoreCls}`} />
+                        <span className="text-xs capitalize">{lead.score}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={statusBadgeVariant(lead.status)} className="text-[10px]">
+                        {STATUS_LABELS[lead.status]}
+                      </Badge>
+                    </td>
+                    <td className="hidden px-4 py-3 text-xs text-muted-foreground md:table-cell">{lead.source}</td>
+                    <td className="hidden px-4 py-3 text-xs lg:table-cell">{lead.projectType}</td>
+                    <td className="hidden px-4 py-3 text-xs tabular-nums sm:table-cell">{formatMoney(lead.estimatedBudget)}</td>
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      <div className="flex items-center gap-1.5">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="bg-secondary text-[9px]">{lead.ownerInitials}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs">{lead.owner}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right text-[11px] text-muted-foreground">
+                      {formatDistanceToNow(new Date(lead.lastActivity), { addSuffix: true })}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                    No leads match your filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Detail drawer */}
+      <LeadDetailDrawer
+        lead={selected ? leads.find((l) => l.id === selected.id) ?? selected : null}
+        onOpenChange={(o) => { if (!o) navigate({ search: { leadId: undefined }, replace: true }); }}
+        onStatusChange={handleStatusChange}
+        onScoreChange={handleScoreChange}
+        onConvert={handleConvertToDeal}
+        teamMembers={teamMembers.map((m) => ({ id: m.id, name: m.name }))}
+      />
+
+      {/* Add lead dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Lead</DialogTitle>
+            <DialogDescription>Create a new lead and start qualifying.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Name *</Label>
+              <Input value={newLead.name} onChange={(e) => setNewLead((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input value={newLead.email} onChange={(e) => setNewLead((p) => ({ ...p, email: e.target.value }))} placeholder="email@example.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input value={newLead.phone} onChange={(e) => setNewLead((p) => ({ ...p, phone: e.target.value }))} placeholder="(555) 123-4567" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Address</Label>
+              <Input value={newLead.address} onChange={(e) => setNewLead((p) => ({ ...p, address: e.target.value }))} placeholder="123 Main St" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Source</Label>
+              <Select value={newLead.source} onValueChange={(v) => setNewLead((p) => ({ ...p, source: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                <SelectContent>{ALL_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Score</Label>
+              <Select value={newLead.score} onValueChange={(v) => setNewLead((p) => ({ ...p, score: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select score" /></SelectTrigger>
+                <SelectContent>{ALL_SCORES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Project Type</Label>
+              <Select value={newLead.projectType} onValueChange={(v) => setNewLead((p) => ({ ...p, projectType: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>{PROJECT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Estimated Budget</Label>
+              <Input type="number" value={newLead.estimatedBudget} onChange={(e) => setNewLead((p) => ({ ...p, estimatedBudget: e.target.value }))} placeholder="50000" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Owner</Label>
+              <Select value={newLead.owner} onValueChange={(v) => setNewLead((p) => ({ ...p, owner: v }))}>
+                <SelectTrigger><SelectValue placeholder="Assign owner" /></SelectTrigger>
+                <SelectContent>{teamMembers.map((m) => <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Notes</Label>
+              <Textarea value={newLead.notes} onChange={(e) => setNewLead((p) => ({ ...p, notes: e.target.value }))} placeholder="Initial notes…" rows={2} className="resize-none" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddLead} disabled={!newLead.name.trim()}>Add Lead</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/* ---------- Sub-components ---------- */
+
+function FilterSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o} value={o} className="capitalize text-xs">{o === "new" ? "New" : o === "contacted" ? "Contacted" : o === "qualified" ? "Qualified" : o === "converted" ? "Converted" : o === "lost" ? "Lost" : o}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function KpiCard({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }) {
+  return (
+    <Card className="flex items-center gap-3 p-4">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-soft text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-lg font-semibold tabular-nums">{value}</div>
+      </div>
+    </Card>
+  );
+}
+
+/* ---------- Detail drawer ---------- */
+
+function LeadDetailDrawer({
+  lead,
+  onOpenChange,
+  onStatusChange,
+  onScoreChange,
+  onConvert,
+  teamMembers,
+}: {
+  lead: Lead | null;
+  onOpenChange: (open: boolean) => void;
+  onStatusChange: (id: string, status: LeadStatus) => void;
+  onScoreChange: (id: string, score: LeadScore) => void;
+  onConvert: (lead: Lead) => void;
+  teamMembers: { id: string; name: string }[];
+}) {
+  if (!lead) return <Sheet open={false} onOpenChange={onOpenChange}><SheetContent className="hidden" /></Sheet>;
+
+  const { Icon: ScoreIcon, className: scoreCls } = scoreIcon(lead.score);
+  const nextStatuses: LeadStatus[] = (() => {
+    switch (lead.status) {
+      case "new": return ["contacted"];
+      case "contacted": return ["qualified", "lost"];
+      case "qualified": return ["lost"];
+      default: return [];
+    }
+  })();
+
+  return (
+    <Sheet open={!!lead} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader className="space-y-3 border-b border-border pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 text-left">
+              <div className="mb-1.5 flex items-center gap-2">
+                <Badge variant={statusBadgeVariant(lead.status)} className="text-[10px]">
+                  {STATUS_LABELS[lead.status]}
+                </Badge>
+                <div className="flex items-center gap-1">
+                  <ScoreIcon className={`h-3.5 w-3.5 ${scoreCls}`} />
+                  <span className="text-[11px] capitalize text-muted-foreground">{lead.score}</span>
+                </div>
+              </div>
+              <SheetTitle className="text-base leading-snug">{lead.name}</SheetTitle>
+              <SheetDescription className="mt-0.5 text-xs">
+                {lead.source} · Owned by {lead.owner}
+              </SheetDescription>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-semibold tabular-nums">{formatMoney(lead.estimatedBudget)}</div>
+              <div className="text-[11px] text-muted-foreground">Est. budget</div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2">
+            {lead.status !== "converted" && lead.status !== "lost" && (
+              <Button size="sm" className="flex-1" onClick={() => onConvert(lead)}>
+                <ArrowRight className="mr-1.5 h-3.5 w-3.5" /> Convert to Deal
+              </Button>
+            )}
+            {nextStatuses.map((ns) => (
+              <Button key={ns} size="sm" variant="outline" className="flex-1" onClick={() => onStatusChange(lead.id, ns)}>
+                {STATUS_LABELS[ns]}
+              </Button>
+            ))}
+          </div>
+        </SheetHeader>
+
+        <div className="mt-4 space-y-5">
+          {/* Contact info */}
+          <section>
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Contact Info</div>
+            <div className="space-y-2">
+              {lead.email && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{lead.email}</span>
+                </div>
+              )}
+              {lead.phone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{lead.phone}</span>
+                </div>
+              )}
+              {lead.address && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{lead.address}</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Facts */}
+          <section className="grid grid-cols-2 gap-3">
+            <FactCard icon={User} label="Owner" value={lead.owner} />
+            <FactCard icon={Target} label="Source" value={lead.source} />
+            <FactCard icon={Building2} label="Project" value={lead.projectType} />
+            <FactCard icon={Calendar} label="Created" value={formatDateShort(lead.createdAt)} />
+          </section>
+
+          <Separator />
+
+          {/* Score selector */}
+          <section>
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Lead Score</div>
+            <div className="flex gap-2">
+              {ALL_SCORES.map((s) => {
+                const { Icon: SI, className: sc } = scoreIcon(s);
+                return (
+                  <button
+                    key={s}
+                    onClick={() => onScoreChange(lead.id, s)}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                      lead.score === s
+                        ? "border-primary/40 bg-primary-soft text-primary"
+                        : "border-border bg-background text-foreground hover:bg-secondary/60"
+                    }`}
+                  >
+                    <SI className={`h-3.5 w-3.5 ${sc}`} />
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {lead.notes && (
+            <>
+              <Separator />
+              <section>
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Notes</div>
+                <p className="text-sm text-muted-foreground">{lead.notes}</p>
+              </section>
+            </>
+          )}
+
+          {lead.convertedDealId && (
+            <>
+              <Separator />
+              <section>
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Converted Deal</div>
+                <div className="flex items-center gap-2 rounded-md border border-border bg-card p-3 text-sm">
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Deal ID: {lead.convertedDealId}</span>
+                </div>
+              </section>
+            </>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function FactCard({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-card p-2.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <Icon className="h-3 w-3" /> {label}
+      </div>
+      <div className="mt-1 truncate text-sm font-medium">{value}</div>
+    </div>
+  );
+}
