@@ -217,11 +217,12 @@ function ContactsPage() {
       />
 
       {/* KPIs */}
-      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Kpi label="Total contacts" value={stats.total.toString()} sub="All-time records" icon={Users} tone="primary" />
         <Kpi label="New this month" value={stats.newThisMonth.toString()} sub="Added in last 30 days" icon={UserPlus} tone="success" />
         <Kpi label="VIP" value={stats.vip.toString()} sub="High-priority accounts" icon={Star} tone="warning" />
         <Kpi label="Active this week" value={stats.activeWeek.toString()} sub="Touched in last 7 days" icon={Activity} tone="muted" />
+        <Kpi label="Past due" value={stats.pastDue.toString()} sub={`No activity in ${PAST_DUE_DAYS}+ days`} icon={Clock} tone="destructive" />
       </div>
 
       {/* Filters bar */}
