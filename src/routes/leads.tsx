@@ -37,6 +37,7 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
+import { useLeadNotes, addLeadNote } from "@/lib/leads-store";
 import {
   leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
   LEAD_FIELDS, type ColumnMapping, type LeadFieldKey, type TemplateType,
