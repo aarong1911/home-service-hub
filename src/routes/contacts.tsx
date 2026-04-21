@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Plus, Search, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download, Upload,
-  Users, UserPlus, Star, Activity,
+  Users, UserPlus, Star, Activity, Clock,
 } from "lucide-react";
 import { mockContacts, mockDeals, mockProjects, pipelineStages, type Contact, type Deal, type Project } from  "@/lib/mock-data";
 import { formatDistanceToNow } from "date-fns";
