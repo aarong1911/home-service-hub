@@ -55,6 +55,13 @@ function ContactsPage() {
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<TagFilter>("All");
   const [selected, setSelected] = useState<Contact | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [csvRaw, setCsvRaw] = useState("");
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvPreview, setCsvPreview] = useState<string[][]>([]);
+  const [csvTotalRows, setCsvTotalRows] = useState(0);
+  const [colMapping, setColMapping] = useState<ContactColumnMapping | null>(null);
+  const [templateType, setTemplateType] = useState<ContactTemplateType>("contact");
 
   const { data: contacts, isLoading } = useQuery({
     queryKey: ["contacts"],
