@@ -36,7 +36,10 @@ import {
   useLeads, addLead as storeAddLead, updateLeadStatus as storeUpdateStatus,
   updateLeadScore as storeUpdateScore, convertLead as storeConvertLead, importLeads,
 } from "@/lib/leads-store";
-import { leadsToCSV, downloadCSV, parseCSVToLeads } from "@/lib/leads-csv";
+import {
+  leadsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToLeads,
+  LEAD_FIELDS, type ColumnMapping, type LeadFieldKey,
+} from "@/lib/leads-csv";
 
 type LeadsSearch = { leadId?: string };
 
@@ -88,6 +91,12 @@ function LeadsPage() {
   const [scoreFilter, setScoreFilter] = useState<string>("All scores");
   const [selected, setSelected] = useState<Lead | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [csvRaw, setCsvRaw] = useState("");
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvPreview, setCsvPreview] = useState<string[][]>([]);
+  const [csvTotalRows, setCsvTotalRows] = useState(0);
+  const [colMapping, setColMapping] = useState<ColumnMapping | null>(null);
   const [newLead, setNewLead] = useState({
     name: "", email: "", phone: "", address: "", source: "" as string,
     projectType: "", estimatedBudget: "", score: "" as string, owner: "", notes: "",
@@ -186,24 +195,40 @@ function LeadsPage() {
     toast.success(`Exported ${leads.length} leads`);
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const { leads: parsed, errors } = parseCSVToLeads(text);
-      if (parsed.length === 0) {
-        toast.error("No leads imported", { description: errors[0] || "Check your CSV format." });
+      const { headers, preview, totalRows } = parseCSVPreview(text);
+      if (headers.length === 0 || totalRows === 0) {
+        toast.error("Empty or invalid CSV file");
         return;
       }
-      const count = importLeads(parsed);
-      toast.success(`Imported ${count} leads`, {
-        description: errors.length ? `${errors.length} row(s) skipped.` : undefined,
-      });
+      setCsvRaw(text);
+      setCsvHeaders(headers);
+      setCsvPreview(preview);
+      setCsvTotalRows(totalRows);
+      setColMapping(autoMapHeaders(headers));
+      setMapOpen(true);
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  const handleConfirmImport = () => {
+    if (!colMapping) return;
+    const { leads: parsed, errors } = applyMappingToLeads(csvRaw, colMapping);
+    if (parsed.length === 0) {
+      toast.error("No leads imported", { description: errors[0] || "Check your column mapping." });
+      return;
+    }
+    const count = importLeads(parsed);
+    toast.success(`Imported ${count} leads`, {
+      description: errors.length ? `${errors.length} row(s) skipped.` : undefined,
+    });
+    setMapOpen(false);
   };
 
   return (
@@ -401,6 +426,70 @@ function LeadsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={handleAddLead} disabled={!newLead.name.trim()}>Add Lead</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Column mapping dialog */}
+      <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Map CSV Columns</DialogTitle>
+            <DialogDescription>
+              Match your CSV columns to lead fields. {csvTotalRows} row(s) detected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2">Lead Field</th>
+                  <th className="px-3 py-2">CSV Column</th>
+                  <th className="hidden px-3 py-2 sm:table-cell">Preview</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colMapping && LEAD_FIELDS.map((field) => {
+                  const mapped = colMapping[field.key];
+                  const previewVals = csvPreview.map((row) => mapped >= 0 ? (row[mapped] ?? "") : "").filter(Boolean).slice(0, 2);
+                  return (
+                    <tr key={field.key} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2.5">
+                        <span className="font-medium">{field.label}</span>
+                        {"required" in field && <span className="ml-1 text-destructive">*</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Select
+                          value={String(mapped)}
+                          onValueChange={(v) => setColMapping((prev) => prev ? { ...prev, [field.key]: Number(v) } : prev)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="-1" className="text-xs text-muted-foreground">— Skip —</SelectItem>
+                            {csvHeaders.map((h, i) => (
+                              <SelectItem key={i} value={String(i)} className="text-xs">{h}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="hidden px-3 py-2.5 sm:table-cell">
+                        <span className="line-clamp-1 text-xs text-muted-foreground">
+                          {previewVals.length ? previewVals.join(", ") : "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setMapOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmImport} disabled={!colMapping || colMapping.name < 0}>
+              Import {csvTotalRows} Lead{csvTotalRows !== 1 ? "s" : ""}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

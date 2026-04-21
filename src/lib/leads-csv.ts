@@ -57,16 +57,70 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-export function parseCSVToLeads(csv: string): { leads: Omit<Lead, "id">[]; errors: string[] } {
+// Lead fields available for mapping
+export const LEAD_FIELDS = [
+  { key: "name", label: "Name", required: true },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+  { key: "address", label: "Address" },
+  { key: "source", label: "Source" },
+  { key: "status", label: "Status" },
+  { key: "score", label: "Score" },
+  { key: "projectType", label: "Project Type" },
+  { key: "estimatedBudget", label: "Est. Budget" },
+  { key: "notes", label: "Notes" },
+  { key: "owner", label: "Owner" },
+] as const;
+
+export type LeadFieldKey = (typeof LEAD_FIELDS)[number]["key"];
+
+/** Mapping from lead field key → CSV column index (-1 = skip) */
+export type ColumnMapping = Record<LeadFieldKey, number>;
+
+/** Parse raw CSV text and return headers + first few preview rows */
+export function parseCSVPreview(csv: string): { headers: string[]; preview: string[][]; totalRows: number } {
+  const lines = csv.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length === 0) return { headers: [], preview: [], totalRows: 0 };
+  const headers = parseCSVLine(lines[0]);
+  const dataLines = lines.slice(1);
+  const preview = dataLines.slice(0, 3).map(parseCSVLine);
+  return { headers, preview, totalRows: dataLines.length };
+}
+
+/** Auto-guess mapping from CSV headers to lead fields */
+export function autoMapHeaders(csvHeaders: string[]): ColumnMapping {
+  const mapping: ColumnMapping = {
+    name: -1, email: -1, phone: -1, address: -1, source: -1,
+    status: -1, score: -1, projectType: -1, estimatedBudget: -1, notes: -1, owner: -1,
+  };
+  const aliases: Record<LeadFieldKey, string[]> = {
+    name: ["name", "full name", "contact name", "lead name", "client"],
+    email: ["email", "e-mail", "email address"],
+    phone: ["phone", "telephone", "phone number", "tel", "mobile"],
+    address: ["address", "street", "location", "street address"],
+    source: ["source", "lead source", "channel", "origin"],
+    status: ["status", "lead status", "stage"],
+    score: ["score", "lead score", "priority", "temperature"],
+    projectType: ["project type", "projecttype", "project", "type", "service"],
+    estimatedBudget: ["estimated budget", "estimatedbudget", "budget", "value", "amount"],
+    notes: ["notes", "note", "comments", "description"],
+    owner: ["owner", "assigned to", "assignee", "rep", "salesperson"],
+  };
+  const lower = csvHeaders.map((h) => h.toLowerCase().trim());
+  for (const field of LEAD_FIELDS) {
+    const fieldAliases = aliases[field.key];
+    const idx = lower.findIndex((h) => fieldAliases.includes(h));
+    if (idx >= 0) mapping[field.key] = idx;
+  }
+  return mapping;
+}
+
+/** Convert parsed CSV rows using the user-defined column mapping */
+export function applyMappingToLeads(csv: string, mapping: ColumnMapping): { leads: Omit<Lead, "id">[]; errors: string[] } {
   const lines = csv.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return { leads: [], errors: ["CSV must have a header row and at least one data row."] };
 
-  const headerLine = parseCSVLine(lines[0]);
-  const headerMap = new Map(headerLine.map((h, i) => [h.toLowerCase().trim(), i]));
-
-  const getIdx = (key: string) => headerMap.get(key) ?? -1;
-  const nameIdx = getIdx("name");
-  if (nameIdx === -1) return { leads: [], errors: ["CSV must have a 'name' column."] };
+  if (mapping.name < 0) return { leads: [], errors: ["You must map the Name field."] };
 
   const errors: string[] = [];
   const parsed: Omit<Lead, "id">[] = [];
@@ -74,13 +128,13 @@ export function parseCSVToLeads(csv: string): { leads: Omit<Lead, "id">[]; error
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i]);
-    const name = cols[nameIdx]?.trim();
-    if (!name) { errors.push(`Row ${i + 1}: missing name, skipped.`); continue; }
-
-    const get = (key: string) => {
-      const idx = getIdx(key);
+    const get = (key: LeadFieldKey) => {
+      const idx = mapping[key];
       return idx >= 0 ? (cols[idx]?.trim() ?? "") : "";
     };
+
+    const name = get("name");
+    if (!name) { errors.push(`Row ${i + 1}: missing name, skipped.`); continue; }
 
     const rawSource = get("source");
     const source = (VALID_SOURCES.includes(rawSource as LeadSource) ? rawSource : "Website") as LeadSource;
@@ -98,8 +152,8 @@ export function parseCSVToLeads(csv: string): { leads: Omit<Lead, "id">[]; error
       source,
       status,
       score,
-      projectType: get("projecttype") || get("project type") || get("projectType") || "Kitchen Remodel",
-      estimatedBudget: Number(get("estimatedbudget") || get("estimated budget") || get("estimatedBudget") || get("budget")) || 0,
+      projectType: get("projectType") || "Kitchen Remodel",
+      estimatedBudget: Number(get("estimatedBudget")) || 0,
       notes: get("notes"),
       owner,
       ownerInitials: owner.split(" ").map((p) => p[0]).join(""),
