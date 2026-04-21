@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import {
   contactsToCSV, downloadCSV, parseCSVPreview, autoMapHeaders, applyMappingToContacts,
-  CONTACT_FIELDS, splitTags, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
+  CONTACT_FIELDS, splitTags, detectTagDelimiter, type ContactColumnMapping, type ContactFieldKey, type ContactTemplateType, type TagDelimiter,
 } from "@/lib/contacts-csv";
 import { toast } from "sonner";
 import React from "react";
@@ -62,7 +62,7 @@ function ContactsPage() {
   const [csvTotalRows, setCsvTotalRows] = useState(0);
   const [colMapping, setColMapping] = useState<ContactColumnMapping | null>(null);
   const [templateType, setTemplateType] = useState<ContactTemplateType>("contact");
-  const [tagDelimiter, setTagDelimiter] = useState<TagDelimiter>("both");
+  const [tagDelimiter, setTagDelimiter] = useState<TagDelimiter>("auto");
 
   const { data: contacts, isLoading } = useQuery({
     queryKey: ["contacts"],
@@ -437,6 +437,7 @@ function ContactsPage() {
                               value={tagDelimiter}
                               onChange={(e) => setTagDelimiter(e.target.value as TagDelimiter)}
                             >
+                              <option value="auto">Auto-detect</option>
                               <option value="both">Split on , and ;</option>
                               <option value="comma">Split on , only</option>
                               <option value="semicolon">Split on ; only</option>
