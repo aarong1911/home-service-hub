@@ -37,7 +37,13 @@ import {
 import { toast } from "sonner";
 import React from "react";
 
-const TAG_FILTERS = ["All", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
+const PAST_DUE_DAYS = 30;
+
+function isContactPastDue(c: Contact): boolean {
+  return Date.now() - new Date(c.lastActivity).getTime() > PAST_DUE_DAYS * 86_400_000;
+}
+
+const TAG_FILTERS = ["All", "Past Due", "Homeowner", "Lead", "VIP", "Past Client", "Architect"] as const;
 type TagFilter = (typeof TAG_FILTERS)[number];
 
 type ContactsSearch = { contactId?: string };
