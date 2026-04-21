@@ -56,7 +56,7 @@ function PipelinePage() {
   const [selected, setSelected] = useState<Deal | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const teamMembers = useTeam();
-  const [newDeal, setNewDeal] = useState({ name: "", contactName: "", value: "", owner: "" });
+  const [newDeal, setNewDeal] = useState({ name: "", contactName: "", value: "", owner: "", stage: "", address: "", phone: "", email: "" });
 
   const pipelines = usePipelines();
   const activeId = useActivePipelineId();
@@ -479,9 +479,36 @@ function PipelinePage() {
               <Label>Contact name</Label>
               <Input value={newDeal.contactName} onChange={(e) => setNewDeal((d) => ({ ...d, contactName: e.target.value }))} placeholder="e.g. John Smith" />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input type="email" value={newDeal.email} onChange={(e) => setNewDeal((d) => ({ ...d, email: e.target.value }))} placeholder="john@example.com" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input type="tel" value={newDeal.phone} onChange={(e) => setNewDeal((d) => ({ ...d, phone: e.target.value }))} placeholder="(555) 123-4567" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Address</Label>
+              <Input value={newDeal.address} onChange={(e) => setNewDeal((d) => ({ ...d, address: e.target.value }))} placeholder="123 Main St, City, ST" />
+            </div>
             <div className="space-y-1.5">
               <Label>Value ($)</Label>
               <Input type="number" value={newDeal.value} onChange={(e) => setNewDeal((d) => ({ ...d, value: e.target.value }))} placeholder="25000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Starting stage</Label>
+              <Select value={newDeal.stage} onValueChange={(v) => setNewDeal((d) => ({ ...d, stage: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="First stage (default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {boardStages.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Owner</Label>
@@ -502,7 +529,7 @@ function PipelinePage() {
             <Button
               disabled={!newDeal.name.trim()}
               onClick={() => {
-                const firstStage = boardStages[0]?.id ?? "new";
+                const selectedStage = newDeal.stage || boardStages[0]?.id || "new";
                 const ownerName = newDeal.owner || teamMembers[0]?.name || "Unassigned";
                 const initials = ownerName.split(" ").map((w) => w[0]).join("");
                 const deal: Deal = {
@@ -511,14 +538,14 @@ function PipelinePage() {
                   contactId: Math.random().toString(36).slice(2, 10),
                   contactName: newDeal.contactName.trim() || "Unknown",
                   value: Number(newDeal.value) || 0,
-                  stage: firstStage,
+                  stage: selectedStage,
                   expectedClose: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
                   owner: ownerName,
                   ownerInitials: initials,
                   ageDays: 0,
                 };
                 setDeals((prev) => [deal, ...prev]);
-                setNewDeal({ name: "", contactName: "", value: "", owner: "" });
+                setNewDeal({ name: "", contactName: "", value: "", owner: "", stage: "", address: "", phone: "", email: "" });
                 setAddOpen(false);
                 toast.success(`Deal "${deal.name}" created`);
               }}
