@@ -15,8 +15,7 @@ import { mockDeals, pipelineStages, type Deal, type LostReason } from "@/lib/moc
 const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
-import { STAGE_COLOR_CLASS, useActivePipelineId, usePipelines } from "@/lib/pipelines";
-import { setActivePipeline } from "@/lib/pipelines";
+import { STAGE_COLOR_CLASS, useActivePipelineId, usePipelines, setActivePipeline } from "@/lib/pipelines";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
