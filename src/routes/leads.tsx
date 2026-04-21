@@ -556,7 +556,6 @@ function LeadsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
     </DialogErrorBoundary>
     </>
    );
