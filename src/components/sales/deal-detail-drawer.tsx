@@ -10,12 +10,17 @@ import {
 } from "@/components/ui/dialog";
 import {
   Mail, Phone, MessageSquare, FileText, CheckCircle2, XCircle, StickyNote,
-  TrendingUp, Calendar, User, Building2, AlertCircle, MapPin,
+  TrendingUp, Calendar, User, Building2, AlertCircle, MapPin, Pencil,
 } from "lucide-react";
-import { mockContacts, pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
+import { mockContacts, type Deal, type LostReason } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const LOST_REASONS: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
 
@@ -80,11 +85,17 @@ export function DealDetailDrawer({
   onOpenChange,
   onStageChange,
   onMarkLost,
+  onDealUpdate,
+  stages,
+  teamMembers,
 }: {
   deal: Deal | null;
   onOpenChange: (open: boolean) => void;
   onStageChange?: (dealId: string, newStage: string) => void;
   onMarkLost?: (dealId: string, reason: LostReason, notes: string) => void;
+  onDealUpdate?: (dealId: string, patch: Partial<Deal>) => void;
+  stages?: { id: string; name: string }[];
+  teamMembers?: { id: string; name: string }[];
 }) {
   const contact = useMemo(
     () => (deal ? mockContacts.find((c) => c.id === deal.contactId) : null),
@@ -95,6 +106,34 @@ export function DealDetailDrawer({
   const [lostOpen, setLostOpen] = useState(false);
   const [lostReason, setLostReason] = useState<LostReason | null>(null);
   const [lostNotes, setLostNotes] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ email: "", phone: "", address: "", stage: "", owner: "" });
+
+  const openEdit = () => {
+    if (!deal) return;
+    setEditForm({
+      email: deal.email ?? "",
+      phone: deal.phone ?? "",
+      address: deal.address ?? "",
+      stage: deal.stage,
+      owner: deal.owner,
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = () => {
+    if (!deal) return;
+    const patch: Partial<Deal> = {
+      email: editForm.email || undefined,
+      phone: editForm.phone || undefined,
+      address: editForm.address || undefined,
+      stage: editForm.stage,
+      owner: editForm.owner,
+    };
+    onDealUpdate?.(deal.id, patch);
+    toast.success("Deal updated");
+    setEditOpen(false);
+  };
 
   const handleWon = () => {
     if (!deal) return;
@@ -157,6 +196,9 @@ export function DealDetailDrawer({
                 </div>
               )}
               <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="h-8 w-8 shrink-0 p-0" onClick={openEdit} aria-label="Edit deal">
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
                 <Button size="sm" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleWon}>
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark as Won
                 </Button>
@@ -300,6 +342,59 @@ export function DealDetailDrawer({
           <Button variant="destructive" disabled={!lostReason} onClick={confirmLost}>
             Mark as Lost
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Deal</DialogTitle>
+          <DialogDescription>Update deal details below.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          {stages && stages.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Stage</Label>
+              <Select value={editForm.stage} onValueChange={(v) => setEditForm((p) => ({ ...p, stage: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {stages.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {teamMembers && teamMembers.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Owner</Label>
+              <Select value={editForm.owner} onValueChange={(v) => setEditForm((p) => ({ ...p, owner: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} placeholder="client@example.com" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Phone</Label>
+            <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} placeholder="(555) 123-4567" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            <Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} placeholder="123 Main St" />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button onClick={saveEdit}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
