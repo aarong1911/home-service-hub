@@ -118,18 +118,44 @@ export function autoMapHeaders(csvHeaders: string[], templateType: ContactTempla
 
 export type TagDelimiter = "auto" | "comma" | "semicolon" | "both";
 
-/** Analyze tag column values and pick the best delimiter. */
+/**
+ * Analyze tag column values and pick the best delimiter.
+ * Samples up to 50 rows and weights by which delimiter appears first in each value,
+ * giving a more reliable signal than simple occurrence counting.
+ */
 export function detectTagDelimiter(values: string[]): Exclude<TagDelimiter, "auto"> {
-  let commas = 0;
-  let semicolons = 0;
-  for (const v of values) {
-    if (v.includes(",")) commas++;
-    if (v.includes(";")) semicolons++;
+  const sample = values.filter(Boolean).slice(0, 50);
+  if (sample.length === 0) return "comma";
+
+  let commaScore = 0;
+  let semicolonScore = 0;
+
+  for (const v of sample) {
+    const ci = v.indexOf(",");
+    const si = v.indexOf(";");
+    const hasComma = ci >= 0;
+    const hasSemicolon = si >= 0;
+
+    if (hasComma && hasSemicolon) {
+      // Whichever appears first gets a stronger weight (1.0 vs 0.5)
+      if (ci < si) { commaScore += 1; semicolonScore += 0.5; }
+      else { semicolonScore += 1; commaScore += 0.5; }
+    } else if (hasComma) {
+      commaScore += 1;
+    } else if (hasSemicolon) {
+      semicolonScore += 1;
+    }
   }
-  if (commas > 0 && semicolons === 0) return "comma";
-  if (semicolons > 0 && commas === 0) return "semicolon";
-  if (semicolons > 0 && commas > 0) return "both";
-  return "comma"; // default when no delimiters found
+
+  if (commaScore > 0 && semicolonScore === 0) return "comma";
+  if (semicolonScore > 0 && commaScore === 0) return "semicolon";
+  if (commaScore > 0 && semicolonScore > 0) {
+    // If one clearly dominates (>2x), pick it; otherwise "both"
+    if (commaScore > semicolonScore * 2) return "comma";
+    if (semicolonScore > commaScore * 2) return "semicolon";
+    return "both";
+  }
+  return "comma";
 }
 
 export function splitTags(raw: string, delimiter: TagDelimiter): string[] {
