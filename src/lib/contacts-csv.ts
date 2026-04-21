@@ -116,7 +116,15 @@ export function autoMapHeaders(csvHeaders: string[], templateType: ContactTempla
   return mapping;
 }
 
-export function applyMappingToContacts(csv: string, mapping: ContactColumnMapping): { contacts: Omit<Contact, "id">[]; errors: string[] } {
+export type TagDelimiter = "comma" | "semicolon" | "both";
+
+export function splitTags(raw: string, delimiter: TagDelimiter): string[] {
+  if (!raw) return [];
+  const pattern = delimiter === "comma" ? /,/ : delimiter === "semicolon" ? /;/ : /[;,]/;
+  return raw.split(pattern).map((t) => t.trim()).filter(Boolean);
+}
+
+export function applyMappingToContacts(csv: string, mapping: ContactColumnMapping, tagDelimiter: TagDelimiter = "both"): { contacts: Omit<Contact, "id">[]; errors: string[] } {
   const lines = csv.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return { contacts: [], errors: ["CSV must have a header row and at least one data row."] };
   if (mapping.name < 0) return { contacts: [], errors: ["You must map the Name field."] };
@@ -136,7 +144,7 @@ export function applyMappingToContacts(csv: string, mapping: ContactColumnMappin
     if (!name) { errors.push(`Row ${i + 1}: missing name, skipped.`); continue; }
 
     const rawTags = get("tags");
-    const tags = rawTags ? rawTags.split(/[;,]/).map((t) => t.trim()).filter(Boolean) : [];
+    const tags = splitTags(rawTags, tagDelimiter);
     const owner = get("owner") || "Unassigned";
 
     parsed.push({
