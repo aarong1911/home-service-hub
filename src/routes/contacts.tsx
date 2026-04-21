@@ -355,6 +355,146 @@ function ContactsPage() {
       </Card>
 
       <ContactDrawer contact={selected} onOpenChange={(o) => { if (!o) navigate({ search: { contactId: undefined }, replace: true }); }} />
+
+      {/* Column mapping dialog */}
+      <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Map CSV Columns</DialogTitle>
+            <DialogDescription>
+              Match your CSV columns to contact fields. {csvTotalRows} row(s) detected.{" "}
+              <span className="inline-flex items-center gap-1.5">
+                <select
+                  className="h-6 rounded border border-input bg-transparent px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={templateType}
+                  onChange={(e) => {
+                    const next = e.target.value as ContactTemplateType;
+                    setTemplateType(next);
+                    if (csvHeaders.length > 0) {
+                      setColMapping(autoMapHeaders(csvHeaders, next));
+                    }
+                  }}
+                >
+                  <option value="contact">Contact</option>
+                  <option value="customer">Customer</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
+                  onClick={() => {
+                    const templates: Record<string, { headers: string; sample: string; filename: string }> = {
+                      contact: {
+                        headers: "Name,Email,Phone,Company,Tags,Owner",
+                        sample: "Jane Doe,jane@example.com,555-123-4567,Acme Corp,Homeowner; VIP,Alex",
+                        filename: "contacts-template.csv",
+                      },
+                      customer: {
+                        headers: "Customer Name,Email,Phone,Account,Tier,Account Manager",
+                        sample: "John Smith,john@acme.com,555-987-6543,Acme Corp,VIP,Sarah",
+                        filename: "customers-template.csv",
+                      },
+                      vendor: {
+                        headers: "Vendor Name,Email,Phone,Company,Trade,Managed By",
+                        sample: "Bob Builder,bob@builds.com,555-222-3333,Builder Co,Plumbing,Mike",
+                        filename: "vendors-template.csv",
+                      },
+                    };
+                    const t = templates[templateType] ?? templates.contact;
+                    downloadCSV(`${t.headers}\n${t.sample}`, t.filename);
+                  }}
+                >
+                  <Download className="inline h-3 w-3" />
+                  Download template
+                </button>
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2">Contact Field</th>
+                  <th className="px-3 py-2">CSV Column</th>
+                  <th className="hidden px-3 py-2 sm:table-cell">Preview</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colMapping && CONTACT_FIELDS.map((field) => {
+                  const mapped = colMapping[field.key];
+                  const previewVals = csvPreview.map((row) => mapped >= 0 ? (row[mapped] ?? "") : "").filter(Boolean).slice(0, 2);
+                  return (
+                    <tr key={field.key} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2.5">
+                        <span className="font-medium">{field.label}</span>
+                        {"required" in field && <span className="ml-1 text-destructive">*</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Select
+                          value={String(mapped)}
+                          onValueChange={(v) => setColMapping((prev) => prev ? { ...prev, [field.key]: Number(v) } : prev)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="-1" className="text-xs text-muted-foreground">— Skip —</SelectItem>
+                            {csvHeaders.map((h, i) => (
+                              <SelectItem key={i} value={String(i)} className="text-xs">{h}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="hidden px-3 py-2.5 sm:table-cell">
+                        <span className="line-clamp-1 text-xs text-muted-foreground">
+                          {previewVals.length ? previewVals.join(", ") : "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {importValidation && (
+            <div className="space-y-2 border-t border-border pt-3">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="flex items-center gap-1.5 text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {importValidation.validCount} valid
+                </span>
+                {importValidation.errors.length > 0 && (
+                  <span className="flex items-center gap-4">
+                    <span className="flex items-center gap-1.5 text-amber-600">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {importValidation.errors.length} will be skipped
+                    </span>
+                    <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs" onClick={downloadErrorReport}>
+                      <Download className="mr-1 h-3 w-3" /> Download error report
+                    </Button>
+                  </span>
+                )}
+              </div>
+              {importValidation.errors.length > 0 && (
+                <div className="max-h-32 overflow-y-auto rounded-md border border-border bg-muted/30 p-2">
+                  {importValidation.errors.map((err, i) => (
+                    <div key={i} className="flex items-start gap-1.5 py-0.5 text-xs text-muted-foreground">
+                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                      {err}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setMapOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmImport} disabled={!colMapping || colMapping.name < 0 || !importValidation?.validCount}>
+              Import {importValidation?.validCount ?? 0} Contact{(importValidation?.validCount ?? 0) !== 1 ? "s" : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
