@@ -27,6 +27,7 @@ import {
   ExternalLink, SlidersHorizontal,
 } from "lucide-react";
 import { Download, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { type Lead, type LeadSource, type LeadStatus, type LeadScore } from "@/lib/mock-data";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
@@ -230,6 +231,13 @@ function LeadsPage() {
     });
     setMapOpen(false);
   };
+
+  // Live validation of current mapping
+  const importValidation = useMemo(() => {
+    if (!colMapping || !csvRaw) return null;
+    const { leads: parsed, errors } = applyMappingToLeads(csvRaw, colMapping);
+    return { validCount: parsed.length, errors };
+  }, [colMapping, csvRaw]);
 
   return (
     <>
@@ -485,10 +493,37 @@ function LeadsPage() {
               </tbody>
             </table>
           </div>
+          {/* Validation summary */}
+          {importValidation && (
+            <div className="space-y-2 border-t border-border pt-3">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="flex items-center gap-1.5 text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {importValidation.validCount} valid
+                </span>
+                {importValidation.errors.length > 0 && (
+                  <span className="flex items-center gap-1.5 text-amber-600">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {importValidation.errors.length} will be skipped
+                  </span>
+                )}
+              </div>
+              {importValidation.errors.length > 0 && (
+                <div className="max-h-32 overflow-y-auto rounded-md border border-border bg-muted/30 p-2">
+                  {importValidation.errors.map((err, i) => (
+                    <div key={i} className="flex items-start gap-1.5 py-0.5 text-xs text-muted-foreground">
+                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                      {err}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" onClick={() => setMapOpen(false)}>Cancel</Button>
-            <Button onClick={handleConfirmImport} disabled={!colMapping || colMapping.name < 0}>
-              Import {csvTotalRows} Lead{csvTotalRows !== 1 ? "s" : ""}
+            <Button onClick={handleConfirmImport} disabled={!colMapping || colMapping.name < 0 || !importValidation?.validCount}>
+              Import {importValidation?.validCount ?? 0} Lead{(importValidation?.validCount ?? 0) !== 1 ? "s" : ""}
             </Button>
           </DialogFooter>
         </DialogContent>
