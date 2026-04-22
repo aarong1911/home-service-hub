@@ -17,7 +17,7 @@ function loadContacts(): Contact[] {
 
 function persist() {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts)); } catch { /* ignore */ }
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
 }
 
 let contacts: Contact[] = loadContacts();
@@ -36,8 +36,14 @@ export function useContacts(): Contact[] {
   );
 }
 
-export function updateContact(id: string, patch: Partial<Contact>) {
+export function updateContact(id: string, patch: Partial<Contact>): void {
+  const prev = contacts;
   contacts = contacts.map((c) => (c.id === id ? { ...c, ...patch } : c));
-  persist();
+  try {
+    persist();
+  } catch (e) {
+    contacts = prev;
+    throw e;
+  }
   emit();
 }
