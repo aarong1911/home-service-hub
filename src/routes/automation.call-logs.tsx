@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ROUTES } from "@/lib/routes";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -165,7 +166,7 @@ function CallLogsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Link to="/automation/agents">
+        <Link to={ROUTES.AI_CENTER}>
           <Button variant="ghost" size="sm" className="h-8">
             <ArrowLeft className="h-3.5 w-3.5" />
             <span className="text-xs">Back to AI Center</span>
