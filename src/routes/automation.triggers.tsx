@@ -300,7 +300,7 @@ const TRIGGERS: Trigger[] = [
     lastFired: "Yesterday",
     payload: ["zip", "alert_type", "severity", "window_start", "window_end", "affected_projects"],
     subscribers: [
-      { name: "Project Coordinator", kind: "agent", href: "/automation/agents" },
+      { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER },
       { name: "Reschedule Outdoor Work", kind: "workflow", href: "/automation/workflows" },
     ],
   },
