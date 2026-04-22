@@ -20,7 +20,8 @@ import {
   Plus, Search, SlidersHorizontal, Mail, Phone, MoreHorizontal, Download, Upload,
   Users, UserPlus, Star, Activity,
 } from "lucide-react";
-import { mockContacts, mockDeals, mockProjects, pipelineStages, type Contact, type Deal, type Project } from  "@/lib/mock-data";
+import { mockDeals, mockProjects, pipelineStages, type Contact, type Deal, type Project } from  "@/lib/mock-data";
+import { useContacts } from "@/lib/contacts-store";
 import { formatDistanceToNow } from "date-fns";
 import { Mail as MailIcon, Phone as PhoneIcon, MessageSquare, FileText, CheckCircle2, StickyNote, ArrowRight, AlertTriangle } from "lucide-react";
 import { formatMoney, formatDateShort } from "@/lib/format";
@@ -64,13 +65,9 @@ function ContactsPage() {
   const [templateType, setTemplateType] = useState<ContactTemplateType>("contact");
   const [tagDelimiter, setTagDelimiter] = useState<TagDelimiter>("auto");
 
-  const { data: contacts, isLoading } = useQuery({
-    queryKey: ["contacts"],
-    queryFn: async () => {
-      await new Promise((r) => setTimeout(r, 250));
-      return mockContacts;
-    },
-  });
+  const storeContacts = useContacts();
+  const contacts = storeContacts;
+  const isLoading = false;
 
   // Deep-link: open the matching contact drawer when ?contactId=... is present.
   useEffect(() => {
