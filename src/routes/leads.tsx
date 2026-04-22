@@ -175,7 +175,7 @@ function LeadsPage() {
       contactName: lead.name,
       value: lead.estimatedBudget ?? 0,
       stage: "new-lead",
-      // ^^^ fallback; prefer active pipeline's first stage
+      ...(activePipeline?.stages[0]?.id ? { stage: activePipeline.stages[0].id } : {}),
       expectedClose: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
       owner: lead.owner,
       ownerInitials: lead.owner.split(" ").map((p) => p[0]).join(""),
