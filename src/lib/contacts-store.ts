@@ -17,7 +17,7 @@ function loadContacts(): Contact[] {
 
 function persist() {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts)); } catch { /* ignore */ }
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
 }
 
 let contacts: Contact[] = loadContacts();
