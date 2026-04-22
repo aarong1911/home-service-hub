@@ -29,7 +29,7 @@ export const FAVORITE_CATALOG: FavoriteOption[] = [
   { to: "/inbox/broadcasts", label: "Broadcasts", icon: Megaphone, group: "Inbox" },
   { to: "/automation/workflows", label: "Workflows", icon: Workflow, group: "Automation" },
   { to: ROUTES.AI_CENTER, label: "AI Center", icon: Bot, group: "Automation" },
-  { to: "/automation/triggers", label: "Triggers", icon: Bell, group: "Automation" },
+  { to: ROUTES.TRIGGERS, label: "Triggers", icon: Bell, group: "Automation" },
   { to: "/financials/estimates", label: "Estimates", icon: FileText, group: "Financials" },
   { to: "/financials/invoices", label: "Invoices", icon: Receipt, group: "Financials" },
   { to: "/financials/payments", label: "Payments", icon: CreditCard, group: "Financials" },
