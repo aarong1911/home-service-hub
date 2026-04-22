@@ -479,7 +479,6 @@ function TimeGrid({
           );
         })}
       </div>
-      <div className="max-h-[640px] overflow-y-auto">
       <div className="flex-1 overflow-y-auto">
         <div
           className="grid"
