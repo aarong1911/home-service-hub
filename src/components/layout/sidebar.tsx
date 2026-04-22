@@ -47,7 +47,7 @@ const groups: NavGroup[] = [
     label: "Automation",
     items: [
       { to: "/automation/workflows", label: "Workflows", icon: Workflow },
-      { to: "/automation/agents", label: "AI Agents", icon: Bot },
+      { to: "/automation/agents", label: "AI Center", icon: Bot },
       { to: "/automation/triggers", label: "Triggers", icon: Bell },
     ],
   },
