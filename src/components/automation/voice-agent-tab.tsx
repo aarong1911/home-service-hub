@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ROUTES } from "@/lib/routes";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -303,7 +304,7 @@ function VoiceAgentDetail({ agent, onToggle }: { agent: VoiceAgent; onToggle: ()
           <Monitor className="h-3.5 w-3.5" />
           <span className="text-xs">Test in Browser</span>
         </Button>
-        <Link to="/automation/call-logs">
+        <Link to={ROUTES.CALL_LOGS}>
           <Button size="sm" variant="outline" className="h-8">
             <ScrollText className="h-3.5 w-3.5" />
             <span className="text-xs">View Call Logs</span>
