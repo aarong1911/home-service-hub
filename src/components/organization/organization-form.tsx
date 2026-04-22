@@ -30,6 +30,7 @@ import {
   INDUSTRIES,
   type Organization,
 } from "@/lib/organization";
+import { TIMEZONE_OPTIONS, guessTimezoneFromAddress } from "@/lib/organization";
 
 function formatPhone(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -114,9 +115,32 @@ export function OrganizationForm({
         <Field label="Primary business address" className="md:col-span-2">
           <Input
             value={value.address}
-            onChange={(e) => set("address", e.target.value)}
+            onChange={(e) => {
+              const addr = e.target.value;
+              set("address", addr);
+              const tz = guessTimezoneFromAddress(addr);
+              if (tz && tz !== value.timezone) set("timezone", tz);
+            }}
             placeholder="Street, City, State"
           />
+        </Field>
+
+        <Field label="Timezone">
+          <Select
+            value={value.timezone}
+            onValueChange={(v) => set("timezone", v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select timezone" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEZONE_OPTIONS.map((tz) => (
+                <SelectItem key={tz} value={tz}>
+                  {tz.replace(/_/g, " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Primary CRM goals" className="md:col-span-2">
