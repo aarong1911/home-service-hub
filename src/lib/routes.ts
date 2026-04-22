@@ -3,4 +3,5 @@ export const ROUTES = {
   AI_CENTER: "/automation/agents",
   CALL_LOGS: "/automation/call-logs",
   WORKFLOWS: "/automation/workflows",
+  TRIGGERS: "/automation/triggers",
 } as const;

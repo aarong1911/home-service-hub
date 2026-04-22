@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
+import { ROUTES } from "@/lib/routes";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/automation/workflows/$workflowId")({
   notFoundComponent: () => (
     <div className="p-12 text-center text-sm text-muted-foreground">
       Workflow not found.{" "}
-      <Link to="/automation/workflows" className="text-primary hover:underline">Back to workflows</Link>
+      <Link to={ROUTES.WORKFLOWS} className="text-primary hover:underline">Back to workflows</Link>
     </div>
   ),
   component: BuilderPage,

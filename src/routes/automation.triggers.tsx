@@ -205,7 +205,7 @@ const TRIGGERS: Trigger[] = [
     subscribers: [
       { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER },
       { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "New Lead Intake", kind: "workflow", href: "/automation/workflows" },
+      { name: "New Lead Intake", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
   {
@@ -285,7 +285,7 @@ const TRIGGERS: Trigger[] = [
     payload: ["contact_id", "owner", "start_time", "location", "deal_id"],
     subscribers: [
       { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Pre-meeting Prep", kind: "workflow", href: "/automation/workflows" },
+      { name: "Pre-meeting Prep", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
   {
@@ -301,7 +301,7 @@ const TRIGGERS: Trigger[] = [
     payload: ["zip", "alert_type", "severity", "window_start", "window_end", "affected_projects"],
     subscribers: [
       { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Reschedule Outdoor Work", kind: "workflow", href: "/automation/workflows" },
+      { name: "Reschedule Outdoor Work", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
   {
@@ -333,7 +333,7 @@ const TRIGGERS: Trigger[] = [
     payload: ["invoice_id", "client_id", "balance", "days_overdue", "project_id"],
     subscribers: [
       { name: "Collections Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "AR Aging Escalation", kind: "workflow", href: "/automation/workflows" },
+      { name: "AR Aging Escalation", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
   {
@@ -349,7 +349,7 @@ const TRIGGERS: Trigger[] = [
     payload: ["invoice_id", "amount", "method", "client_id"],
     subscribers: [
       { name: "Client Update Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Receipt & Thank You", kind: "workflow", href: "/automation/workflows" },
+      { name: "Receipt & Thank You", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
   {
@@ -382,7 +382,7 @@ const TRIGGERS: Trigger[] = [
     subscribers: [
       { name: "Review Agent", kind: "agent", href: ROUTES.AI_CENTER },
       { name: "Content Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Warranty Kickoff", kind: "workflow", href: "/automation/workflows" },
+      { name: "Warranty Kickoff", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
   {
@@ -465,7 +465,7 @@ function TriggersPage() {
     <div className="flex flex-col gap-6 p-6">
       <header className="flex flex-col gap-2">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-          <Link to="/automation/workflows" className="hover:text-foreground">
+          <Link to={ROUTES.WORKFLOWS} className="hover:text-foreground">
             Automation
           </Link>
           <span>/</span>
