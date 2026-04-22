@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Sheet,
   SheetContent,
@@ -49,7 +49,6 @@ import { isAgentConfigured } from "@/lib/agent-config";
 import { AgentConfigureDialog } from "@/components/automation/agent-configure-dialog";
 import { AIToolsTab } from "@/components/automation/ai-tools-tab";
 import { VoiceAgentTab } from "@/components/automation/voice-agent-tab";
-import { TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/automation/agents")({
   head: () => ({
