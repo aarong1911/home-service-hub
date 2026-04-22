@@ -244,7 +244,7 @@ function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
         <CheckCircle2 className="h-3.5 w-3.5 text-success" />
         <span>
           {lastSynced ? `Last synced ${nowTick ? formatRelative(lastSynced, nowTick) : "recently"}` : "Not yet synced"} · Connected as <span className="font-medium text-foreground">ops@studio.co</span>
