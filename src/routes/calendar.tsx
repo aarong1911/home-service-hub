@@ -187,8 +187,8 @@ function CalendarPage() {
   }, [events]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex h-[calc(100vh-theme(spacing.14)-theme(spacing.12))] flex-col gap-3">
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8" onClick={goToday}>
             Today
