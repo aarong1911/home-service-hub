@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { ROUTES } from "@/lib/routes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -211,7 +212,7 @@ function DashboardPage() {
               <QuickAction to="/contacts" icon={UserPlus} label="New Contact" />
               <QuickAction to="/sales/pipeline" icon={Plus} label="New Deal" />
               <QuickAction to="/financials/estimates" icon={FileText} label="New Estimate" />
-              <QuickAction to="/automation/workflows" icon={Workflow} label="Run Workflow" />
+              <QuickAction to={ROUTES.WORKFLOWS} icon={Workflow} label="Run Workflow" />
             </div>
             <Separator className="my-4" />
             <div className="mb-2 text-sm font-semibold">Upcoming Tasks</div>
@@ -444,7 +445,7 @@ function ActivityRow({
       );
     case "workflows":
       return (
-        <Link to="/automation/workflows" className={className}>
+        <Link to={ROUTES.WORKFLOWS} className={className}>
           {content}
         </Link>
       );
