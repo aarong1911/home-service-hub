@@ -5,6 +5,7 @@ import {
   CreditCard, BarChart3, TrendingUp, Trophy, Settings, ChevronLeft, Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/lib/routes";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFavoriteOptions } from "@/lib/favorites";
@@ -47,7 +48,7 @@ const groups: NavGroup[] = [
     label: "Automation",
     items: [
       { to: "/automation/workflows", label: "Workflows", icon: Workflow },
-      { to: "/automation/agents", label: "AI Center", icon: Bot },
+      { to: ROUTES.AI_CENTER, label: "AI Center", icon: Bot },
       { to: "/automation/triggers", label: "Triggers", icon: Bell },
     ],
   },

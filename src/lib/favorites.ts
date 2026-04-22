@@ -5,6 +5,7 @@ import {
   Calendar, FolderOpen, Inbox, MessageSquare, Megaphone, Workflow, Bot, Bell,
   FileText, Receipt, CreditCard, BarChart3, Trophy,
 } from "lucide-react";
+import { ROUTES } from "@/lib/routes";
 
 export type FavoriteOption = {
   to: string;
@@ -27,7 +28,7 @@ export const FAVORITE_CATALOG: FavoriteOption[] = [
   { to: "/inbox/templates", label: "Templates", icon: MessageSquare, group: "Inbox" },
   { to: "/inbox/broadcasts", label: "Broadcasts", icon: Megaphone, group: "Inbox" },
   { to: "/automation/workflows", label: "Workflows", icon: Workflow, group: "Automation" },
-  { to: "/automation/agents", label: "AI Center", icon: Bot, group: "Automation" },
+  { to: ROUTES.AI_CENTER, label: "AI Center", icon: Bot, group: "Automation" },
   { to: "/automation/triggers", label: "Triggers", icon: Bell, group: "Automation" },
   { to: "/financials/estimates", label: "Estimates", icon: FileText, group: "Financials" },
   { to: "/financials/invoices", label: "Invoices", icon: Receipt, group: "Financials" },
