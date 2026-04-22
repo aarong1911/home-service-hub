@@ -308,10 +308,15 @@ export function DealDetailDrawer({
                             address: contactForm.address || undefined,
                           });
                           if (contact) {
-                            updateContact(contact.id, {
-                              email: contactForm.email || contact.email,
-                              phone: contactForm.phone || contact.phone,
-                            });
+                            try {
+                              updateContact(contact.id, {
+                                email: contactForm.email || contact.email,
+                                phone: contactForm.phone || contact.phone,
+                              });
+                            } catch {
+                              toast.error("Failed to save contact — please try again");
+                              return;
+                            }
                           }
                           toast.success("Contact info updated");
                           setContactEditMode(false);
