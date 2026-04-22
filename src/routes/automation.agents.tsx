@@ -47,15 +47,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { isAgentConfigured } from "@/lib/agent-config";
 import { AgentConfigureDialog } from "@/components/automation/agent-configure-dialog";
+import { AIToolsTab } from "@/components/automation/ai-tools-tab";
+import { VoiceAgentTab } from "@/components/automation/voice-agent-tab";
+import { TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/automation/agents")({
   head: () => ({
     meta: [
-      { title: "AI Agents — RenoMeta" },
+      { title: "AI Center — RenoMeta" },
       {
         name: "description",
         content:
-          "Always-on AI agents for sales response, estimating, project ops, financials, and reputation.",
+          "AI Center — autonomous agents, on-demand AI tools, and voice agents.",
       },
     ],
   }),
@@ -376,6 +379,7 @@ function AgentsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [agents, setAgents] = useState<Agent[]>(AGENTS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [topTab, setTopTab] = useState("agents");
 
   const selected = useMemo(
     () => agents.find((a) => a.id === selectedId) ?? null,
@@ -436,28 +440,39 @@ function AgentsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4">  
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold">AI Agents</h1>
+            <h1 className="text-xl font-semibold">AI Center</h1>
             <Badge variant="secondary" className="h-5 rounded text-[10px]">
               <Sparkles className="mr-1 h-3 w-3" />
               {stats.active} live
             </Badge>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Always-on assistants that handle leads, estimates, scheduling, and follow-up so your team can stay on the tools.
+            Autonomous agents, on-demand AI tools, and voice agents — all in one place.
           </p>
         </div>
-        <Button size="sm" className="h-8">
-          <Plus className="h-3.5 w-3.5" />
-          <span className="text-xs">New agent</span>
-        </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Tabs value={topTab} onValueChange={setTopTab}>
+        <TabsList className="h-9">
+          <TabsTrigger value="agents" className="px-4 text-xs">Autonomous Agents</TabsTrigger>
+          <TabsTrigger value="tools" className="px-4 text-xs">AI Tools</TabsTrigger>
+          <TabsTrigger value="voice" className="px-4 text-xs">Voice Agent</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="agents" className="mt-4 space-y-4">
+          <div className="flex items-center justify-end">
+            <Button size="sm" className="h-8">
+              <Plus className="h-3.5 w-3.5" />
+              <span className="text-xs">New agent</span>
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Active agents" value={stats.active.toString()} icon={Activity} accent="text-success" />
         <StatCard label="Runs this week" value={stats.runs.toLocaleString()} icon={Zap} accent="text-primary" />
         <StatCard label="Hours saved" value={`${stats.hours.toFixed(1)}h`} icon={Clock} accent="text-warning" />

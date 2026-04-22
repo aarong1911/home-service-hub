@@ -42,6 +42,7 @@ import { Route as FinancialsInvoicesRouteImport } from './routes/financials.invo
 import { Route as FinancialsEstimatesRouteImport } from './routes/financials.estimates'
 import { Route as AutomationWorkflowsRouteImport } from './routes/automation.workflows'
 import { Route as AutomationTriggersRouteImport } from './routes/automation.triggers'
+import { Route as AutomationCallLogsRouteImport } from './routes/automation.call-logs'
 import { Route as AutomationAgentsRouteImport } from './routes/automation.agents'
 import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
 import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
@@ -211,6 +212,11 @@ const AutomationTriggersRoute = AutomationTriggersRouteImport.update({
   path: '/automation/triggers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AutomationCallLogsRoute = AutomationCallLogsRouteImport.update({
+  id: '/automation/call-logs',
+  path: '/automation/call-logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AutomationAgentsRoute = AutomationAgentsRouteImport.update({
   id: '/automation/agents',
   path: '/automation/agents',
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
+  '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
   '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
@@ -279,6 +286,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
+  '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
   '/financials/estimates': typeof FinancialsEstimatesRoute
   '/financials/invoices': typeof FinancialsInvoicesRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/automation/agents': typeof AutomationAgentsRoute
+  '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
   '/automation/workflows': typeof AutomationWorkflowsRouteWithChildren
   '/financials/estimates': typeof FinancialsEstimatesRoute
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/settings'
     | '/automation/agents'
+    | '/automation/call-logs'
     | '/automation/triggers'
     | '/automation/workflows'
     | '/financials/estimates'
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/settings'
     | '/automation/agents'
+    | '/automation/call-logs'
     | '/automation/triggers'
     | '/financials/estimates'
     | '/financials/invoices'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/settings'
     | '/automation/agents'
+    | '/automation/call-logs'
     | '/automation/triggers'
     | '/automation/workflows'
     | '/financials/estimates'
@@ -471,6 +483,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   AutomationAgentsRoute: typeof AutomationAgentsRoute
+  AutomationCallLogsRoute: typeof AutomationCallLogsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
   AutomationWorkflowsRoute: typeof AutomationWorkflowsRouteWithChildren
   InsightsAnalyticsRoute: typeof InsightsAnalyticsRoute
@@ -713,6 +726,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomationTriggersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/automation/call-logs': {
+      id: '/automation/call-logs'
+      path: '/automation/call-logs'
+      fullPath: '/automation/call-logs'
+      preLoaderRoute: typeof AutomationCallLogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/automation/agents': {
       id: '/automation/agents'
       path: '/automation/agents'
@@ -822,6 +842,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   SettingsRoute: SettingsRouteWithChildren,
   AutomationAgentsRoute: AutomationAgentsRoute,
+  AutomationCallLogsRoute: AutomationCallLogsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
   AutomationWorkflowsRoute: AutomationWorkflowsRouteWithChildren,
   InsightsAnalyticsRoute: InsightsAnalyticsRoute,
