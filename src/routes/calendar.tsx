@@ -187,8 +187,8 @@ function CalendarPage() {
   }, [events]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex h-[calc(100vh-theme(spacing.14)-theme(spacing.12))] flex-col gap-3">
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8" onClick={goToday}>
             Today
@@ -244,7 +244,7 @@ function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
         <CheckCircle2 className="h-3.5 w-3.5 text-success" />
         <span>
           {lastSynced ? `Last synced ${nowTick ? formatRelative(lastSynced, nowTick) : "recently"}` : "Not yet synced"} · Connected as <span className="font-medium text-foreground">ops@studio.co</span>
@@ -258,17 +258,17 @@ function CalendarPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
         {view === "month" && (
-          <Card className="overflow-hidden p-0">
-            <div className="grid grid-cols-7 border-b border-border bg-secondary/40">
+          <Card className="flex flex-col overflow-hidden p-0">
+            <div className="grid flex-shrink-0 grid-cols-7 border-b border-border bg-secondary/40">
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
                 <div key={d} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {d}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7">
+            <div className="grid flex-1 grid-cols-7 auto-rows-fr">
               {daysGrid.map((cell, i) => {
                 const inMonth = cell.getMonth() === cursor.getMonth();
                 const key = ymd(cell);
@@ -280,7 +280,7 @@ function CalendarPage() {
                     key={i}
                     onClick={() => setSelectedDay(key)}
                     className={cn(
-                      "min-h-[96px] border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
+                      "min-h-0 border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
                       !inMonth && "bg-muted/30 text-muted-foreground",
                       isSelected && "bg-primary/5 ring-1 ring-inset ring-primary/40",
                       (i + 1) % 7 === 0 && "border-r-0",
@@ -342,7 +342,7 @@ function CalendarPage() {
           />
         )}
 
-        <Card className="p-3">
+        <Card className="min-h-0 overflow-y-auto p-3">
           <div className="mb-2 flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">
@@ -440,7 +440,7 @@ function TimeGrid({
     ? now.toLocaleTimeString("default", { hour: "numeric", minute: "2-digit" })
     : "";
   return (
-    <Card className="overflow-hidden p-0">
+    <Card className="flex flex-col overflow-hidden p-0">
       <div
         className="grid border-b border-border bg-secondary/40"
         style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}
@@ -479,7 +479,7 @@ function TimeGrid({
           );
         })}
       </div>
-      <div className="max-h-[640px] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         <div
           className="grid"
           style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}
