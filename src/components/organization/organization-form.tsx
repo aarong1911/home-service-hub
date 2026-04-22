@@ -28,11 +28,6 @@ import { Check, ChevronDown, ImagePlus, Loader2 } from "lucide-react";
 import {
   CRM_GOALS,
   INDUSTRIES,
-  type Organization,
-} from "@/lib/organization";
-import {
-  CRM_GOALS,
-  INDUSTRIES,
   TIMEZONE_OPTIONS,
   guessTimezoneFromAddress,
   type Organization,
