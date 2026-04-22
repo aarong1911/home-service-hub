@@ -473,85 +473,95 @@ function AgentsPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Active agents" value={stats.active.toString()} icon={Activity} accent="text-success" />
-        <StatCard label="Runs this week" value={stats.runs.toLocaleString()} icon={Zap} accent="text-primary" />
-        <StatCard label="Hours saved" value={`${stats.hours.toFixed(1)}h`} icon={Clock} accent="text-warning" />
-        <StatCard
-          label="Avg success rate"
-          value={`${stats.avgSuccess}%`}
-          icon={TrendingUp}
-          accent="text-success"
-        />
-      </div>
+            <StatCard label="Active agents" value={stats.active.toString()} icon={Activity} accent="text-success" />
+            <StatCard label="Runs this week" value={stats.runs.toLocaleString()} icon={Zap} accent="text-primary" />
+            <StatCard label="Hours saved" value={`${stats.hours.toFixed(1)}h`} icon={Clock} accent="text-warning" />
+            <StatCard
+              label="Avg success rate"
+              value={`${stats.avgSuccess}%`}
+              icon={TrendingUp}
+              accent="text-success"
+            />
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search agents…"
-            className="h-8 pl-8 text-xs"
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search agents…"
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="all" className="h-7 px-2.5 text-xs">All</TabsTrigger>
+                <TabsTrigger value="active" className="h-7 px-2.5 text-xs">Active</TabsTrigger>
+                <TabsTrigger value="paused" className="h-7 px-2.5 text-xs">Paused</TabsTrigger>
+                <TabsTrigger value="draft" className="h-7 px-2.5 text-xs">Draft</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Tabs value={category} onValueChange={(v) => setCategory(v as "all" | AgentCategory)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="all" className="h-7 px-2.5 text-xs">All</TabsTrigger>
+                <TabsTrigger value="sales" className="h-7 px-2.5 text-xs">Sales</TabsTrigger>
+                <TabsTrigger value="ops" className="h-7 px-2.5 text-xs">Ops</TabsTrigger>
+                <TabsTrigger value="financials" className="h-7 px-2.5 text-xs">Financials</TabsTrigger>
+                <TabsTrigger value="marketing" className="h-7 px-2.5 text-xs">Marketing</TabsTrigger>
+                <TabsTrigger value="internal" className="h-7 px-2.5 text-xs">Internal</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          <div className="space-y-5">
+            {(Object.keys(CATEGORY_LABEL) as AgentCategory[]).map((cat) => {
+              const items = grouped.get(cat);
+              if (!items || items.length === 0) return null;
+              return (
+                <section key={cat}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={cn("h-2 w-2 rounded-full", CATEGORY_DOT[cat])} />
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {CATEGORY_LABEL[cat]}
+                    </h2>
+                    <span className="text-[10px] text-muted-foreground">· {items.length}</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {items.map((agent) => (
+                      <AgentCard
+                        key={agent.id}
+                        agent={agent}
+                        onToggle={() => toggleStatus(agent.id)}
+                        onOpen={() => setSelectedId(agent.id)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+            {filtered.length === 0 && (
+              <Card className="p-8 text-center text-xs text-muted-foreground">
+                No agents match your filters.
+              </Card>
+            )}
+          </div>
+
+          <AgentDetailSheet
+            agent={selected}
+            onOpenChange={(open) => !open && setSelectedId(null)}
+            onToggle={() => selected && toggleStatus(selected.id)}
           />
-        </div>
-        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <TabsList className="h-8">
-            <TabsTrigger value="all" className="h-7 px-2.5 text-xs">All</TabsTrigger>
-            <TabsTrigger value="active" className="h-7 px-2.5 text-xs">Active</TabsTrigger>
-            <TabsTrigger value="paused" className="h-7 px-2.5 text-xs">Paused</TabsTrigger>
-            <TabsTrigger value="draft" className="h-7 px-2.5 text-xs">Draft</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Tabs value={category} onValueChange={(v) => setCategory(v as "all" | AgentCategory)}>
-          <TabsList className="h-8">
-            <TabsTrigger value="all" className="h-7 px-2.5 text-xs">All</TabsTrigger>
-            <TabsTrigger value="sales" className="h-7 px-2.5 text-xs">Sales</TabsTrigger>
-            <TabsTrigger value="ops" className="h-7 px-2.5 text-xs">Ops</TabsTrigger>
-            <TabsTrigger value="financials" className="h-7 px-2.5 text-xs">Financials</TabsTrigger>
-            <TabsTrigger value="marketing" className="h-7 px-2.5 text-xs">Marketing</TabsTrigger>
-            <TabsTrigger value="internal" className="h-7 px-2.5 text-xs">Internal</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+        </TabsContent>
 
-      <div className="space-y-5">
-        {(Object.keys(CATEGORY_LABEL) as AgentCategory[]).map((cat) => {
-          const items = grouped.get(cat);
-          if (!items || items.length === 0) return null;
-          return (
-            <section key={cat}>
-              <div className="mb-2 flex items-center gap-2">
-                <span className={cn("h-2 w-2 rounded-full", CATEGORY_DOT[cat])} />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {CATEGORY_LABEL[cat]}
-                </h2>
-                <span className="text-[10px] text-muted-foreground">· {items.length}</span>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((agent) => (
-                  <AgentCard
-                    key={agent.id}
-                    agent={agent}
-                    onToggle={() => toggleStatus(agent.id)}
-                    onOpen={() => setSelectedId(agent.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-        {filtered.length === 0 && (
-          <Card className="p-8 text-center text-xs text-muted-foreground">
-            No agents match your filters.
-          </Card>
-        )}
-      </div>
+        <TabsContent value="tools" className="mt-4">
+          <AIToolsTab />
+        </TabsContent>
 
-      <AgentDetailSheet
-        agent={selected}
-        onOpenChange={(open) => !open && setSelectedId(null)}
-        onToggle={() => selected && toggleStatus(selected.id)}
-      />
+        <TabsContent value="voice" className="mt-4">
+          <VoiceAgentTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
