@@ -342,7 +342,7 @@ function CalendarPage() {
           />
         )}
 
-        <Card className="p-3">
+        <Card className="min-h-0 overflow-y-auto p-3">
           <div className="mb-2 flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">
@@ -440,7 +440,7 @@ function TimeGrid({
     ? now.toLocaleTimeString("default", { hour: "numeric", minute: "2-digit" })
     : "";
   return (
-    <Card className="overflow-hidden p-0">
+    <Card className="flex flex-col overflow-hidden p-0">
       <div
         className="grid border-b border-border bg-secondary/40"
         style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}
