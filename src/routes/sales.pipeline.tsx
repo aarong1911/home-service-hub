@@ -116,7 +116,15 @@ function PipelinePage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return deals.filter((d) => {
+    const knownStageIds = new Set(boardStages.map((s) => s.id));
+    const firstStageId = boardStages[0]?.id;
+    return deals.map((d) => {
+      // Normalize deals whose stage doesn't match any board column into the first stage
+      if (d.stage !== "won" && d.stage !== "lost" && !knownStageIds.has(d.stage) && firstStageId) {
+        return { ...d, stage: firstStageId };
+      }
+      return d;
+    }).filter((d) => {
       if (ownerFilter !== "All owners" && d.owner !== ownerFilter) return false;
       if (valueFilter === "< $25k" && d.value >= 25000) return false;
       if (valueFilter === "$25k–$75k" && (d.value < 25000 || d.value > 75000)) return false;
@@ -124,7 +132,7 @@ function PipelinePage() {
       if (!q) return true;
       return d.name.toLowerCase().includes(q) || d.contactName.toLowerCase().includes(q);
     });
-  }, [deals, search, ownerFilter, valueFilter]);
+  }, [deals, search, ownerFilter, valueFilter, boardStages]);
 
   const stats = useMemo(() => {
     const open = filtered.filter((d) => d.stage !== "won" && d.stage !== "lost");
