@@ -12,7 +12,8 @@ import {
   Mail, Phone, MessageSquare, FileText, CheckCircle2, XCircle, StickyNote,
   TrendingUp, Calendar, User, Building2, AlertCircle, MapPin, Pencil,
 } from "lucide-react";
-import { mockContacts, type Deal, type LostReason } from "@/lib/mock-data";
+import { type Deal, type LostReason } from "@/lib/mock-data";
+import { useContacts, updateContact } from "@/lib/contacts-store";
 import { formatMoney, formatDateShort } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -98,9 +99,10 @@ export function DealDetailDrawer({
   stages?: { id: string; name: string }[];
   teamMembers?: { id: string; name: string }[];
 }) {
+  const allContacts = useContacts();
   const contact = useMemo(
-    () => (deal ? mockContacts.find((c) => c.id === deal.contactId) : null),
-    [deal],
+    () => (deal ? allContacts.find((c) => c.id === deal.contactId) : null),
+    [deal, allContacts],
   );
   const activity = useMemo(() => (deal ? buildActivity(deal) : []), [deal]);
 
@@ -305,6 +307,12 @@ export function DealDetailDrawer({
                             phone: contactForm.phone || undefined,
                             address: contactForm.address || undefined,
                           });
+                          if (contact) {
+                            updateContact(contact.id, {
+                              email: contactForm.email || contact.email,
+                              phone: contactForm.phone || contact.phone,
+                            });
+                          }
                           toast.success("Contact info updated");
                           setContactEditMode(false);
                         }}
