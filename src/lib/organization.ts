@@ -65,6 +65,7 @@ export type Organization = {
   address: string;
   logoUrl: string | null;
   crmGoals: string[];
+  timezone: string;
 };
 
 export type TeamMember = {
@@ -86,6 +87,7 @@ const DEFAULT_ORG: Organization = {
   address: "1180 Folsom St, San Francisco, CA 94103",
   logoUrl: null,
   crmGoals: ["Manage Leads", "Track Sales", "Invoice Customers"],
+  timezone: "America/Los_Angeles",
 };
 
 const DEFAULT_TEAM: TeamMember[] = [
