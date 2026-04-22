@@ -242,15 +242,40 @@ export function DealDetailDrawer({
                 )}
               </section>
 
+              {/* Contact info */}
+              <section>
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Contact Info</div>
+                <div className="space-y-2">
+                  {(deal.email || contact?.email) && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>{deal.email || contact?.email}</span>
+                    </div>
+                  )}
+                  {(deal.phone || contact?.phone) && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                      <a href={`tel:${deal.phone || contact?.phone}`} className="hover:underline">{deal.phone || contact?.phone}</a>
+                    </div>
+                  )}
+                  {deal.address && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      <a href={`https://maps.google.com/?q=${encodeURIComponent(deal.address)}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{deal.address}</a>
+                    </div>
+                  )}
+                  {!deal.email && !contact?.email && !deal.phone && !contact?.phone && !deal.address && (
+                    <div className="text-xs text-muted-foreground">No contact info available.</div>
+                  )}
+                </div>
+              </section>
+
               {/* Deal facts */}
               <section className="grid grid-cols-2 gap-3">
                 <Fact icon={User} label="Owner" value={deal.owner} />
                 <Fact icon={Building2} label="Company" value={contact?.company ?? "—"} />
                 <Fact icon={Calendar} label="Age in stage" value={`${deal.ageDays}d`} />
                 <Fact icon={TrendingUp} label="Stage" value={stageName(deal.stage, stages)} />
-                {deal.email && <Fact icon={Mail} label="Email" value={deal.email} />}
-                {deal.phone && <Fact icon={Phone} label="Phone" value={deal.phone} />}
-                {deal.address && <Fact icon={MapPin} label="Address" value={deal.address} />}
               </section>
 
               <Separator />
