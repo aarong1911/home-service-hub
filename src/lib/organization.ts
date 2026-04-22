@@ -45,7 +45,6 @@ export const INDUSTRIES = [
   "Windows & Doors",
 ] as const;
 
-export const CRM_GOALS = [
 export const TIMEZONE_OPTIONS = [
   "America/New_York",
   "America/Chicago",
