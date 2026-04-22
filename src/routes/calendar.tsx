@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChevronLeft, ChevronRight, RefreshCw, Plus, CheckCircle2, Calendar as CalendarIcon, Pencil, Trash2, ExternalLink, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useOrganization } from "@/lib/organization";
 
 export const Route = createFileRoute("/calendar")({
   component: CalendarPage,
@@ -97,10 +98,14 @@ function buildWeekDays(anchor: Date): Date[] {
   });
 }
 
-const TODAY = new Date(); // Use real current date
-
 function CalendarPage() {
-  const today = TODAY;
+  const org = useOrganization();
+  const today = useMemo(() => {
+    const now = new Date();
+    const str = now.toLocaleDateString("en-CA", { timeZone: org.timezone });
+    const [y, m, d] = str.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }, [org.timezone]);
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [view, setView] = useState<ViewMode>("month");
   const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
