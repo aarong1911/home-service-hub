@@ -28,9 +28,10 @@ import { Check, ChevronDown, ImagePlus, Loader2 } from "lucide-react";
 import {
   CRM_GOALS,
   INDUSTRIES,
+  TIMEZONE_OPTIONS,
+  guessTimezoneFromAddress,
   type Organization,
 } from "@/lib/organization";
-import { TIMEZONE_OPTIONS, guessTimezoneFromAddress } from "@/lib/organization";
 
 function formatPhone(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
