@@ -258,17 +258,17 @@ function CalendarPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
         {view === "month" && (
-          <Card className="overflow-hidden p-0">
-            <div className="grid grid-cols-7 border-b border-border bg-secondary/40">
+          <Card className="flex flex-col overflow-hidden p-0">
+            <div className="grid flex-shrink-0 grid-cols-7 border-b border-border bg-secondary/40">
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
                 <div key={d} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {d}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7">
+            <div className="grid flex-1 grid-cols-7 auto-rows-fr">
               {daysGrid.map((cell, i) => {
                 const inMonth = cell.getMonth() === cursor.getMonth();
                 const key = ymd(cell);
@@ -280,7 +280,7 @@ function CalendarPage() {
                     key={i}
                     onClick={() => setSelectedDay(key)}
                     className={cn(
-                      "min-h-[96px] border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
+                      "min-h-0 border-b border-r border-border p-1.5 text-left transition-colors hover:bg-secondary/40",
                       !inMonth && "bg-muted/30 text-muted-foreground",
                       isSelected && "bg-primary/5 ring-1 ring-inset ring-primary/40",
                       (i + 1) % 7 === 0 && "border-r-0",
