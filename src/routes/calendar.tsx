@@ -97,7 +97,7 @@ function buildWeekDays(anchor: Date): Date[] {
   });
 }
 
-const TODAY = new Date(2026, 3, 18); // Stable "now" for SSR — matches src/lib/format.ts
+const TODAY = new Date(); // Use real current date
 
 function CalendarPage() {
   const today = TODAY;
