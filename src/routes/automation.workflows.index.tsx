@@ -207,7 +207,7 @@ function WorkflowRow({ w }: { w: Workflow }) {
         <Switch defaultChecked={w.status === "active"} />
       </td>
       <td className="px-3">
-        <Link to="/automation/workflows/$workflowId" params={{ workflowId: w.id }} className="group flex items-center gap-2">
+        <Link to={`${ROUTES.WORKFLOWS}/$workflowId`} params={{ workflowId: w.id }} className="group flex items-center gap-2">
           <span className="font-medium group-hover:text-primary">{w.name}</span>
           {w.status === "active" && <Badge variant="secondary" className="h-4 rounded bg-success/15 px-1.5 text-[9px] text-success">Live</Badge>}
         </Link>
