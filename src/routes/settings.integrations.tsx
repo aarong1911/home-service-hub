@@ -1,13 +1,24 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Link2, Search, Plug, CheckCircle2, Circle } from "lucide-react";
+import { Link2, Search, Plug, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { INTEGRATIONS, CATEGORIES, type Integration, type CategoryId } from "@/lib/integrations-data";
 import { IntegrationConfigDrawer } from "@/components/integrations/integration-config-drawer";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings/integrations")({
   component: IntegrationsSettings,
@@ -18,18 +29,39 @@ function IntegrationsSettings() {
   const [category, setCategory] = useState<CategoryId | "all">("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selected, setSelected] = useState<Integration | null>(null);
+  const [integrations, setIntegrations] = useState<Integration[]>(INTEGRATIONS);
+  const [disconnectTarget, setDisconnectTarget] = useState<Integration | null>(null);
 
   const filtered = useMemo(() => {
-    return INTEGRATIONS.filter((i) => {
+    return integrations.filter((i) => {
       if (category !== "all" && i.category !== category) return false;
       if (search && !i.name.toLowerCase().includes(search.toLowerCase()) && !i.vendor.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [search, category]);
+  }, [search, category, integrations]);
 
-  const total = INTEGRATIONS.length;
-  const connectedCount = INTEGRATIONS.filter((i) => i.connected).length;
+  const total = integrations.length;
+  const connectedCount = integrations.filter((i) => i.connected).length;
   const availableCount = total - connectedCount;
+
+  const updateConnectionStatus = useCallback((id: string, connected: boolean) => {
+    setIntegrations((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, connected } : i))
+    );
+  }, []);
+
+  const handleConnect = useCallback((integration: Integration) => {
+    updateConnectionStatus(integration.id, true);
+    toast.success(`${integration.name} connected successfully`);
+    setDrawerOpen(false);
+  }, [updateConnectionStatus]);
+
+  const handleDisconnect = useCallback(() => {
+    if (!disconnectTarget) return;
+    updateConnectionStatus(disconnectTarget.id, false);
+    toast.success(`${disconnectTarget.name} disconnected`);
+    setDisconnectTarget(null);
+  }, [disconnectTarget, updateConnectionStatus]);
 
   const openDrawer = (i: Integration) => {
     setSelected(i);
@@ -160,7 +192,7 @@ function IntegrationsSettings() {
               {i.connected ? (
                 <>
                   <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openDrawer(i)}>Configure</Button>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">Disconnect</Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => setDisconnectTarget(i)}>Disconnect</Button>
                 </>
               ) : (
                 <Button size="sm" className="h-7 text-xs" onClick={() => openDrawer(i)}>
@@ -182,7 +214,28 @@ function IntegrationsSettings() {
         integration={selected}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        onConnect={handleConnect}
       />
+
+      <AlertDialog open={!!disconnectTarget} onOpenChange={(open) => !open && setDisconnectTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              Disconnect {disconnectTarget?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the connection to {disconnectTarget?.vendor}. Any active automations using this integration will stop working. You can reconnect at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDisconnect} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

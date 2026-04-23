@@ -17,9 +17,10 @@ interface Props {
   integration: Integration | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onConnect?: (integration: Integration) => void;
 }
 
-export function IntegrationConfigDrawer({ integration, open, onOpenChange }: Props) {
+export function IntegrationConfigDrawer({ integration, open, onOpenChange, onConnect }: Props) {
   if (!integration) return null;
 
   const copyToClipboard = (text: string) => {
@@ -58,7 +59,7 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange }: Pro
               <p className="text-xs text-muted-foreground">
                 Click below to securely connect your {integration.vendor} account via OAuth.
               </p>
-              <Button className="w-full gap-2">
+              <Button className="w-full gap-2" onClick={() => onConnect?.(integration)}>
                 <ExternalLink className="h-3.5 w-3.5" />
                 Connect with {integration.vendor}
               </Button>
@@ -102,7 +103,7 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange }: Pro
                   </div>
                 </>
               )}
-              <Button className="w-full">Save Credentials</Button>
+              <Button className="w-full" onClick={() => onConnect?.(integration)}>Save Credentials</Button>
             </div>
           )}
 
@@ -149,7 +150,7 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange }: Pro
                   </div>
                 </div>
               )}
-              <Button className="w-full">
+              <Button className="w-full" onClick={() => onConnect?.(integration)}>
                 <ExternalLink className="h-3.5 w-3.5" />
                 Open Setup Guide
               </Button>
