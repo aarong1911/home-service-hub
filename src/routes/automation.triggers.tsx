@@ -174,6 +174,7 @@ type Subscriber = {
   name: string;
   kind: "agent" | "workflow";
   href: string;
+  agentId?: string;
 };
 
 type Trigger = {
