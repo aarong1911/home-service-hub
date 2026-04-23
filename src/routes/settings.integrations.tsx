@@ -1,61 +1,188 @@
+import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Calendar, FolderOpen, Phone, FileSignature, CreditCard } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Link2, Search, Plug, CheckCircle2, Circle } from "lucide-react";
+import { INTEGRATIONS, CATEGORIES, type Integration, type CategoryId } from "@/lib/integrations-data";
+import { IntegrationConfigDrawer } from "@/components/integrations/integration-config-drawer";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/settings/integrations")({
   component: IntegrationsSettings,
 });
 
-const integrations = [
-  { name: "Gmail", desc: "Sync email threads with contacts", icon: Mail, connected: true, syncedAt: "2 min ago" },
-  { name: "Google Calendar", desc: "Two-way calendar sync for jobs and visits", icon: Calendar, connected: true, syncedAt: "5 min ago" },
-  { name: "Google Drive", desc: "Attach project files from Drive", icon: FolderOpen, connected: false },
-  { name: "Twilio", desc: "Send and receive SMS in the inbox", icon: Phone, connected: true, syncedAt: "1 hr ago" },
-  { name: "DocuSign", desc: "E-signatures on estimates and contracts", icon: FileSignature, connected: false },
-  { name: "Stripe", desc: "Accept card and ACH payments on invoices", icon: CreditCard, connected: true, syncedAt: "12 min ago" },
-];
-
 function IntegrationsSettings() {
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<CategoryId | "all">("all");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selected, setSelected] = useState<Integration | null>(null);
+
+  const filtered = useMemo(() => {
+    return INTEGRATIONS.filter((i) => {
+      if (category !== "all" && i.category !== category) return false;
+      if (search && !i.name.toLowerCase().includes(search.toLowerCase()) && !i.vendor.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [search, category]);
+
+  const total = INTEGRATIONS.length;
+  const connectedCount = INTEGRATIONS.filter((i) => i.connected).length;
+  const availableCount = total - connectedCount;
+
+  const openDrawer = (i: Integration) => {
+    setSelected(i);
+    setDrawerOpen(true);
+  };
+
+  const actionLabel = (i: Integration) => {
+    if (i.connected) return null;
+    if (i.connectMethod === "oauth") return "Connect";
+    if (i.connectMethod === "apikey") return "Configure";
+    return "Get Started";
+  };
+
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {integrations.map((i) => {
-        const Icon = i.icon;
-        return (
-          <Card key={i.name} className="p-4">
+    <div className="space-y-5">
+      {/* Stats bar */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="flex items-center gap-3 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
+            <Plug className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-xl font-bold leading-none">{total}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Total Integrations</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-3 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success/10">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+          </div>
+          <div>
+            <p className="text-xl font-bold leading-none text-success">{connectedCount}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Connected</p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-3 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Circle className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-xl font-bold leading-none text-primary">{availableCount}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Available</p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Search + category pills */}
+      <div className="space-y-3">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search integrations…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 pl-9 text-sm"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCategory(c.id)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                category === c.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-secondary"
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Cards grid */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {filtered.map((i) => (
+          <Card key={i.id} className="flex flex-col p-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-secondary">
-                <Icon className="h-4 w-4 text-foreground" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary">
+                <Link2 className="h-4.5 w-4.5 text-muted-foreground" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">{i.name}</span>
-                  {i.connected && (
-                    <Badge variant="secondary" className="h-5 rounded bg-success/15 px-1.5 text-[10px] text-success">
-                      Connected
-                    </Badge>
-                  )}
+                  <span className="text-sm font-semibold leading-tight">{i.name}</span>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "h-5 shrink-0 rounded-full px-1.5 text-[10px]",
+                      i.connected
+                        ? "bg-success/15 text-success"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {i.connected ? "Connected" : "Not connected"}
+                  </Badge>
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">{i.desc}</p>
-                {i.connected && (
-                  <p className="mt-1 text-[10px] text-muted-foreground">Last synced {i.syncedAt}</p>
-                )}
-                <div className="mt-3 flex gap-2">
-                  {i.connected ? (
-                    <>
-                      <Button variant="outline" size="sm" className="h-7 text-xs">Configure</Button>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">Disconnect</Button>
-                    </>
-                  ) : (
-                    <Button size="sm" className="h-7 text-xs">Connect</Button>
-                  )}
-                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{i.vendor}</p>
               </div>
             </div>
+
+            <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">{i.description}</p>
+
+            <div className="mt-2 flex flex-wrap gap-1">
+              {i.syncBadges.map((b) => (
+                <span key={b} className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                  {b}
+                </span>
+              ))}
+            </div>
+
+            {i.connected && i.automations && i.automations.length > 0 && (
+              <div className="mt-3 rounded-md border border-border bg-muted/50 p-2.5">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Automations</p>
+                <ul className="space-y-0.5">
+                  {i.automations.map((a) => (
+                    <li key={a} className="flex items-start gap-1.5 text-[11px] text-foreground">
+                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary" />
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-auto flex gap-2 pt-3">
+              {i.connected ? (
+                <>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openDrawer(i)}>Configure</Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">Disconnect</Button>
+                </>
+              ) : (
+                <Button size="sm" className="h-7 text-xs" onClick={() => openDrawer(i)}>
+                  {actionLabel(i)}
+                </Button>
+              )}
+            </div>
           </Card>
-        );
-      })}
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="py-12 text-center text-sm text-muted-foreground">
+          No integrations found.
+        </div>
+      )}
+
+      <IntegrationConfigDrawer
+        integration={selected}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
     </div>
   );
 }
