@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ROUTES } from "@/lib/routes";
+import { ROUTES, agentDetailLink } from "@/lib/routes";
 import { useMemo, useState } from "react";
 import {
   Activity,
@@ -203,8 +203,8 @@ const TRIGGERS: Trigger[] = [
     lastFired: "2 min ago",
     payload: ["name", "email", "phone", "project_type", "zip", "budget_range", "source_page"],
     subscribers: [
-      { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER, agentId: "lead-qualifier" },
+      { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER, agentId: "speed-to-lead" },
       { name: "New Lead Intake", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
@@ -220,8 +220,8 @@ const TRIGGERS: Trigger[] = [
     lastFired: "14 min ago",
     payload: ["caller_number", "caller_name", "duration", "voicemail_url", "transcript"],
     subscribers: [
-      { name: "Voicemail Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Voicemail Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "voicemail" },
+      { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER, agentId: "speed-to-lead" },
     ],
   },
   {
@@ -236,8 +236,8 @@ const TRIGGERS: Trigger[] = [
     lastFired: "Just now",
     payload: ["from", "to", "body", "media_urls", "contact_id"],
     subscribers: [
-      { name: "Inbox Triage Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Follow-Up Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Inbox Triage Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "inbox-triage" },
+      { name: "Follow-Up Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "follow-up" },
     ],
   },
   {
@@ -252,8 +252,8 @@ const TRIGGERS: Trigger[] = [
     lastFired: "6 min ago",
     payload: ["from", "subject", "body_html", "attachments", "thread_id"],
     subscribers: [
-      { name: "Inbox Triage Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Inbox Triage Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "inbox-triage" },
+      { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER, agentId: "lead-qualifier" },
     ],
   },
   {
