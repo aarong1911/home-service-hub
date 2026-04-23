@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Link2, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { useState, useCallback } from "react";
 import type { Integration } from "@/lib/integrations-data";
 
 interface Props {
@@ -21,12 +22,78 @@ interface Props {
 }
 
 export function IntegrationConfigDrawer({ integration, open, onOpenChange, onConnect }: Props) {
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const updateField = useCallback((key: string, value: string) => {
+    setFields((f) => ({ ...f, [key]: value }));
+    setErrors((e) => {
+      const next = { ...e };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const markTouched = useCallback((key: string) => {
+    setTouched((t) => ({ ...t, [key]: true }));
+  }, []);
+
   if (!integration) return null;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard");
   };
+
+  const intName = integration.name;
+  const intVendor = integration.vendor;
+  const intId = integration.id;
+
+  function getApiKeyFields(): { key: string; label: string; placeholder: string; type: string; minLength?: number; pattern?: RegExp; patternMsg?: string }[] {
+    if (intName === "Twilio") {
+      return [
+        { key: "accountSid", label: "Account SID", placeholder: "AC...", type: "text", minLength: 34, pattern: /^AC[a-f0-9]{32}$/i, patternMsg: "Must start with AC followed by 32 hex characters" },
+        { key: "authToken", label: "Auth Token", placeholder: "Enter auth token", type: "password", minLength: 32 },
+        { key: "phoneNumber", label: "Phone Number", placeholder: "+1...", type: "text", minLength: 10, pattern: /^\+\d{10,15}$/, patternMsg: "Must be a valid phone number starting with +" },
+      ];
+    }
+    if (intName === "Jotform") {
+      return [{ key: "apiKey", label: "API Key", placeholder: "Enter Jotform API key", type: "password", minLength: 8 }];
+    }
+    return [
+      { key: "apiKey", label: "API Key", placeholder: "Enter API key", type: "password", minLength: 8 },
+      { key: "secretKey", label: "Secret Key", placeholder: "Enter secret key", type: "password", minLength: 8 },
+    ];
+  }
+
+  function validateAndSave() {
+    const fieldDefs = getApiKeyFields();
+    const newErrors: Record<string, string> = {};
+    const allTouched: Record<string, boolean> = {};
+
+    for (const f of fieldDefs) {
+      allTouched[f.key] = true;
+      const val = (fields[f.key] ?? "").trim();
+      if (!val) {
+        newErrors[f.key] = `${f.label} is required`;
+      } else if (f.minLength && val.length < f.minLength) {
+        newErrors[f.key] = `Must be at least ${f.minLength} characters`;
+      } else if (f.pattern && !f.pattern.test(val)) {
+        newErrors[f.key] = f.patternMsg ?? "Invalid format";
+      }
+    }
+
+    setTouched(allTouched);
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) return;
+
+    onConnect?.(integration!);
+    setFields({});
+    setErrors({});
+    setTouched({});
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -71,39 +138,23 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
               <p className="text-xs text-muted-foreground">
                 Enter your {integration.vendor} API credentials below.
               </p>
-              {integration.name === "Twilio" ? (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Account SID</Label>
-                    <Input placeholder="AC..." className="text-xs h-8" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Auth Token</Label>
-                    <Input type="password" placeholder="Enter auth token" className="text-xs h-8" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Phone Number</Label>
-                    <Input placeholder="+1..." className="text-xs h-8" />
-                  </div>
-                </>
-              ) : integration.name === "Jotform" ? (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">API Key</Label>
-                  <Input type="password" placeholder="Enter Jotform API key" className="text-xs h-8" />
+              {getApiKeyFields().map((f) => (
+                <div key={f.key} className="space-y-1.5">
+                  <Label className="text-xs">{f.label}</Label>
+                  <Input
+                    type={f.type}
+                    placeholder={f.placeholder}
+                    className={`text-xs h-8 ${touched[f.key] && errors[f.key] ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    value={fields[f.key] ?? ""}
+                    onChange={(e) => updateField(f.key, e.target.value)}
+                    onBlur={() => markTouched(f.key)}
+                  />
+                  {touched[f.key] && errors[f.key] && (
+                    <p className="text-[11px] text-destructive">{errors[f.key]}</p>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">API Key</Label>
-                    <Input type="password" placeholder="Enter API key" className="text-xs h-8" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Secret Key</Label>
-                    <Input type="password" placeholder="Enter secret key" className="text-xs h-8" />
-                  </div>
-                </>
-              )}
-              <Button className="w-full" onClick={() => onConnect?.(integration)}>Save Credentials</Button>
+              ))}
+              <Button className="w-full" onClick={validateAndSave}>Save Credentials</Button>
             </div>
           )}
 
