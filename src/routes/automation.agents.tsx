@@ -485,13 +485,6 @@ function AgentsPage() {
         </TabsList>
 
         <TabsContent value="agents" className="mt-4 space-y-4">
-          <div className="flex items-center justify-end">
-            <Button size="sm" className="h-8">
-              <Plus className="h-3.5 w-3.5" />
-              <span className="text-xs">New agent</span>
-            </Button>
-          </div>
-
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard label="Active agents" value={stats.active.toString()} icon={Activity} accent="text-success" />
             <StatCard label="Runs this week" value={stats.runs.toLocaleString()} icon={Zap} accent="text-primary" />
