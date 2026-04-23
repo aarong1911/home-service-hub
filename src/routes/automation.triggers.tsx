@@ -269,7 +269,6 @@ const TRIGGERS: Trigger[] = [
     lastFired: "1 hr ago",
     payload: ["marketplace", "lead_id", "name", "phone", "service_requested", "lead_cost"],
     subscribers: [
-      { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER },
       { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER, agentId: "lead-qualifier" },
       { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER, agentId: "speed-to-lead" },
     ],
