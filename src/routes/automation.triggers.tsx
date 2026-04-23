@@ -740,7 +740,7 @@ function TriggerDetail({ trigger }: { trigger: Trigger }) {
                       </Badge>
                     </div>
                     <Link
-                      to={s.href}
+                      {...(s.agentId ? agentDetailLink(s.agentId) : { to: s.href })}
                       className="text-xs text-muted-foreground hover:text-foreground"
                     >
                       Open →
