@@ -8,9 +8,19 @@ export const ROUTES = {
   TRIGGERS: "/automation/triggers",
 } as const;
 
+/** Type-safe search params for the AI Center agent detail view. */
+export type AgentSearchParams = { agentId?: string };
+
 /** Type-safe link options for the workflow detail page. */
 export const workflowDetailLink = (workflowId: string) =>
   linkOptions({
     to: "/automation/workflows/$workflowId",
     params: { workflowId },
+  });
+
+/** Type-safe link options for opening a specific agent's detail drawer. */
+export const agentDetailLink = (agentId: string) =>
+  linkOptions({
+    to: "/automation/agents",
+    search: { agentId },
   });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import type { AgentSearchParams } from "@/lib/routes";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,9 @@ import { AIToolsTab } from "@/components/automation/ai-tools-tab";
 import { VoiceAgentTab } from "@/components/automation/voice-agent-tab";
 
 export const Route = createFileRoute("/automation/agents")({
+  validateSearch: (search: Record<string, unknown>): AgentSearchParams => ({
+    agentId: typeof search.agentId === "string" ? search.agentId : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "AI Center — RenoMeta" },
@@ -377,7 +381,24 @@ function AgentsPage() {
   const [category, setCategory] = useState<"all" | AgentCategory>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [agents, setAgents] = useState<Agent[]>(AGENTS);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { agentId: urlAgentId } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [selectedId, setSelectedId] = useState<string | null>(urlAgentId ?? null);
+
+  // Sync URL search param → local state
+  useEffect(() => {
+    setSelectedId(urlAgentId ?? null);
+  }, [urlAgentId]);
+
+  const openAgent = (id: string) => {
+    setSelectedId(id);
+    navigate({ search: { agentId: id } });
+  };
+
+  const closeAgent = () => {
+    setSelectedId(null);
+    navigate({ search: { agentId: undefined } });
+  };
   const [topTab, setTopTab] = useState("agents");
 
   const selected = useMemo(
@@ -532,7 +553,7 @@ function AgentsPage() {
                         key={agent.id}
                         agent={agent}
                         onToggle={() => toggleStatus(agent.id)}
-                        onOpen={() => setSelectedId(agent.id)}
+                        onOpen={() => openAgent(agent.id)}
                       />
                     ))}
                   </div>
@@ -548,7 +569,7 @@ function AgentsPage() {
 
           <AgentDetailSheet
             agent={selected}
-            onOpenChange={(open) => !open && setSelectedId(null)}
+              onOpenChange={(open) => !open && closeAgent()}
             onToggle={() => selected && toggleStatus(selected.id)}
           />
         </TabsContent>
