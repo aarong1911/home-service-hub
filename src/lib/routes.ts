@@ -1,5 +1,5 @@
 // Centralized route constants — update paths here when renaming routes.
-import { linkOptions, type NavigateOptions } from "@tanstack/react-router";
+import { linkOptions } from "@tanstack/react-router";
 
 export const ROUTES = {
   AI_CENTER: "/automation/agents",
