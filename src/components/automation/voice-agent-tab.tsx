@@ -182,7 +182,7 @@ function VoiceAgentCard({ agent, onOpen }: { agent: VoiceAgent; onOpen: () => vo
         <div
           className={cn(
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border",
-            isLive ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground",
+            "border-primary/30 bg-primary/10 text-primary",
           )}
         >
           <Phone className="h-4 w-4" />
@@ -259,7 +259,7 @@ function VoiceAgentDetail({ agent, onToggle }: { agent: VoiceAgent; onToggle: ()
           <div
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-md border",
-              isLive ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground",
+              "border-primary/30 bg-primary/10 text-primary",
             )}
           >
             <Phone className="h-5 w-5" />
