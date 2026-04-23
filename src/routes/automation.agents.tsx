@@ -553,7 +553,7 @@ function AgentsPage() {
                         key={agent.id}
                         agent={agent}
                         onToggle={() => toggleStatus(agent.id)}
-                        onOpen={() => setSelectedId(agent.id)}
+                        onOpen={() => openAgent(agent.id)}
                       />
                     ))}
                   </div>
@@ -569,7 +569,7 @@ function AgentsPage() {
 
           <AgentDetailSheet
             agent={selected}
-            onOpenChange={(open) => !open && setSelectedId(null)}
+              onOpenChange={(open) => !open && closeAgent()}
             onToggle={() => selected && toggleStatus(selected.id)}
           />
         </TabsContent>
