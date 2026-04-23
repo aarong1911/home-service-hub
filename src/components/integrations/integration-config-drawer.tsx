@@ -46,15 +46,19 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
     toast.success("Copied to clipboard");
   };
 
+  const intName = integration.name;
+  const intVendor = integration.vendor;
+  const intId = integration.id;
+
   function getApiKeyFields(): { key: string; label: string; placeholder: string; type: string; minLength?: number; pattern?: RegExp; patternMsg?: string }[] {
-    if (integration.name === "Twilio") {
+    if (intName === "Twilio") {
       return [
         { key: "accountSid", label: "Account SID", placeholder: "AC...", type: "text", minLength: 34, pattern: /^AC[a-f0-9]{32}$/i, patternMsg: "Must start with AC followed by 32 hex characters" },
         { key: "authToken", label: "Auth Token", placeholder: "Enter auth token", type: "password", minLength: 32 },
         { key: "phoneNumber", label: "Phone Number", placeholder: "+1...", type: "text", minLength: 10, pattern: /^\+\d{10,15}$/, patternMsg: "Must be a valid phone number starting with +" },
       ];
     }
-    if (integration.name === "Jotform") {
+    if (intName === "Jotform") {
       return [{ key: "apiKey", label: "API Key", placeholder: "Enter Jotform API key", type: "password", minLength: 8 }];
     }
     return [
@@ -85,7 +89,7 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
 
     if (Object.keys(newErrors).length > 0) return;
 
-    onConnect?.(integration);
+    onConnect?.(integration!);
     setFields({});
     setErrors({});
     setTouched({});
