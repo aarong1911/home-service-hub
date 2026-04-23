@@ -270,7 +270,8 @@ const TRIGGERS: Trigger[] = [
     payload: ["marketplace", "lead_id", "name", "phone", "service_requested", "lead_cost"],
     subscribers: [
       { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Lead Qualifier", kind: "agent", href: ROUTES.AI_CENTER, agentId: "lead-qualifier" },
+      { name: "Speed-to-Lead Responder", kind: "agent", href: ROUTES.AI_CENTER, agentId: "speed-to-lead" },
     ],
   },
   {
@@ -285,7 +286,7 @@ const TRIGGERS: Trigger[] = [
     lastFired: "22 min ago",
     payload: ["contact_id", "owner", "start_time", "location", "deal_id"],
     subscribers: [
-      { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER, agentId: "project-coordinator" },
       { name: "Pre-meeting Prep", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
@@ -301,7 +302,7 @@ const TRIGGERS: Trigger[] = [
     lastFired: "Yesterday",
     payload: ["zip", "alert_type", "severity", "window_start", "window_end", "affected_projects"],
     subscribers: [
-      { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER, agentId: "project-coordinator" },
       { name: "Reschedule Outdoor Work", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
@@ -317,8 +318,8 @@ const TRIGGERS: Trigger[] = [
     lastFired: "3 hr ago",
     payload: ["po_number", "supplier", "original_eta", "new_eta", "project_id"],
     subscribers: [
-      { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Client Update Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Project Coordinator", kind: "agent", href: ROUTES.AI_CENTER, agentId: "project-coordinator" },
+      { name: "Client Update Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "client-update" },
     ],
   },
   {
@@ -333,7 +334,7 @@ const TRIGGERS: Trigger[] = [
     lastFired: "Today, 9:14am",
     payload: ["invoice_id", "client_id", "balance", "days_overdue", "project_id"],
     subscribers: [
-      { name: "Collections Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Collections Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "collections" },
       { name: "AR Aging Escalation", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
@@ -349,7 +350,7 @@ const TRIGGERS: Trigger[] = [
     lastFired: "45 min ago",
     payload: ["invoice_id", "amount", "method", "client_id"],
     subscribers: [
-      { name: "Client Update Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Client Update Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "client-update" },
       { name: "Receipt & Thank You", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
@@ -365,8 +366,8 @@ const TRIGGERS: Trigger[] = [
     lastFired: "Yesterday",
     payload: ["project_id", "milestone", "completed_at", "completed_by"],
     subscribers: [
-      { name: "Client Update Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Review Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Client Update Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "client-update" },
+      { name: "Review Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "review-agent" },
     ],
   },
   {
@@ -381,8 +382,8 @@ const TRIGGERS: Trigger[] = [
     lastFired: "2 days ago",
     payload: ["project_id", "client_id", "completed_at", "final_amount"],
     subscribers: [
-      { name: "Review Agent", kind: "agent", href: ROUTES.AI_CENTER },
-      { name: "Content Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Review Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "review-agent" },
+      { name: "Content Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "content-agent" },
       { name: "Warranty Kickoff", kind: "workflow", href: ROUTES.WORKFLOWS },
     ],
   },
@@ -398,7 +399,7 @@ const TRIGGERS: Trigger[] = [
     lastFired: "Today, 6:00am",
     payload: ["deal_id", "owner", "stage", "days_idle"],
     subscribers: [
-      { name: "Follow-Up Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Follow-Up Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "follow-up" },
     ],
   },
   {
@@ -413,7 +414,7 @@ const TRIGGERS: Trigger[] = [
     lastFired: "4 days ago",
     payload: ["platform", "rating", "author", "body", "url"],
     subscribers: [
-      { name: "Review Agent", kind: "agent", href: ROUTES.AI_CENTER },
+      { name: "Review Agent", kind: "agent", href: ROUTES.AI_CENTER, agentId: "review-agent" },
     ],
   },
   {
