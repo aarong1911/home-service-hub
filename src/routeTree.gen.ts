@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SigninRouteImport } from './routes/signin'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InboxRouteImport } from './routes/inbox'
@@ -47,6 +49,16 @@ import { Route as AutomationAgentsRouteImport } from './routes/automation.agents
 import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
 import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SigninRoute = SigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -246,6 +258,8 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -285,6 +299,8 @@ export interface FileRoutesByTo {
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -324,6 +340,8 @@ export interface FileRoutesById {
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -365,6 +383,8 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leads'
     | '/settings'
+    | '/signin'
+    | '/signup'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -404,6 +424,8 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leads'
     | '/settings'
+    | '/signin'
+    | '/signup'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -442,6 +464,8 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leads'
     | '/settings'
+    | '/signin'
+    | '/signup'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -482,6 +506,8 @@ export interface RootRouteChildren {
   InboxRoute: typeof InboxRouteWithChildren
   LeadsRoute: typeof LeadsRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  SigninRoute: typeof SigninRoute
+  SignupRoute: typeof SignupRoute
   AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationCallLogsRoute: typeof AutomationCallLogsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
@@ -495,6 +521,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signin': {
+      id: '/signin'
+      path: '/signin'
+      fullPath: '/signin'
+      preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -841,6 +881,8 @@ const rootRouteChildren: RootRouteChildren = {
   InboxRoute: InboxRouteWithChildren,
   LeadsRoute: LeadsRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  SigninRoute: SigninRoute,
+  SignupRoute: SignupRoute,
   AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationCallLogsRoute: AutomationCallLogsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
