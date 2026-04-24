@@ -1,10 +1,17 @@
 import { useState, type ReactNode } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { Topbar } from "./topbar";
 import { Sidebar } from "./sidebar";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const { pathname } = useLocation();
+  const isAuthRoute = pathname === "/signin" || pathname === "/signup" || pathname === "/forgot-password";
+
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-canvas">
