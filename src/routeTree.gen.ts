@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LeadsRouteImport } from './routes/leads'
@@ -48,6 +49,11 @@ import { Route as AutomationAgentsRouteImport } from './routes/automation.agents
 import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
 import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
   path: '/signin',
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -293,6 +300,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -333,6 +341,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -375,6 +384,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/settings'
     | '/signin'
+    | '/signup'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/settings'
     | '/signin'
+    | '/signup'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/settings'
     | '/signin'
+    | '/signup'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -495,6 +507,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   SigninRoute: typeof SigninRoute
+  SignupRoute: typeof SignupRoute
   AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationCallLogsRoute: typeof AutomationCallLogsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
@@ -508,6 +521,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signin': {
       id: '/signin'
       path: '/signin'
@@ -862,6 +882,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   SettingsRoute: SettingsRouteWithChildren,
   SigninRoute: SigninRoute,
+  SignupRoute: SignupRoute,
   AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationCallLogsRoute: AutomationCallLogsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
