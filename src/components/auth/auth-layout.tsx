@@ -18,18 +18,25 @@ export function AuthLayout({
   footer?: ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-canvas">
+    <div
+      className="relative min-h-screen overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(135deg, oklch(0.97 0.025 250) 0%, oklch(0.94 0.045 240) 45%, oklch(0.92 0.06 225) 100%)",
+      }}
+    >
       {/* Gradient mesh background */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-32 -left-32 h-[480px] w-[480px] rounded-full bg-primary/25 blur-3xl" />
-        <div className="absolute top-1/3 -right-40 h-[520px] w-[520px] rounded-full bg-[oklch(0.78_0.12_220)]/30 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/4 h-[460px] w-[460px] rounded-full bg-primary-soft blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 h-[620px] w-[620px] animate-pulse rounded-full bg-[oklch(0.65_0.22_262)]/45 blur-[110px]" style={{ animationDuration: "8s" }} />
+        <div className="absolute top-1/4 -right-52 h-[680px] w-[680px] animate-pulse rounded-full bg-[oklch(0.72_0.18_220)]/55 blur-[120px]" style={{ animationDuration: "10s", animationDelay: "1s" }} />
+        <div className="absolute -bottom-52 left-1/3 h-[600px] w-[600px] animate-pulse rounded-full bg-[oklch(0.70_0.20_280)]/40 blur-[110px]" style={{ animationDuration: "12s", animationDelay: "2s" }} />
+        <div className="absolute top-1/2 left-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[oklch(0.85_0.10_200)]/35 blur-[90px]" />
         <div
-          className="absolute inset-0 opacity-[0.35]"
+          className="absolute inset-0 opacity-[0.4]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, oklch(0.55 0.205 262 / 0.08) 1px, transparent 0)",
-            backgroundSize: "24px 24px",
+              "radial-gradient(circle at 1px 1px, oklch(0.40 0.15 262 / 0.12) 1px, transparent 0)",
+            backgroundSize: "28px 28px",
           }}
         />
       </div>
