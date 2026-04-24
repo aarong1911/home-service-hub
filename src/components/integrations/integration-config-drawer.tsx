@@ -14,22 +14,14 @@ import { toast } from "sonner";
 import { useState, useCallback } from "react";
 import type { Integration } from "@/lib/integrations-data";
 
-export type SavedCredentials = Record<string, string>;
-
-function maskValue(val: string): string {
-  if (val.length <= 4) return "••••";
-  return "••••••••" + val.slice(-4);
-}
-
 interface Props {
   integration: Integration | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConnect?: (integration: Integration, credentials?: SavedCredentials) => void;
-  savedCredentials?: SavedCredentials;
+  onConnect?: (integration: Integration) => void;
 }
 
-export function IntegrationConfigDrawer({ integration, open, onOpenChange, onConnect, savedCredentials }: Props) {
+export function IntegrationConfigDrawer({ integration, open, onOpenChange, onConnect }: Props) {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -97,11 +89,7 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
 
     if (Object.keys(newErrors).length > 0) return;
 
-    const trimmed: SavedCredentials = {};
-    for (const f of fieldDefs) {
-      trimmed[f.key] = (fields[f.key] ?? "").trim();
-    }
-    onConnect?.(integration!, trimmed);
+    onConnect?.(integration!);
     setFields({});
     setErrors({});
     setTouched({});
@@ -147,46 +135,26 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
 
           {integration.connectMethod === "apikey" && (
             <div className="space-y-3 rounded-lg border border-border p-4">
-              {integration.connected && savedCredentials ? (
-                <>
-                  <p className="text-xs text-muted-foreground">
-                    Your {integration.vendor} credentials are saved.
-                  </p>
-                  {getApiKeyFields().map((f) => (
-                    <div key={f.key} className="space-y-1.5">
-                      <Label className="text-xs">{f.label}</Label>
-                      <Input
-                        readOnly
-                        value={savedCredentials[f.key] ? maskValue(savedCredentials[f.key]) : "—"}
-                        className="text-xs h-8 font-mono bg-muted"
-                      />
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-muted-foreground">
-                    Enter your {integration.vendor} API credentials below.
-                  </p>
-                  {getApiKeyFields().map((f) => (
-                    <div key={f.key} className="space-y-1.5">
-                      <Label className="text-xs">{f.label}</Label>
-                      <Input
-                        type={f.type}
-                        placeholder={f.placeholder}
-                        className={`text-xs h-8 ${touched[f.key] && errors[f.key] ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                        value={fields[f.key] ?? ""}
-                        onChange={(e) => updateField(f.key, e.target.value)}
-                        onBlur={() => markTouched(f.key)}
-                      />
-                      {touched[f.key] && errors[f.key] && (
-                        <p className="text-[11px] text-destructive">{errors[f.key]}</p>
-                      )}
-                    </div>
-                  ))}
-                  <Button className="w-full" onClick={validateAndSave}>Save Credentials</Button>
-                </>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Enter your {integration.vendor} API credentials below.
+              </p>
+              {getApiKeyFields().map((f) => (
+                <div key={f.key} className="space-y-1.5">
+                  <Label className="text-xs">{f.label}</Label>
+                  <Input
+                    type={f.type}
+                    placeholder={f.placeholder}
+                    className={`text-xs h-8 ${touched[f.key] && errors[f.key] ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    value={fields[f.key] ?? ""}
+                    onChange={(e) => updateField(f.key, e.target.value)}
+                    onBlur={() => markTouched(f.key)}
+                  />
+                  {touched[f.key] && errors[f.key] && (
+                    <p className="text-[11px] text-destructive">{errors[f.key]}</p>
+                  )}
+                </div>
+              ))}
+              <Button className="w-full" onClick={validateAndSave}>Save Credentials</Button>
             </div>
           )}
 

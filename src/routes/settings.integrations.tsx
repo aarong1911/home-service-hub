@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Link2, Search, Plug, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { INTEGRATIONS, CATEGORIES, type Integration, type CategoryId } from "@/lib/integrations-data";
-import type { SavedCredentials } from "@/components/integrations/integration-config-drawer";
 import { IntegrationConfigDrawer } from "@/components/integrations/integration-config-drawer";
 import { cn } from "@/lib/utils";
 import {
@@ -32,7 +31,6 @@ function IntegrationsSettings() {
   const [selected, setSelected] = useState<Integration | null>(null);
   const [integrations, setIntegrations] = useState<Integration[]>(INTEGRATIONS);
   const [disconnectTarget, setDisconnectTarget] = useState<Integration | null>(null);
-  const [savedCreds, setSavedCreds] = useState<Record<string, SavedCredentials>>({});
 
   const filtered = useMemo(() => {
     return integrations.filter((i) => {
@@ -52,11 +50,8 @@ function IntegrationsSettings() {
     );
   }, []);
 
-  const handleConnect = useCallback((integration: Integration, credentials?: SavedCredentials) => {
+  const handleConnect = useCallback((integration: Integration) => {
     updateConnectionStatus(integration.id, true);
-    if (credentials) {
-      setSavedCreds((prev) => ({ ...prev, [integration.id]: credentials }));
-    }
     toast.success(`${integration.name} connected successfully`);
     setDrawerOpen(false);
   }, [updateConnectionStatus]);
@@ -64,11 +59,6 @@ function IntegrationsSettings() {
   const handleDisconnect = useCallback(() => {
     if (!disconnectTarget) return;
     updateConnectionStatus(disconnectTarget.id, false);
-    setSavedCreds((prev) => {
-      const next = { ...prev };
-      delete next[disconnectTarget.id];
-      return next;
-    });
     toast.success(`${disconnectTarget.name} disconnected`);
     setDisconnectTarget(null);
   }, [disconnectTarget, updateConnectionStatus]);
@@ -225,7 +215,6 @@ function IntegrationsSettings() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onConnect={handleConnect}
-        savedCredentials={selected ? savedCreds[selected.id] : undefined}
       />
 
       <AlertDialog open={!!disconnectTarget} onOpenChange={(open) => !open && setDisconnectTarget(null)}>
