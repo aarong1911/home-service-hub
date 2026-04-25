@@ -21,24 +21,24 @@ export function AuthLayout({
       className="relative min-h-screen overflow-hidden"
       style={{
         background:
-          "linear-gradient(135deg, #0f1724 0%, #16202e 50%, #1a2332 100%)",
+          "linear-gradient(135deg, #1a2942 0%, #1e3354 50%, #243d63 100%)",
       }}
     >
-      {/* Subtle dot-pattern texture overlay */}
+      {/* Subtle grid texture overlay */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute inset-0 opacity-[0.35]"
+          className="absolute inset-0 opacity-[0.25]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1px, transparent 0)",
-            backgroundSize: "28px 28px",
+              "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
           }}
         />
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse at top, rgba(59, 130, 246, 0.08) 0%, transparent 60%)",
+              "radial-gradient(ellipse at top, rgba(96, 165, 250, 0.12) 0%, transparent 60%)",
           }}
         />
       </div>
