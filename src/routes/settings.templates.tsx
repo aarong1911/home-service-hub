@@ -159,17 +159,6 @@ const PROJECT_TYPES_BY_TRADE: Record<string, string[]> = {
   handyman: ["Small repair", "Honey-do list", "Mounting / install", "Drywall patch", "Other"],
 };
 
-const EMERGENCY_ISSUES_BY_TRADE: Record<string, string[]> = {
-  hvac: ["No heat", "No cooling", "Strange noise / smell", "Water leak from unit", "Thermostat failure", "Other"],
-  plumbing: ["Burst pipe", "No hot water", "Sewer backup", "Major leak", "Toilet overflow", "Other"],
-  electrical: ["Power outage (whole home)", "Sparking outlet", "Burning smell", "Breaker keeps tripping", "Exposed wiring", "Other"],
-  roofing: ["Active leak", "Storm damage", "Missing shingles", "Tree on roof", "Other"],
-  general: ["Water damage", "Structural concern", "Other"],
-};
-
-/** Trades that handle true emergencies — these get the Emergency form seeded. */
-const EMERGENCY_TRADES = new Set(["hvac", "plumbing", "electrical", "roofing"]);
-
 const URGENCY_OPTIONS = ["Right now", "Within 24 hours", "Within 48 hours"];
 const TIMELINE_OPTIONS = ["ASAP", "Within 1 month", "1–3 months", "3–6 months", "Just researching"];
 const TIME_SLOTS = ["Morning (8am–12pm)", "Midday (12pm–2pm)", "Afternoon (2pm–5pm)", "Evening (5pm–8pm)"];
@@ -177,7 +166,6 @@ const TIME_SLOTS = ["Morning (8am–12pm)", "Midday (12pm–2pm)", "Afternoon (2
 function buildSeedForms(industry: string | undefined): FormTemplate[] {
   const trade = tradeKey(industry);
   const projectTypes = PROJECT_TYPES_BY_TRADE[trade] ?? PROJECT_TYPES_BY_TRADE.general;
-  const issueTypes = EMERGENCY_ISSUES_BY_TRADE[trade] ?? EMERGENCY_ISSUES_BY_TRADE.general;
   const today = new Date().toISOString().slice(0, 10);
   const base = (overrides: Partial<FormTemplate>): FormTemplate => ({
     id: "",
