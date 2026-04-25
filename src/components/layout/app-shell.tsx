@@ -7,7 +7,11 @@ import { cn } from "@/lib/utils";
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const { pathname } = useLocation();
-  const isAuthRoute = pathname === "/signin" || pathname === "/signup" || pathname === "/forgot-password";
+  const isAuthRoute =
+    pathname === "/signin" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password" ||
+    pathname === "/onboarding";
 
   if (isAuthRoute) {
     return <>{children}</>;

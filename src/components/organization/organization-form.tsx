@@ -95,13 +95,13 @@ export function OrganizationForm({
           />
         </Field>
 
-        <Field label="Industry">
+        <Field label="Business type">
           <Select
             value={value.industry ?? ""}
             onValueChange={(v) => set("industry", v)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select an industry" />
+              <SelectValue placeholder="Select a business type" />
             </SelectTrigger>
             <SelectContent>
               {INDUSTRIES.map((i) => (

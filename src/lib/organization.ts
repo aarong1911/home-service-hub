@@ -36,13 +36,16 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const INDUSTRIES = [
-  "Construction",
-  "Remodeling",
-  "Flooring",
-  "Roofing",
-  "Electrical",
+  "General Contractor / Remodeler",
+  "HVAC",
   "Plumbing",
+  "Electrical",
+  "Roofing",
+  "Painting",
+  "Landscaping",
+  "Flooring",
   "Windows & Doors",
+  "Handyman",
 ] as const;
 
 export const TIMEZONE_OPTIONS = [
@@ -130,7 +133,7 @@ const DEFAULT_ORG: Organization = {
   companyName: "RenoMeta Builders",
   primaryPhone: "(415) 555-0142",
   website: "https://renometa.com",
-  industry: "Remodeling",
+  industry: "General Contractor / Remodeler",
   address: "1180 Folsom St, San Francisco, CA 94103",
   logoUrl: null,
   crmGoals: ["Manage Leads", "Track Sales", "Invoice Customers"],
