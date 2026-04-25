@@ -14,10 +14,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Mail, MessageSquare, FileSpreadsheet, ListChecks, FileText, Plus, Search, Star,
-  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp,
+  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon,
 } from "lucide-react";
 import { formatMoney } from "@/lib/format";
 import { toast } from "sonner";
+import { useOrganization } from "@/lib/organization";
 
 export const Route = createFileRoute("/settings/templates")({
   head: () => ({
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/settings/templates")({
 });
 
 // ============ Types & seed data ============
-type TemplateKind = "message" | "estimate" | "plan" | "document";
+type TemplateKind = "message" | "estimate" | "plan" | "document" | "form";
 type MessageChannel = "email" | "sms";
 
 type BaseTemplate = {
@@ -78,7 +79,208 @@ type DocumentTemplate = BaseTemplate & {
   body: string;
 };
 
-type AnyTemplate = MessageTemplate | EstimateTemplate | PlanTemplate | DocumentTemplate;
+// ============ Forms (embeddable lead capture) ============
+type FormFieldType =
+  | "text"
+  | "email"
+  | "tel"
+  | "address"
+  | "textarea"
+  | "select"
+  | "date"
+  | "time-slot"
+  | "file";
+
+type FormField = {
+  key: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  /** Options for select fields. */
+  options?: string[];
+  /** Optional help text shown under the field. */
+  helpText?: string;
+  /** Optional emphasis (e.g. emergency phone). */
+  emphasized?: boolean;
+};
+
+type FormVariant = "general_contact" | "free_estimate" | "schedule_consultation" | "emergency";
+
+type FormTemplate = BaseTemplate & {
+  kind: "form";
+  variant: FormVariant;
+  /** Recommended placement on the customer's website. */
+  placement: string;
+  /** Submit button label. */
+  submitLabel: string;
+  /** Confirmation message shown after submit. */
+  successMessage: string;
+  fields: FormField[];
+};
+
+type AnyTemplate = MessageTemplate | EstimateTemplate | PlanTemplate | DocumentTemplate | FormTemplate;
+
+// ----- Trade-specific seed values -----
+/** Map an industry label (from organization settings) to a normalized trade key. */
+function tradeKey(industry: string | undefined): string {
+  const i = (industry ?? "").toLowerCase();
+  if (i.includes("hvac")) return "hvac";
+  if (i.includes("plumb")) return "plumbing";
+  if (i.includes("electric")) return "electrical";
+  if (i.includes("roof")) return "roofing";
+  if (i.includes("paint")) return "painting";
+  if (i.includes("landscap")) return "landscaping";
+  if (i.includes("floor")) return "flooring";
+  if (i.includes("window") || i.includes("door")) return "windows";
+  if (i.includes("handyman")) return "handyman";
+  return "general"; // General Contractor / Remodeler default
+}
+
+const PROJECT_TYPES_BY_TRADE: Record<string, string[]> = {
+  general: ["Kitchen remodel", "Bathroom remodel", "Whole home renovation", "Addition", "Basement finish", "Other"],
+  hvac: ["AC install / replace", "Furnace install / replace", "Heat pump", "Ductwork", "Maintenance / tune-up", "Other"],
+  plumbing: ["Water heater", "Repipe", "Drain / sewer", "Fixture install", "Bathroom remodel", "Other"],
+  electrical: ["Panel upgrade", "EV charger", "Lighting", "Rewire", "Generator", "Other"],
+  roofing: ["Full replacement", "Repair", "Inspection", "Gutters", "Skylight", "Other"],
+  painting: ["Interior painting", "Exterior painting", "Cabinet refinish", "Deck / fence stain", "Commercial", "Other"],
+  landscaping: ["Design + install", "Lawn care", "Hardscape (patio / walkway)", "Irrigation", "Tree service", "Other"],
+  flooring: ["Hardwood", "LVP / vinyl", "Tile", "Carpet", "Refinish", "Other"],
+  windows: ["Window replacement", "Patio door", "Entry door", "Storm windows", "Other"],
+  handyman: ["Small repair", "Honey-do list", "Mounting / install", "Drywall patch", "Other"],
+};
+
+const EMERGENCY_ISSUES_BY_TRADE: Record<string, string[]> = {
+  hvac: ["No heat", "No cooling", "Strange noise / smell", "Water leak from unit", "Thermostat failure", "Other"],
+  plumbing: ["Burst pipe", "No hot water", "Sewer backup", "Major leak", "Toilet overflow", "Other"],
+  electrical: ["Power outage (whole home)", "Sparking outlet", "Burning smell", "Breaker keeps tripping", "Exposed wiring", "Other"],
+  roofing: ["Active leak", "Storm damage", "Missing shingles", "Tree on roof", "Other"],
+  general: ["Water damage", "Structural concern", "Other"],
+};
+
+/** Trades that handle true emergencies — these get the Emergency form seeded. */
+const EMERGENCY_TRADES = new Set(["hvac", "plumbing", "electrical", "roofing"]);
+
+const URGENCY_OPTIONS = ["Right now", "Within 24 hours", "Within 48 hours"];
+const TIMELINE_OPTIONS = ["ASAP", "Within 1 month", "1–3 months", "3–6 months", "Just researching"];
+const TIME_SLOTS = ["Morning (8am–12pm)", "Midday (12pm–2pm)", "Afternoon (2pm–5pm)", "Evening (5pm–8pm)"];
+
+function buildSeedForms(industry: string | undefined): FormTemplate[] {
+  const trade = tradeKey(industry);
+  const projectTypes = PROJECT_TYPES_BY_TRADE[trade] ?? PROJECT_TYPES_BY_TRADE.general;
+  const issueTypes = EMERGENCY_ISSUES_BY_TRADE[trade] ?? EMERGENCY_ISSUES_BY_TRADE.general;
+  const today = new Date().toISOString().slice(0, 10);
+  const base = (overrides: Partial<FormTemplate>): FormTemplate => ({
+    id: "",
+    kind: "form",
+    name: "",
+    category: "Lead capture",
+    description: "",
+    tags: ["embed", "lead-capture"],
+    owner: "Maria Chen",
+    updatedAt: today,
+    uses: 0,
+    starred: false,
+    variant: "general_contact",
+    placement: "Contact page",
+    submitLabel: "Submit",
+    successMessage: "Thanks — we'll be in touch shortly.",
+    fields: [],
+    ...overrides,
+  });
+
+  const forms: FormTemplate[] = [
+    base({
+      id: "f1",
+      variant: "general_contact",
+      name: "General Contact Form",
+      category: "Contact",
+      description: "Simple get-in-touch form for the Contact page.",
+      placement: "Contact page",
+      submitLabel: "Send message",
+      successMessage: "Thanks for reaching out — we'll reply within 1 business day.",
+      starred: true,
+      uses: 412,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: false },
+        { key: "message", label: "Message", type: "textarea", required: true },
+      ],
+    }),
+    base({
+      id: "f2",
+      variant: "free_estimate",
+      name: "Free Estimate Request",
+      category: "Estimate",
+      description: "High-intent lead capture for Services / Home page.",
+      placement: "Services or Home page",
+      submitLabel: "Get my free estimate",
+      successMessage: "Got it — we'll review your project and reach out within 24 hours.",
+      starred: true,
+      uses: 631,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: true },
+        { key: "address", label: "Project address", type: "address", required: true },
+        { key: "project_type", label: "Project type", type: "select", required: true, options: projectTypes },
+        { key: "description", label: "Tell us about your project", type: "textarea", required: true },
+        { key: "timeline", label: "Preferred timeline", type: "select", required: false, options: TIMELINE_OPTIONS },
+        { key: "photos", label: "Photos (optional)", type: "file", required: false, helpText: "Upload up to 5 photos to help us scope your project." },
+      ],
+    }),
+    base({
+      id: "f3",
+      variant: "schedule_consultation",
+      name: "Schedule Consultation",
+      category: "Booking",
+      description: "Book a discovery call or on-site visit.",
+      placement: "Booking page",
+      submitLabel: "Request appointment",
+      successMessage: "We received your request — you'll get a confirmation shortly.",
+      uses: 188,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: true },
+        { key: "project_type", label: "Project type", type: "select", required: true, options: projectTypes },
+        { key: "preferred_date", label: "Preferred date", type: "date", required: true },
+        { key: "preferred_time", label: "Preferred time", type: "time-slot", required: true, options: TIME_SLOTS },
+        { key: "notes", label: "Anything we should know?", type: "textarea", required: false },
+      ],
+    }),
+  ];
+
+  if (EMERGENCY_TRADES.has(trade)) {
+    forms.push(
+      base({
+        id: "f4",
+        variant: "emergency",
+        name: "Emergency / Urgent Request",
+        category: "Emergency",
+        description: "Surface-level intake for after-hours or urgent issues.",
+        placement: "Emergency Service page (sticky CTA)",
+        submitLabel: "Get help now",
+        successMessage: "Help is on the way — we'll call you back within 15 minutes.",
+        tags: ["embed", "lead-capture", "emergency"],
+        uses: 96,
+        fields: [
+          { key: "first_name", label: "First name", type: "text", required: true },
+          { key: "phone", label: "Phone (we'll call you back)", type: "tel", required: true, emphasized: true, helpText: "Best number to reach you right now." },
+          { key: "address", label: "Service address", type: "address", required: true },
+          { key: "issue_type", label: "Issue type", type: "select", required: true, options: issueTypes },
+          { key: "description", label: "Describe the issue", type: "textarea", required: true },
+          { key: "urgency", label: "How soon do you need help?", type: "select", required: true, options: URGENCY_OPTIONS },
+        ],
+      }),
+    );
+  }
+
+  return forms;
+}
 
 const MERGE_TAGS = [
   "{{first_name}}", "{{last_name}}", "{{project_address}}", "{{project_type}}",
@@ -285,11 +487,13 @@ const KIND_META: Record<TemplateKind, { label: string; icon: React.ComponentType
   estimate: { label: "Estimates", icon: FileSpreadsheet },
   plan: { label: "Project plans", icon: ListChecks },
   document: { label: "Documents", icon: FileText },
+  form: { label: "Forms", icon: ClipboardList },
 };
 
 // ============ Component ============
 function TemplatesPage() {
-  const [items, setItems] = useState<AnyTemplate[]>(SEED);
+  const org = useOrganization();
+  const [items, setItems] = useState<AnyTemplate[]>(() => [...SEED, ...buildSeedForms(org.industry)]);
   const [kind, setKind] = useState<TemplateKind>("message");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
@@ -364,8 +568,22 @@ function TemplatesPage() {
       n = { ...base, kind: "estimate", projectType: "Kitchen", lines: [], markup: 20, notes: "" };
     } else if (kind === "plan") {
       n = { ...base, kind: "plan", projectType: "Kitchen", durationDays: 0, tasks: [] };
-    } else {
+    } else if (kind === "document") {
       n = { ...base, kind: "document", docType: "Contract", body: "" };
+    } else {
+      n = {
+        ...base,
+        kind: "form",
+        variant: "general_contact",
+        placement: "Contact page",
+        submitLabel: "Submit",
+        successMessage: "Thanks — we'll be in touch shortly.",
+        fields: [
+          { key: "first_name", label: "First name", type: "text", required: true },
+          { key: "email", label: "Email", type: "email", required: true },
+          { key: "message", label: "Message", type: "textarea", required: true },
+        ],
+      };
     }
     setItems((prev) => [n, ...prev]);
     setSelectedId(n.id);
@@ -566,6 +784,9 @@ function TemplatesPage() {
                 {selected.kind === "plan" && <PlanEditor t={selected} onChange={(p) => updateSelected(p)} />}
                 {selected.kind === "document" && (
                   <DocumentEditor t={selected} onChange={(p) => updateSelected(p)} />
+                )}
+                {selected.kind === "form" && (
+                  <FormEditor t={selected} onChange={(p) => updateSelected(p)} />
                 )}
 
                 <div className="rounded-md border bg-muted/30 p-2.5">
@@ -931,17 +1152,20 @@ function Preview({ t }: { t: AnyTemplate }) {
       </div>
     );
   }
-  // document
-  return (
-    <div className="bg-background p-6 text-sm">
-      <div className="mb-3 text-center">
-        <Badge variant="outline" className="text-[10px] uppercase">{t.docType}</Badge>
+  if (t.kind === "document") {
+    return (
+      <div className="bg-background p-6 text-sm">
+        <div className="mb-3 text-center">
+          <Badge variant="outline" className="text-[10px] uppercase">{t.docType}</Badge>
+        </div>
+        <div className="whitespace-pre-wrap font-serif leading-relaxed text-foreground/90">
+          {renderMerged(t.body)}
+        </div>
       </div>
-      <div className="whitespace-pre-wrap font-serif leading-relaxed text-foreground/90">
-        {renderMerged(t.body)}
-      </div>
-    </div>
-  );
+    );
+  }
+  // form
+  return <FormPreview t={t} />;
 }
 
 function AnalyticsTile({
@@ -968,4 +1192,261 @@ function AnalyticsTile({
       </div>
     </Card>
   );
+}
+
+// ============ Form editor & preview ============
+const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
+  text: "Short text",
+  email: "Email",
+  tel: "Phone",
+  address: "Address",
+  textarea: "Long text",
+  select: "Dropdown",
+  date: "Date",
+  "time-slot": "Time slot",
+  file: "File upload",
+};
+
+function FormEditor({ t, onChange }: { t: FormTemplate; onChange: (p: Partial<FormTemplate>) => void }) {
+  const updateField = (idx: number, patch: Partial<FormField>) => {
+    const next = t.fields.map((f, i) => (i === idx ? { ...f, ...patch } : f));
+    onChange({ fields: next });
+  };
+  const removeField = (idx: number) => {
+    onChange({ fields: t.fields.filter((_, i) => i !== idx) });
+  };
+  const addField = () => {
+    onChange({
+      fields: [
+        ...t.fields,
+        { key: `field_${t.fields.length + 1}`, label: "New field", type: "text", required: false },
+      ],
+    });
+  };
+  const moveField = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= t.fields.length) return;
+    const next = [...t.fields];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange({ fields: next });
+  };
+
+  const embedSnippet = `<script src="https://embed.lovable.app/forms/${t.id}.js" async></script>\n<div data-form-id="${t.id}"></div>`;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Recommended placement</Label>
+          <Input
+            value={t.placement}
+            onChange={(e) => onChange({ placement: e.target.value })}
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Submit button label</Label>
+          <Input
+            value={t.submitLabel}
+            onChange={(e) => onChange({ submitLabel: e.target.value })}
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Confirmation message</Label>
+        <Textarea
+          value={t.successMessage}
+          onChange={(e) => onChange({ successMessage: e.target.value })}
+          rows={2}
+          className="text-sm"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Fields ({t.fields.length})</Label>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={addField}>
+            <Plus className="h-3 w-3" /> Add field
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          {t.fields.map((f, i) => (
+            <div key={i} className="rounded-md border p-2">
+              <div className="grid grid-cols-[1fr_120px_auto] items-end gap-2">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] uppercase text-muted-foreground">Label</Label>
+                  <Input
+                    value={f.label}
+                    onChange={(e) => updateField(i, { label: e.target.value })}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] uppercase text-muted-foreground">Type</Label>
+                  <Select value={f.type} onValueChange={(v) => updateField(i, { type: v as FormFieldType })}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(FIELD_TYPE_LABELS) as FormFieldType[]).map((type) => (
+                        <SelectItem key={type} value={type}>{FIELD_TYPE_LABELS[type]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveField(i, -1)} title="Move up">↑</Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveField(i, 1)} title="Move down">↓</Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeField(i)} title="Remove">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={f.required}
+                    onChange={(e) => updateField(i, { required: e.target.checked })}
+                  />
+                  Required
+                </label>
+                {(f.type === "select" || f.type === "time-slot") && (
+                  <Input
+                    value={(f.options ?? []).join(", ")}
+                    onChange={(e) =>
+                      updateField(i, {
+                        options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                      })
+                    }
+                    placeholder="Comma-separated options"
+                    className="h-7 flex-1 text-xs"
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+          {t.fields.length === 0 && (
+            <div className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+              No fields yet — add your first one.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-md border bg-muted/30 p-2.5">
+        <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Code2 className="h-3 w-3" /> Embed snippet
+        </div>
+        <pre className="max-h-24 overflow-auto rounded bg-background p-2 text-[10px] leading-relaxed">{embedSnippet}</pre>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1.5 h-7 text-xs"
+          onClick={() => {
+            navigator.clipboard.writeText(embedSnippet).catch(() => {});
+            toast.success("Embed snippet copied");
+          }}
+        >
+          <Copy className="h-3 w-3" /> Copy snippet
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function FormPreview({ t }: { t: FormTemplate }) {
+  const isEmergency = t.variant === "emergency";
+  return (
+    <div className="bg-background">
+      <div className={"px-4 py-3 " + (isEmergency ? "bg-destructive/10 border-b border-destructive/30" : "border-b bg-muted/30")}>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 text-sm font-semibold">
+              {isEmergency && <AlertTriangle className="h-4 w-4 text-destructive" />}
+              {t.name}
+            </div>
+            <div className="text-[11px] text-muted-foreground">{t.placement}</div>
+          </div>
+          <Badge variant="outline" className="text-[10px]">{t.fields.length} fields</Badge>
+        </div>
+      </div>
+      <form className="space-y-2.5 p-4" onSubmit={(e) => e.preventDefault()}>
+        {t.fields.map((f) => (
+          <FormFieldPreview key={f.key} field={f} />
+        ))}
+        <Button
+          type="submit"
+          className={"mt-1 w-full " + (isEmergency ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "")}
+        >
+          {t.submitLabel}
+        </Button>
+        <p className="text-center text-[10px] text-muted-foreground">{t.successMessage}</p>
+      </form>
+    </div>
+  );
+}
+
+function FormFieldPreview({ field }: { field: FormField }) {
+  const labelEl = (
+    <Label className={"text-xs " + (field.emphasized ? "text-destructive font-semibold" : "")}>
+      {field.label}
+      {field.required && <span className="ml-0.5 text-destructive">*</span>}
+    </Label>
+  );
+  const wrap = (input: React.ReactNode) => (
+    <div className="space-y-1">
+      {labelEl}
+      {input}
+      {field.helpText && <p className="text-[10px] text-muted-foreground">{field.helpText}</p>}
+    </div>
+  );
+  switch (field.type) {
+    case "textarea":
+      return wrap(<Textarea rows={3} className="text-sm" placeholder={`Enter ${field.label.toLowerCase()}…`} />);
+    case "select":
+    case "time-slot":
+      return wrap(
+        <Select>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Select…" />
+          </SelectTrigger>
+          <SelectContent>
+            {(field.options ?? []).map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      );
+    case "date":
+      return wrap(
+        <div className="relative">
+          <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input type="date" className="h-9 pl-8 text-sm" />
+        </div>,
+      );
+    case "file":
+      return wrap(
+        <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
+          <ImageIcon className="h-3.5 w-3.5" />
+          Click or drag to upload
+        </div>,
+      );
+    case "tel":
+      return wrap(
+        <div className="relative">
+          <Phone className={"pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 " + (field.emphasized ? "text-destructive" : "text-muted-foreground")} />
+          <Input
+            type="tel"
+            className={"h-9 pl-8 text-sm " + (field.emphasized ? "border-destructive font-medium" : "")}
+            placeholder="(555) 123-4567"
+          />
+        </div>,
+      );
+    case "address":
+      return wrap(<Input className="h-9 text-sm" placeholder="Street, City, State ZIP" />);
+    case "email":
+      return wrap(<Input type="email" className="h-9 text-sm" placeholder="you@example.com" />);
+    default:
+      return wrap(<Input className="h-9 text-sm" placeholder={`Enter ${field.label.toLowerCase()}…`} />);
+  }
 }
