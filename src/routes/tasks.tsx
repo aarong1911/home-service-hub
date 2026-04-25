@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import {
   Plus, Search, LayoutGrid, List as ListIcon, AlertCircle, CheckCircle2,
-  Clock, Loader2, Eye, MoreHorizontal, Trash2, Calendar as CalendarIcon,
+  Clock, Loader2, Eye, MoreHorizontal, Trash2, Calendar as CalendarIcon, Repeat,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/app-shell";
@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { mockProjects, type Task } from "@/lib/mock-data";
-import { useTasks, addTask, updateTask, deleteTask } from "@/lib/tasks-store";
+import { useTasks, addTask, updateTask, deleteTask, completeTask } from "@/lib/tasks-store";
 
 export const Route = createFileRoute("/tasks")({
   component: TasksPage,
@@ -38,6 +38,7 @@ export const Route = createFileRoute("/tasks")({
 
 type Status = Task["status"];
 type Priority = Task["priority"];
+type Recurrence = NonNullable<Task["recurrence"]>;
 type View = "board" | "list";
 
 const STATUS_COLUMNS: { id: Status; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -52,6 +53,29 @@ const PRIORITIES: { id: Priority; label: string }[] = [
   { id: "med", label: "Medium" },
   { id: "high", label: "High" },
 ];
+
+const RECURRENCES: { id: Recurrence; label: string; short: string }[] = [
+  { id: "none", label: "Does not repeat", short: "One-time" },
+  { id: "daily", label: "Daily", short: "Daily" },
+  { id: "weekly", label: "Weekly", short: "Weekly" },
+  { id: "biweekly", label: "Every 2 weeks", short: "Bi-weekly" },
+  { id: "monthly", label: "Monthly", short: "Monthly" },
+];
+
+function recurrenceLabel(r: Recurrence | undefined) {
+  return RECURRENCES.find((x) => x.id === (r ?? "none"))?.short ?? "One-time";
+}
+
+function handleComplete(id: string) {
+  const next = completeTask(id);
+  if (next) {
+    toast.success("Task complete — next instance scheduled", {
+      description: `Due ${fmtDue(next.due)}`,
+    });
+  } else {
+    toast.success("Task marked complete");
+  }
+}
 
 const OWNERS = [
   { name: "Alex Romero", initials: "AR" },
@@ -118,8 +142,11 @@ function TasksPage() {
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
     const newStatus = destination.droppableId as Status;
-    updateTask(draggableId, { status: newStatus });
-    if (newStatus === "done") toast.success("Task marked complete");
+    if (newStatus === "done") {
+      handleComplete(draggableId);
+    } else {
+      updateTask(draggableId, { status: newStatus });
+    }
   };
 
   const grouped = useMemo(() => {
@@ -315,8 +342,7 @@ function TasksPage() {
                         <DropdownMenuItem onClick={() => setEditing(t)}>Edit</DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
-                            updateTask(t.id, { status: "done" });
-                            toast.success("Task marked complete");
+                            handleComplete(t.id);
                           }}
                         >
                           Mark complete
@@ -388,8 +414,7 @@ function TasksPage() {
                     <Button
                       className="flex-1"
                       onClick={() => {
-                        updateTask(viewing.id, { status: "done" });
-                        toast.success("Task marked complete");
+                        handleComplete(viewing.id);
                         setViewing(null);
                       }}
                     >
