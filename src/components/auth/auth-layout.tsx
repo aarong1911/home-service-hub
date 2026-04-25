@@ -21,53 +21,56 @@ export function AuthLayout({
       className="relative min-h-screen overflow-hidden"
       style={{
         background:
-          "linear-gradient(135deg, oklch(0.97 0.025 250) 0%, oklch(0.94 0.045 240) 45%, oklch(0.92 0.06 225) 100%)",
+          "linear-gradient(135deg, #0f1724 0%, #16202e 50%, #1a2332 100%)",
       }}
     >
-      {/* Gradient mesh background */}
+      {/* Subtle dot-pattern texture overlay */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[620px] w-[620px] animate-pulse motion-reduce:animate-none rounded-full bg-[oklch(0.65_0.22_262)]/45 blur-[110px]" style={{ animationDuration: "8s" }} />
-        <div className="absolute top-1/4 -right-52 h-[680px] w-[680px] animate-pulse motion-reduce:animate-none rounded-full bg-[oklch(0.72_0.18_220)]/55 blur-[120px]" style={{ animationDuration: "10s", animationDelay: "1s" }} />
-        <div className="absolute -bottom-52 left-1/3 h-[600px] w-[600px] animate-pulse motion-reduce:animate-none rounded-full bg-[oklch(0.70_0.20_280)]/40 blur-[110px]" style={{ animationDuration: "12s", animationDelay: "2s" }} />
-        <div className="absolute top-1/2 left-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[oklch(0.85_0.10_200)]/35 blur-[90px]" />
         <div
-          className="absolute inset-0 opacity-[0.4]"
+          className="absolute inset-0 opacity-[0.35]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, oklch(0.40 0.15 262 / 0.12) 1px, transparent 0)",
+              "radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1px, transparent 0)",
             backgroundSize: "28px 28px",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at top, rgba(59, 130, 246, 0.08) 0%, transparent 60%)",
           }}
         />
       </div>
 
       <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
         <main className="w-full max-w-md" aria-labelledby="auth-title">
-          <section className="rounded-2xl border border-border/60 bg-card/80 p-8 shadow-elev-2 backdrop-blur-xl sm:p-10">
+          <section className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/40 sm:p-10">
             <header className="mb-6 flex flex-col items-center text-center">
               <img
                 src={logoUrl}
                 alt="RenoMeta Connect"
                 className="mb-4 h-14 w-auto object-contain"
               />
-              <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{title}</h1>
+              <h1 id="auth-title" className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
               {subtitle && (
-                <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
+                <p className="mt-1.5 text-sm text-slate-600">{subtitle}</p>
               )}
             </header>
             {children}
           </section>
 
           {footer && (
-            <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div>
+            <div className="mt-6 text-center text-sm text-slate-300">{footer}</div>
           )}
 
-          <p className="mt-4 text-center text-xs text-muted-foreground">
+          <p className="mt-4 text-center text-xs text-slate-400">
             By continuing, you agree to our{" "}
             <a
               href="https://renometa.com/terms-of-service"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline"
+              className="text-slate-200 hover:text-white hover:underline"
             >
               Terms of Service
             </a>{" "}
@@ -76,7 +79,7 @@ export function AuthLayout({
               href="https://renometa.com/privacy-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline"
+              className="text-slate-200 hover:text-white hover:underline"
             >
               Privacy Policy
             </a>
