@@ -150,7 +150,25 @@ function tradeKey(industry: string | undefined): string {
 }
 
 const PROJECT_TYPES_BY_TRADE: Record<string, string[]> = {
-  general: ["Kitchen remodel", "Bathroom remodel", "Whole home renovation", "Addition", "Basement finish", "Other"],
+  general: [
+    "Kitchen Remodel",
+    "Bathroom Remodel",
+    "Basement Finishing",
+    "Room Addition",
+    "Whole-Home Renovation",
+    "Deck/Patio",
+    "Roofing",
+    "Siding",
+    "Windows & Doors",
+    "Painting",
+    "Flooring",
+    "HVAC",
+    "Plumbing",
+    "Electrical",
+    "Landscaping",
+    "Handyman/Repairs",
+    "Custom",
+  ],
   hvac: ["AC install / replace", "Furnace install / replace", "Heat pump", "Ductwork", "Maintenance / tune-up", "Other"],
   plumbing: ["Water heater", "Repipe", "Drain / sewer", "Fixture install", "Bathroom remodel", "Other"],
   electrical: ["Panel upgrade", "EV charger", "Lighting", "Rewire", "Generator", "Other"],
