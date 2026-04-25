@@ -133,7 +133,7 @@ const DEFAULT_ORG: Organization = {
   companyName: "RenoMeta Builders",
   primaryPhone: "(415) 555-0142",
   website: "https://renometa.com",
-  industry: "Remodeling",
+  industry: "General Contractor / Remodeler",
   address: "1180 Folsom St, San Francisco, CA 94103",
   logoUrl: null,
   crmGoals: ["Manage Leads", "Track Sales", "Invoice Customers"],
