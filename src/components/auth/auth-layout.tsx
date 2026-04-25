@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { HardHat } from "lucide-react";
+import logoUrl from "@/assets/renometa-connect-logo.png";
 
 /**
  * Centered auth shell with a soft blue gradient mesh background.
@@ -47,14 +47,14 @@ export function AuthLayout({
             <div className="mb-6 flex flex-col items-center text-center">
               <Link
                 to="/"
-                className="mb-4 flex items-center gap-2 text-foreground transition-opacity hover:opacity-80"
+                className="mb-4 inline-flex items-center justify-center transition-opacity hover:opacity-80"
+                aria-label="RenoMeta Connect"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[oklch(0.65_0.18_240)] text-primary-foreground shadow-elev-1">
-                  <HardHat className="size-5" />
-                </span>
-                <span className="text-lg font-semibold tracking-tight">
-                  RenoMeta <span className="text-primary">Connect</span>
-                </span>
+                <img
+                  src={logoUrl}
+                  alt="RenoMeta Connect"
+                  className="h-14 w-auto object-contain"
+                />
               </Link>
               <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
               {subtitle && (
