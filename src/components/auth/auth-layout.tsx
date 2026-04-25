@@ -27,9 +27,9 @@ export function AuthLayout({
     >
       {/* Gradient mesh background */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[620px] w-[620px] animate-pulse rounded-full bg-[oklch(0.65_0.22_262)]/45 blur-[110px]" style={{ animationDuration: "8s" }} />
-        <div className="absolute top-1/4 -right-52 h-[680px] w-[680px] animate-pulse rounded-full bg-[oklch(0.72_0.18_220)]/55 blur-[120px]" style={{ animationDuration: "10s", animationDelay: "1s" }} />
-        <div className="absolute -bottom-52 left-1/3 h-[600px] w-[600px] animate-pulse rounded-full bg-[oklch(0.70_0.20_280)]/40 blur-[110px]" style={{ animationDuration: "12s", animationDelay: "2s" }} />
+        <div className="absolute -top-40 -left-40 h-[620px] w-[620px] animate-pulse motion-reduce:animate-none rounded-full bg-[oklch(0.65_0.22_262)]/45 blur-[110px]" style={{ animationDuration: "8s" }} />
+        <div className="absolute top-1/4 -right-52 h-[680px] w-[680px] animate-pulse motion-reduce:animate-none rounded-full bg-[oklch(0.72_0.18_220)]/55 blur-[120px]" style={{ animationDuration: "10s", animationDelay: "1s" }} />
+        <div className="absolute -bottom-52 left-1/3 h-[600px] w-[600px] animate-pulse motion-reduce:animate-none rounded-full bg-[oklch(0.70_0.20_280)]/40 blur-[110px]" style={{ animationDuration: "12s", animationDelay: "2s" }} />
         <div className="absolute top-1/2 left-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[oklch(0.85_0.10_200)]/35 blur-[90px]" />
         <div
           className="absolute inset-0 opacity-[0.4]"
