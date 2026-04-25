@@ -437,7 +437,7 @@ function LeadsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input value={newLead.phone} onChange={(e) => setNewLead((p) => ({ ...p, phone: e.target.value }))} placeholder="(555) 123-4567" />
+              <Input value={newLead.phone} onChange={(e) => setNewLead((p) => ({ ...p, phone: formatPhone(e.target.value) }))} placeholder="(555) 123-4567" inputMode="tel" />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Address</Label>

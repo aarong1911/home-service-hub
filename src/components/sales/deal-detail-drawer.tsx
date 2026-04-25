@@ -283,8 +283,9 @@ export function DealDetailDrawer({
                       <Label className="text-xs">Phone</Label>
                       <Input
                         value={contactForm.phone}
-                        onChange={(e) => setContactForm((p) => ({ ...p, phone: e.target.value }))}
+                        onChange={(e) => setContactForm((p) => ({ ...p, phone: formatPhone(e.target.value) }))}
                         placeholder="(555) 123-4567"
+                        inputMode="tel"
                         className="h-8 text-sm"
                       />
                     </div>
@@ -497,7 +498,7 @@ export function DealDetailDrawer({
           </div>
           <div className="space-y-1.5">
             <Label>Phone</Label>
-            <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} placeholder="(555) 123-4567" />
+            <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: formatPhone(e.target.value) }))} placeholder="(555) 123-4567" inputMode="tel" />
           </div>
           <div className="space-y-1.5">
             <Label>Address</Label>

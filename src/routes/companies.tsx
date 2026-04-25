@@ -621,7 +621,7 @@ function CompanyEditSheet({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={v.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />
+              <Input id="phone" value={v.phone ?? ""} onChange={(e) => set("phone", formatPhone(e.target.value))} placeholder="(555) 123-4567" inputMode="tel" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
