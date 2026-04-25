@@ -1193,3 +1193,260 @@ function AnalyticsTile({
     </Card>
   );
 }
+
+// ============ Form editor & preview ============
+const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
+  text: "Short text",
+  email: "Email",
+  tel: "Phone",
+  address: "Address",
+  textarea: "Long text",
+  select: "Dropdown",
+  date: "Date",
+  "time-slot": "Time slot",
+  file: "File upload",
+};
+
+function FormEditor({ t, onChange }: { t: FormTemplate; onChange: (p: Partial<FormTemplate>) => void }) {
+  const updateField = (idx: number, patch: Partial<FormField>) => {
+    const next = t.fields.map((f, i) => (i === idx ? { ...f, ...patch } : f));
+    onChange({ fields: next });
+  };
+  const removeField = (idx: number) => {
+    onChange({ fields: t.fields.filter((_, i) => i !== idx) });
+  };
+  const addField = () => {
+    onChange({
+      fields: [
+        ...t.fields,
+        { key: `field_${t.fields.length + 1}`, label: "New field", type: "text", required: false },
+      ],
+    });
+  };
+  const moveField = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= t.fields.length) return;
+    const next = [...t.fields];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange({ fields: next });
+  };
+
+  const embedSnippet = `<script src="https://embed.lovable.app/forms/${t.id}.js" async></script>\n<div data-form-id="${t.id}"></div>`;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Recommended placement</Label>
+          <Input
+            value={t.placement}
+            onChange={(e) => onChange({ placement: e.target.value })}
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Submit button label</Label>
+          <Input
+            value={t.submitLabel}
+            onChange={(e) => onChange({ submitLabel: e.target.value })}
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Confirmation message</Label>
+        <Textarea
+          value={t.successMessage}
+          onChange={(e) => onChange({ successMessage: e.target.value })}
+          rows={2}
+          className="text-sm"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Fields ({t.fields.length})</Label>
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={addField}>
+            <Plus className="h-3 w-3" /> Add field
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          {t.fields.map((f, i) => (
+            <div key={i} className="rounded-md border p-2">
+              <div className="grid grid-cols-[1fr_120px_auto] items-end gap-2">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] uppercase text-muted-foreground">Label</Label>
+                  <Input
+                    value={f.label}
+                    onChange={(e) => updateField(i, { label: e.target.value })}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] uppercase text-muted-foreground">Type</Label>
+                  <Select value={f.type} onValueChange={(v) => updateField(i, { type: v as FormFieldType })}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(FIELD_TYPE_LABELS) as FormFieldType[]).map((type) => (
+                        <SelectItem key={type} value={type}>{FIELD_TYPE_LABELS[type]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveField(i, -1)} title="Move up">↑</Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveField(i, 1)} title="Move down">↓</Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeField(i)} title="Remove">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={f.required}
+                    onChange={(e) => updateField(i, { required: e.target.checked })}
+                  />
+                  Required
+                </label>
+                {(f.type === "select" || f.type === "time-slot") && (
+                  <Input
+                    value={(f.options ?? []).join(", ")}
+                    onChange={(e) =>
+                      updateField(i, {
+                        options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                      })
+                    }
+                    placeholder="Comma-separated options"
+                    className="h-7 flex-1 text-xs"
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+          {t.fields.length === 0 && (
+            <div className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+              No fields yet — add your first one.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-md border bg-muted/30 p-2.5">
+        <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Code2 className="h-3 w-3" /> Embed snippet
+        </div>
+        <pre className="max-h-24 overflow-auto rounded bg-background p-2 text-[10px] leading-relaxed">{embedSnippet}</pre>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1.5 h-7 text-xs"
+          onClick={() => {
+            navigator.clipboard.writeText(embedSnippet).catch(() => {});
+            toast.success("Embed snippet copied");
+          }}
+        >
+          <Copy className="h-3 w-3" /> Copy snippet
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function FormPreview({ t }: { t: FormTemplate }) {
+  const isEmergency = t.variant === "emergency";
+  return (
+    <div className="bg-background">
+      <div className={"px-4 py-3 " + (isEmergency ? "bg-destructive/10 border-b border-destructive/30" : "border-b bg-muted/30")}>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 text-sm font-semibold">
+              {isEmergency && <AlertTriangle className="h-4 w-4 text-destructive" />}
+              {t.name}
+            </div>
+            <div className="text-[11px] text-muted-foreground">{t.placement}</div>
+          </div>
+          <Badge variant="outline" className="text-[10px]">{t.fields.length} fields</Badge>
+        </div>
+      </div>
+      <form className="space-y-2.5 p-4" onSubmit={(e) => e.preventDefault()}>
+        {t.fields.map((f) => (
+          <FormFieldPreview key={f.key} field={f} />
+        ))}
+        <Button
+          type="submit"
+          className={"mt-1 w-full " + (isEmergency ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "")}
+        >
+          {t.submitLabel}
+        </Button>
+        <p className="text-center text-[10px] text-muted-foreground">{t.successMessage}</p>
+      </form>
+    </div>
+  );
+}
+
+function FormFieldPreview({ field }: { field: FormField }) {
+  const labelEl = (
+    <Label className={"text-xs " + (field.emphasized ? "text-destructive font-semibold" : "")}>
+      {field.label}
+      {field.required && <span className="ml-0.5 text-destructive">*</span>}
+    </Label>
+  );
+  const wrap = (input: React.ReactNode) => (
+    <div className="space-y-1">
+      {labelEl}
+      {input}
+      {field.helpText && <p className="text-[10px] text-muted-foreground">{field.helpText}</p>}
+    </div>
+  );
+  switch (field.type) {
+    case "textarea":
+      return wrap(<Textarea rows={3} className="text-sm" placeholder={`Enter ${field.label.toLowerCase()}…`} />);
+    case "select":
+    case "time-slot":
+      return wrap(
+        <Select>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Select…" />
+          </SelectTrigger>
+          <SelectContent>
+            {(field.options ?? []).map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>,
+      );
+    case "date":
+      return wrap(
+        <div className="relative">
+          <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input type="date" className="h-9 pl-8 text-sm" />
+        </div>,
+      );
+    case "file":
+      return wrap(
+        <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
+          <ImageIcon className="h-3.5 w-3.5" />
+          Click or drag to upload
+        </div>,
+      );
+    case "tel":
+      return wrap(
+        <div className="relative">
+          <Phone className={"pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 " + (field.emphasized ? "text-destructive" : "text-muted-foreground")} />
+          <Input
+            type="tel"
+            className={"h-9 pl-8 text-sm " + (field.emphasized ? "border-destructive font-medium" : "")}
+            placeholder="(555) 123-4567"
+          />
+        </div>,
+      );
+    case "address":
+      return wrap(<Input className="h-9 text-sm" placeholder="Street, City, State ZIP" />);
+    case "email":
+      return wrap(<Input type="email" className="h-9 text-sm" placeholder="you@example.com" />);
+    default:
+      return wrap(<Input className="h-9 text-sm" placeholder={`Enter ${field.label.toLowerCase()}…`} />);
+  }
+}
