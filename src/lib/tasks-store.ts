@@ -51,3 +51,42 @@ export function deleteTask(id: string) {
   persist();
   emit();
 }
+
+function addRecurrence(iso: string, recurrence: NonNullable<Task["recurrence"]>): string {
+  const d = new Date(iso);
+  switch (recurrence) {
+    case "daily": d.setUTCDate(d.getUTCDate() + 1); break;
+    case "weekly": d.setUTCDate(d.getUTCDate() + 7); break;
+    case "biweekly": d.setUTCDate(d.getUTCDate() + 14); break;
+    case "monthly": d.setUTCMonth(d.getUTCMonth() + 1); break;
+    default: return iso;
+  }
+  return d.toISOString();
+}
+
+/**
+ * Mark a task done. If it has a recurrence, also create the next instance
+ * (todo) with the due date advanced by the recurrence interval.
+ * Returns the newly created next-instance task, if any.
+ */
+export function completeTask(id: string): Task | null {
+  const current = tasks.find((t) => t.id === id);
+  if (!current) return null;
+  const recurrence = current.recurrence;
+  tasks = tasks.map((t) => (t.id === id ? { ...t, status: "done" as const } : t));
+  if (!recurrence || recurrence === "none") {
+    persist();
+    emit();
+    return null;
+  }
+  const next: Task = {
+    ...current,
+    id: `t_${Date.now()}`,
+    status: "todo",
+    due: addRecurrence(current.due, recurrence),
+  };
+  tasks = [next, ...tasks];
+  persist();
+  emit();
+  return next;
+}
