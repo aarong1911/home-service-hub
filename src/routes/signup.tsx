@@ -176,7 +176,7 @@ function SignUpPage() {
         </Button>
       </form>
 
-      <div className="my-6 flex items-center gap-3" role="separator" aria-label="Or sign up with a provider">
+      <div className="my-6 flex items-center gap-3" aria-hidden="true">
         <Separator className="flex-1" />
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">or</span>
         <Separator className="flex-1" />
