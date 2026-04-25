@@ -546,6 +546,7 @@ function TaskFormDialog({
   const [priority, setPriority] = useState<Priority>(task?.priority ?? "med");
   const [status, setStatus] = useState<Status>(task?.status ?? "todo");
   const [due, setDue] = useState(task ? task.due.slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence ?? "none");
   const [notes, setNotes] = useState("");
 
   // Reset on open change
@@ -557,6 +558,7 @@ function TaskFormDialog({
       setPriority(task?.priority ?? "med");
       setStatus(task?.status ?? "todo");
       setDue(task ? task.due.slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setRecurrence(task?.recurrence ?? "none");
       setNotes("");
     }
   }, [open, task]);
@@ -575,6 +577,7 @@ function TaskFormDialog({
       due: new Date(due).toISOString(),
       priority,
       status,
+      recurrence,
     };
     if (isEdit && task) {
       updateTask(task.id, payload);
