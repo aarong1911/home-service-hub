@@ -41,21 +41,21 @@ export function AuthLayout({
       </div>
 
       <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
-          <div className="rounded-2xl border border-border/60 bg-card/80 p-8 shadow-elev-2 backdrop-blur-xl sm:p-10">
-            <div className="mb-6 flex flex-col items-center text-center">
+        <main className="w-full max-w-md" aria-labelledby="auth-title">
+          <section className="rounded-2xl border border-border/60 bg-card/80 p-8 shadow-elev-2 backdrop-blur-xl sm:p-10">
+            <header className="mb-6 flex flex-col items-center text-center">
               <img
                 src={logoUrl}
                 alt="RenoMeta Connect"
                 className="mb-4 h-14 w-auto object-contain"
               />
-              <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+              <h1 id="auth-title" className="text-2xl font-semibold tracking-tight">{title}</h1>
               {subtitle && (
                 <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
               )}
-            </div>
+            </header>
             {children}
-          </div>
+          </section>
 
           {footer && (
             <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div>
@@ -72,7 +72,7 @@ export function AuthLayout({
             </a>
             .
           </p>
-        </div>
+        </main>
       </div>
     </div>
   );
