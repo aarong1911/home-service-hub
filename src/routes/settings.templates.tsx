@@ -585,6 +585,7 @@ function TemplatesPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [selectedId, setSelectedId] = useState<string>(SEED[0].id);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const ofKind = useMemo(() => items.filter((t) => t.kind === kind), [items, kind]);
   const categories = useMemo(() => ["All", ...Array.from(new Set(ofKind.map((t) => t.category)))], [ofKind]);
