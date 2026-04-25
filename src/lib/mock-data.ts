@@ -197,6 +197,12 @@ export type Task = {
   status: "todo" | "in_progress" | "review" | "done";
   priority: "low" | "med" | "high";
   recurrence?: "none" | "daily" | "weekly" | "biweekly" | "monthly";
+  /** Optional ISO date — stop generating instances after this date (inclusive). */
+  recurrenceEndDate?: string;
+  /** Optional total number of occurrences (including this instance). */
+  recurrenceCount?: number;
+  /** Internal counter — which occurrence in the series this instance is (1-based). */
+  recurrenceIndex?: number;
 };
 
 export type Conversation = {

@@ -79,11 +79,31 @@ export function completeTask(id: string): Task | null {
     emit();
     return null;
   }
+  const nextDue = addRecurrence(current.due, recurrence);
+  const nextIndex = (current.recurrenceIndex ?? 1) + 1;
+
+  // Stop if max occurrences reached.
+  if (current.recurrenceCount && nextIndex > current.recurrenceCount) {
+    persist();
+    emit();
+    return null;
+  }
+  // Stop if next due date is past the end date.
+  if (current.recurrenceEndDate) {
+    const end = new Date(current.recurrenceEndDate).getTime();
+    if (new Date(nextDue).getTime() > end) {
+      persist();
+      emit();
+      return null;
+    }
+  }
+
   const next: Task = {
     ...current,
     id: `t_${Date.now()}`,
     status: "todo",
-    due: addRecurrence(current.due, recurrence),
+    due: nextDue,
+    recurrenceIndex: nextIndex,
   };
   tasks = [next, ...tasks];
   persist();
