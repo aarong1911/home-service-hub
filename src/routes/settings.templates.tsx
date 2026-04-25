@@ -487,6 +487,7 @@ const KIND_META: Record<TemplateKind, { label: string; icon: React.ComponentType
   estimate: { label: "Estimates", icon: FileSpreadsheet },
   plan: { label: "Project plans", icon: ListChecks },
   document: { label: "Documents", icon: FileText },
+  form: { label: "Forms", icon: ClipboardList },
 };
 
 // ============ Component ============
