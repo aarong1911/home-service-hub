@@ -1152,17 +1152,20 @@ function Preview({ t }: { t: AnyTemplate }) {
       </div>
     );
   }
-  // document
-  return (
-    <div className="bg-background p-6 text-sm">
-      <div className="mb-3 text-center">
-        <Badge variant="outline" className="text-[10px] uppercase">{t.docType}</Badge>
+  if (t.kind === "document") {
+    return (
+      <div className="bg-background p-6 text-sm">
+        <div className="mb-3 text-center">
+          <Badge variant="outline" className="text-[10px] uppercase">{t.docType}</Badge>
+        </div>
+        <div className="whitespace-pre-wrap font-serif leading-relaxed text-foreground/90">
+          {renderMerged(t.body)}
+        </div>
       </div>
-      <div className="whitespace-pre-wrap font-serif leading-relaxed text-foreground/90">
-        {renderMerged(t.body)}
-      </div>
-    </div>
-  );
+    );
+  }
+  // form
+  return <FormPreview t={t} />;
 }
 
 function AnalyticsTile({
