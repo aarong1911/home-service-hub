@@ -106,7 +106,15 @@ type FormField = {
   emphasized?: boolean;
 };
 
-type FormVariant = "general_contact" | "free_estimate" | "schedule_consultation" | "emergency";
+type FormVariant =
+  | "general_contact"
+  | "free_estimate"
+  | "schedule_consultation"
+  | "emergency"
+  | "referral"
+  | "warranty"
+  | "maintenance_plan"
+  | "insurance_claim";
 
 type FormTemplate = BaseTemplate & {
   kind: "form";
@@ -256,30 +264,116 @@ function buildSeedForms(industry: string | undefined): FormTemplate[] {
     }),
   ];
 
-  if (EMERGENCY_TRADES.has(trade)) {
-    forms.push(
-      base({
-        id: "f4",
-        variant: "emergency",
-        name: "Emergency / Urgent Request",
-        category: "Emergency",
-        description: "Surface-level intake for after-hours or urgent issues.",
-        placement: "Emergency Service page (sticky CTA)",
-        submitLabel: "Get help now",
-        successMessage: "Help is on the way — we'll call you back within 15 minutes.",
-        tags: ["embed", "lead-capture", "emergency"],
-        uses: 96,
-        fields: [
-          { key: "first_name", label: "First name", type: "text", required: true },
-          { key: "phone", label: "Phone (we'll call you back)", type: "tel", required: true, emphasized: true, helpText: "Best number to reach you right now." },
-          { key: "address", label: "Service address", type: "address", required: true },
-          { key: "issue_type", label: "Issue type", type: "select", required: true, options: issueTypes },
-          { key: "description", label: "Describe the issue", type: "textarea", required: true },
-          { key: "urgency", label: "How soon do you need help?", type: "select", required: true, options: URGENCY_OPTIONS },
-        ],
-      }),
-    );
-  }
+  forms.push(
+    base({
+      id: "f4",
+      variant: "emergency",
+      name: "Emergency / Urgent Request",
+      category: "Emergency",
+      description: "Urgent service request for immediate needs.",
+      placement: "Emergency Service page (sticky CTA)",
+      submitLabel: "Get help now",
+      successMessage: "Help is on the way — we'll call you back within 15 minutes.",
+      tags: ["embed", "lead-capture", "emergency"],
+      starred: true,
+      uses: 74,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "phone", label: "Phone (we'll call you back)", type: "tel", required: true, emphasized: true, helpText: "Best number to reach you right now." },
+        { key: "address", label: "Service address", type: "address", required: true },
+        { key: "issue_type", label: "Issue type", type: "select", required: true, options: ["Water Damage", "Electrical Hazard", "No Heat/AC", "Roof Leak", "Gas Smell", "Structural", "Other"] },
+        { key: "description", label: "Describe the issue", type: "textarea", required: false },
+        { key: "urgency", label: "How soon do you need help?", type: "select", required: true, options: URGENCY_OPTIONS },
+      ],
+    }),
+    base({
+      id: "f5",
+      variant: "referral",
+      name: "Referral Form",
+      category: "Contact",
+      description: "Let happy clients refer friends and family.",
+      placement: "Referrals page or post-project email",
+      submitLabel: "Send referral",
+      successMessage: "Thanks for the referral — we'll reach out shortly.",
+      uses: 96,
+      fields: [
+        { key: "referrer_name", label: "Your name", type: "text", required: false },
+        { key: "referrer_email", label: "Your email", type: "email", required: false },
+        { key: "referrer_phone", label: "Your phone", type: "tel", required: false },
+        { key: "referred_name", label: "Friend's name", type: "text", required: true },
+        { key: "referred_phone", label: "Friend's phone", type: "tel", required: true },
+        { key: "referred_email", label: "Friend's email", type: "email", required: false },
+        { key: "project_type", label: "Project type", type: "select", required: false, options: projectTypes },
+        { key: "notes", label: "Additional notes", type: "textarea", required: false },
+      ],
+    }),
+    base({
+      id: "f6",
+      variant: "warranty",
+      name: "Warranty Claim",
+      category: "Contact",
+      description: "Post-project warranty request from existing clients.",
+      placement: "Client portal or Warranty page",
+      submitLabel: "Submit warranty claim",
+      successMessage: "We received your claim — our team will review and follow up within 2 business days.",
+      uses: 42,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: false },
+        { key: "phone", label: "Phone", type: "tel", required: true },
+        { key: "address", label: "Project address", type: "address", required: false },
+        { key: "project_date", label: "Original project date", type: "date", required: false },
+        { key: "description", label: "Issue description", type: "textarea", required: true, helpText: "Describe the warranty issue..." },
+        { key: "photos", label: "Photos", type: "file", required: false, helpText: "Upload photos of the issue (multiple allowed)." },
+      ],
+    }),
+    base({
+      id: "f7",
+      variant: "maintenance_plan",
+      name: "Maintenance Plan Signup",
+      category: "Booking",
+      description: "Recurring service plan enrollment for HVAC, plumbing, landscaping.",
+      placement: "Maintenance Plans page",
+      submitLabel: "Enroll me",
+      successMessage: "You're on the list — we'll confirm your plan details shortly.",
+      uses: 63,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: true },
+        { key: "address", label: "Service address", type: "address", required: true },
+        { key: "service_type", label: "Service type", type: "select", required: false, options: ["HVAC Maintenance", "Plumbing Inspection", "Landscape Maintenance", "Gutter Cleaning", "General Home Maintenance", "Other"] },
+        { key: "frequency", label: "Preferred frequency", type: "select", required: false, options: ["Monthly", "Quarterly", "Bi-Annually", "Annually"] },
+        { key: "contact_method", label: "Preferred contact method", type: "select", required: false, options: ["Phone", "Email", "Text"] },
+      ],
+    }),
+    base({
+      id: "f8",
+      variant: "insurance_claim",
+      name: "Insurance Claim Intake",
+      category: "Estimate",
+      description: "Storm damage or insurance-related project intake.",
+      placement: "Storm Damage / Insurance page",
+      submitLabel: "Submit claim intake",
+      successMessage: "Thanks — our claims specialist will contact you within 24 hours.",
+      uses: 31,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: true },
+        { key: "email", label: "Email", type: "email", required: false },
+        { key: "address", label: "Property address", type: "address", required: true },
+        { key: "damage_date", label: "Date of damage", type: "date", required: false },
+        { key: "insurance_company", label: "Insurance company", type: "text", required: false },
+        { key: "claim_number", label: "Claim number", type: "text", required: false, helpText: "If already filed." },
+        { key: "damage_type", label: "Damage type", type: "select", required: false, options: ["Wind/Storm", "Hail", "Water/Flood", "Fire", "Tree/Debris", "Other"] },
+        { key: "description", label: "Damage description", type: "textarea", required: false },
+        { key: "photos", label: "Photos of damage", type: "file", required: false, helpText: "Upload photos (multiple allowed)." },
+      ],
+    }),
+  );
 
   return forms;
 }
