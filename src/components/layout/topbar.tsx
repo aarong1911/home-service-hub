@@ -1,4 +1,4 @@
-import { Search, Bell, HelpCircle, ChevronDown, Command as CommandIcon, Briefcase, FolderKanban, Building2 } from "lucide-react";
+import { Search, Bell, HelpCircle, Command as CommandIcon, Briefcase, FolderKanban, Building2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
@@ -58,35 +58,22 @@ export function Topbar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-card px-4">
-      {/* Org switcher */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-secondary">
-            {org.logoUrl ? (
-              <img
-                src={org.logoUrl}
-                alt={`${org.companyName} logo`}
-                className="h-6 w-6 rounded object-cover"
-              />
-            ) : (
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
-                {orgInitial}
-              </div>
-            )}
-            <span className="max-w-[180px] truncate">{org.companyName || "Workspace"}</span>
-            <Badge variant="secondary" className="h-5 rounded px-1.5 text-[10px] font-medium">Pro</Badge>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-          <DropdownMenuItem>{org.companyName || "RenoMeta Builders"}</DropdownMenuItem>
-          <DropdownMenuItem>Coastal Construction Co.</DropdownMenuItem>
-          <DropdownMenuItem>Heritage Renovations</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>+ Create workspace</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Current workspace */}
+      <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium">
+        {org.logoUrl ? (
+          <img
+            src={org.logoUrl}
+            alt={`${org.companyName} logo`}
+            className="h-6 w-6 rounded object-cover"
+          />
+        ) : (
+          <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
+            {orgInitial}
+          </div>
+        )}
+        <span className="max-w-[180px] truncate">{org.companyName || "Workspace"}</span>
+        <Badge variant="secondary" className="h-5 rounded px-1.5 text-[10px] font-medium">Pro</Badge>
+      </div>
 
       {/* Global search with autocomplete */}
       <div className="mx-auto flex w-full max-w-xl items-center">
