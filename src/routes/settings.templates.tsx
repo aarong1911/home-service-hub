@@ -755,6 +755,7 @@ function TemplatesPage() {
               </div>
               <Button size="sm" className="h-8" onClick={createNew}>
                 <Plus className="h-3.5 w-3.5" />
+                {kind === "form" ? <span className="ml-1 text-xs">Custom form</span> : null}
               </Button>
             </div>
             <div className="flex flex-wrap gap-1">
