@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -400,14 +401,7 @@ function TasksPage() {
                 <Fact label="Status" value={STATUS_COLUMNS.find((s) => s.id === viewing.status)?.label ?? ""} />
                 <Fact label="Repeats" value={recurrenceLabel(viewing.recurrence)} />
                 {viewing.recurrence && viewing.recurrence !== "none" && (viewing.recurrenceEndDate || viewing.recurrenceCount) && (
-                  <Fact
-                    label="Ends"
-                    value={
-                      viewing.recurrenceEndDate
-                        ? `On ${fmtDue(viewing.recurrenceEndDate)}`
-                        : `After ${viewing.recurrenceCount} occurrences${viewing.recurrenceIndex ? ` (${viewing.recurrenceIndex}/${viewing.recurrenceCount})` : ""}`
-                    }
-                  />
+                  <RecurrenceProgress task={viewing} />
                 )}
                 <div className="flex gap-2 pt-4">
                   <Button
@@ -449,6 +443,57 @@ function Fact({ label, value }: { label: string; value: string }) {
       <span className="font-medium">{value}</span>
     </div>
   );
+}
+
+function RecurrenceProgress({ task }: { task: Task }) {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  if (task.recurrenceCount) {
+    const current = Math.min(task.recurrenceIndex ?? 1, task.recurrenceCount);
+    const pct = Math.round((current / task.recurrenceCount) * 100);
+    const remaining = Math.max(task.recurrenceCount - current, 0);
+    return (
+      <div className="space-y-2 border-b border-border pb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Progress</span>
+          <span className="font-medium">
+            {current} of {task.recurrenceCount} ({remaining} left)
+          </span>
+        </div>
+        <Progress value={pct} className="h-1.5" />
+      </div>
+    );
+  }
+
+  if (task.recurrenceEndDate) {
+    const start = new Date(task.due);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(task.recurrenceEndDate);
+    end.setUTCHours(0, 0, 0, 0);
+    const totalMs = end.getTime() - start.getTime();
+    const elapsedMs = today.getTime() - start.getTime();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const daysRemaining = Math.max(Math.ceil((end.getTime() - today.getTime()) / dayMs), 0);
+    const pct =
+      totalMs <= 0
+        ? 100
+        : Math.min(Math.max(Math.round((elapsedMs / totalMs) * 100), 0), 100);
+    const ended = today.getTime() > end.getTime();
+    return (
+      <div className="space-y-2 border-b border-border pb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Ends {fmtDue(task.recurrenceEndDate)}</span>
+          <span className="font-medium">
+            {ended ? "Series ended" : `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`}
+          </span>
+        </div>
+        <Progress value={pct} className="h-1.5" />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function Kpi({
