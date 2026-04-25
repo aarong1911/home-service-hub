@@ -16,8 +16,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Mail, MessageSquare, FileSpreadsheet, ListChecks, FileText, Plus, Search, Star,
-  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon,
+  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon, Pencil,
 } from "lucide-react";
 import { formatMoney } from "@/lib/format";
 import { toast } from "sonner";
@@ -604,6 +608,7 @@ function TemplatesPage() {
   const [category, setCategory] = useState<string>("All");
   const [selectedId, setSelectedId] = useState<string>(SEED[0].id);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const ofKind = useMemo(() => items.filter((t) => t.kind === kind), [items, kind]);
   const categories = useMemo(() => ["All", ...Array.from(new Set(ofKind.map((t) => t.category)))], [ofKind]);
@@ -819,7 +824,7 @@ function TemplatesPage() {
                     </button>
                   </div>
                   {t.kind === "form" && (
-                    <div className="mt-1.5 flex justify-end">
+                    <div className="mt-1.5 flex justify-end gap-1">
                       <Button
                         size="sm"
                         variant="outline"
@@ -830,6 +835,28 @@ function TemplatesPage() {
                         }}
                       >
                         <Eye className="h-3 w-3" /> Preview
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(t.id);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" /> Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteId(t.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete
                       </Button>
                     </div>
                   )}
