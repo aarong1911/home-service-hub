@@ -702,6 +702,39 @@ function TaskFormDialog({
                 When marked complete, the next instance will be created automatically.
               </p>
             )}
+            {recurrence !== "none" && (
+              <div className="mt-2 space-y-2 rounded-md border border-border bg-secondary/40 p-3">
+                <Label className="text-xs">Ends</Label>
+                <Select value={endMode} onValueChange={(v) => setEndMode(v as "never" | "on" | "after")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="never">Never</SelectItem>
+                    <SelectItem value="on">On date</SelectItem>
+                    <SelectItem value="after">After N occurrences</SelectItem>
+                  </SelectContent>
+                </Select>
+                {endMode === "on" && (
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={due}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                )}
+                {endMode === "after" && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={occurrences}
+                      onChange={(e) => setOccurrences(e.target.value)}
+                      className="w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">occurrences total</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
