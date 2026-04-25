@@ -492,7 +492,8 @@ const KIND_META: Record<TemplateKind, { label: string; icon: React.ComponentType
 
 // ============ Component ============
 function TemplatesPage() {
-  const [items, setItems] = useState<AnyTemplate[]>(SEED);
+  const org = useOrganization();
+  const [items, setItems] = useState<AnyTemplate[]>(() => [...SEED, ...buildSeedForms(org.industry)]);
   const [kind, setKind] = useState<TemplateKind>("message");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
@@ -567,8 +568,22 @@ function TemplatesPage() {
       n = { ...base, kind: "estimate", projectType: "Kitchen", lines: [], markup: 20, notes: "" };
     } else if (kind === "plan") {
       n = { ...base, kind: "plan", projectType: "Kitchen", durationDays: 0, tasks: [] };
-    } else {
+    } else if (kind === "document") {
       n = { ...base, kind: "document", docType: "Contract", body: "" };
+    } else {
+      n = {
+        ...base,
+        kind: "form",
+        variant: "general_contact",
+        placement: "Contact page",
+        submitLabel: "Submit",
+        successMessage: "Thanks — we'll be in touch shortly.",
+        fields: [
+          { key: "first_name", label: "First name", type: "text", required: true },
+          { key: "email", label: "Email", type: "email", required: true },
+          { key: "message", label: "Message", type: "textarea", required: true },
+        ],
+      };
     }
     setItems((prev) => [n, ...prev]);
     setSelectedId(n.id);
@@ -769,6 +784,9 @@ function TemplatesPage() {
                 {selected.kind === "plan" && <PlanEditor t={selected} onChange={(p) => updateSelected(p)} />}
                 {selected.kind === "document" && (
                   <DocumentEditor t={selected} onChange={(p) => updateSelected(p)} />
+                )}
+                {selected.kind === "form" && (
+                  <FormEditor t={selected} onChange={(p) => updateSelected(p)} />
                 )}
 
                 <div className="rounded-md border bg-muted/30 p-2.5">
