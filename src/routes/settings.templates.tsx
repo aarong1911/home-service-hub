@@ -799,6 +799,21 @@ function TemplatesPage() {
                       />
                     </button>
                   </div>
+                  {t.kind === "form" && (
+                    <div className="mt-1.5 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewId(t.id);
+                        }}
+                      >
+                        <Eye className="h-3 w-3" /> Preview
+                      </Button>
+                    </div>
+                  )}
                 </button>
               ))}
               {filtered.length === 0 && (
