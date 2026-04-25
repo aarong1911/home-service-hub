@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Mail, MessageSquare, FileSpreadsheet, ListChecks, FileText, Plus, Search, Star,
   Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon,
 } from "lucide-react";
@@ -582,6 +585,7 @@ function TemplatesPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [selectedId, setSelectedId] = useState<string>(SEED[0].id);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const ofKind = useMemo(() => items.filter((t) => t.kind === kind), [items, kind]);
   const categories = useMemo(() => ["All", ...Array.from(new Set(ofKind.map((t) => t.category)))], [ofKind]);
@@ -795,6 +799,21 @@ function TemplatesPage() {
                       />
                     </button>
                   </div>
+                  {t.kind === "form" && (
+                    <div className="mt-1.5 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewId(t.id);
+                        }}
+                      >
+                        <Eye className="h-3 w-3" /> Preview
+                      </Button>
+                    </div>
+                  )}
                 </button>
               ))}
               {filtered.length === 0 && (
@@ -922,6 +941,29 @@ function TemplatesPage() {
           )}
         </Card>
       </div>
+
+      {/* Form preview modal */}
+      <Dialog open={previewId !== null} onOpenChange={(o) => !o && setPreviewId(null)}>
+        <DialogContent className="max-w-xl p-0">
+          {(() => {
+            const pt = items.find((x) => x.id === previewId);
+            if (!pt || pt.kind !== "form") return null;
+            return (
+              <>
+                <DialogHeader className="border-b px-5 py-4">
+                  <DialogTitle className="text-base">{pt.name}</DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Live preview — submissions create a real lead in your pipeline.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[70vh] overflow-auto bg-muted/20 p-4">
+                  <FormPreview t={pt} />
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
