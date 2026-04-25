@@ -71,24 +71,17 @@ function OnboardingPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#607bcd]">
-      {/* Subtle grid texture overlay */}
+    <div
+      className="relative min-h-screen overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(135deg, oklch(0.97 0.025 250) 0%, oklch(0.94 0.045 240) 45%, oklch(0.92 0.06 225) 100%)",
+      }}
+    >
+      {/* Ambient blobs (decorative) */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.25]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
-            backgroundSize: "44px 44px",
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse at top, rgba(96, 165, 250, 0.12) 0%, transparent 60%)",
-          }}
-        />
+        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-[oklch(0.65_0.22_262)]/35 blur-[110px]" />
+        <div className="absolute -bottom-40 -right-40 h-[560px] w-[560px] rounded-full bg-[oklch(0.72_0.18_220)]/45 blur-[120px]" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-10 sm:py-14">
@@ -98,14 +91,14 @@ function OnboardingPage() {
             alt="RenoMeta Connect"
             className="mb-4 h-12 w-auto object-contain"
           />
-          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-slate-200 backdrop-blur">
-            <Sparkles className="h-3 w-3 text-blue-300" aria-hidden />
+          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
+            <Sparkles className="h-3 w-3 text-primary" aria-hidden />
             Workspace setup
           </span>
-          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Let's get your workspace ready
           </h1>
-          <p className="mt-2 max-w-lg text-sm text-slate-300">
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
             Tell us about your company and invite your team. You can change any
             of this later from Settings.
           </p>
@@ -118,7 +111,7 @@ function OnboardingPage() {
 
           <section
             aria-labelledby="company-section"
-            className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/40 sm:p-8"
+            className="rounded-2xl border border-border/60 bg-card/80 p-6 shadow-elev-2 backdrop-blur-xl sm:p-8"
           >
             <header className="mb-5">
               <h3 id="company-section" className="text-base font-semibold">
@@ -133,7 +126,7 @@ function OnboardingPage() {
 
           <section
             aria-labelledby="team-section"
-            className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/40 sm:p-8"
+            className="rounded-2xl border border-border/60 bg-card/80 p-6 shadow-elev-2 backdrop-blur-xl sm:p-8"
           >
             <TeamMembersManager
               members={team}
@@ -150,7 +143,6 @@ function OnboardingPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-slate-300 hover:bg-white/10 hover:text-white"
               onClick={() => navigate({ to: "/" })}
             >
               Skip for now
