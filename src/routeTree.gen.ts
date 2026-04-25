@@ -14,6 +14,7 @@ import { Route as SigninRouteImport } from './routes/signin'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FinancialsRouteImport } from './routes/financials'
 import { Route as FilesRouteImport } from './routes/files'
 import { Route as ContactsRouteImport } from './routes/contacts'
@@ -72,6 +73,11 @@ const LeadsRoute = LeadsRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FinancialsRoute = FinancialsRouteImport.update({
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -296,6 +303,7 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -337,6 +345,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -380,6 +389,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/files'
     | '/financials'
+    | '/forgot-password'
     | '/inbox'
     | '/leads'
     | '/settings'
@@ -421,6 +431,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/files'
     | '/financials'
+    | '/forgot-password'
     | '/inbox'
     | '/leads'
     | '/settings'
@@ -461,6 +472,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/files'
     | '/financials'
+    | '/forgot-password'
     | '/inbox'
     | '/leads'
     | '/settings'
@@ -503,6 +515,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   FilesRoute: typeof FilesRoute
   FinancialsRoute: typeof FinancialsRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   InboxRoute: typeof InboxRouteWithChildren
   LeadsRoute: typeof LeadsRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -554,6 +567,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/financials': {
@@ -878,6 +898,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   FilesRoute: FilesRoute,
   FinancialsRoute: FinancialsRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   InboxRoute: InboxRouteWithChildren,
   LeadsRoute: LeadsRoute,
   SettingsRoute: SettingsRouteWithChildren,
