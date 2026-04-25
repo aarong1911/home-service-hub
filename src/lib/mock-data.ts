@@ -196,6 +196,7 @@ export type Task = {
   due: string;
   status: "todo" | "in_progress" | "review" | "done";
   priority: "low" | "med" | "high";
+  recurrence?: "none" | "daily" | "weekly" | "biweekly" | "monthly";
 };
 
 export type Conversation = {
