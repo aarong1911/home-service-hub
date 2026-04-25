@@ -398,6 +398,7 @@ function TasksPage() {
                 <Fact label="Due" value={fmtDue(viewing.due)} />
                 <Fact label="Priority" value={PRIORITIES.find((p) => p.id === viewing.priority)?.label ?? ""} />
                 <Fact label="Status" value={STATUS_COLUMNS.find((s) => s.id === viewing.status)?.label ?? ""} />
+                <Fact label="Repeats" value={recurrenceLabel(viewing.recurrence)} />
                 <div className="flex gap-2 pt-4">
                   <Button
                     variant="outline"
