@@ -71,13 +71,7 @@ function OnboardingPage() {
   };
 
   return (
-    <div
-      className="relative min-h-screen overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, #1a2942 0%, #1e3354 50%, #243d63 100%)",
-      }}
-    >
+    <div className="relative min-h-screen overflow-hidden bg-[#607bcd]">
       {/* Subtle grid texture overlay */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
