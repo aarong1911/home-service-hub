@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FinancialsRouteImport } from './routes/financials'
 import { Route as FilesRouteImport } from './routes/files'
 import { Route as ContactsRouteImport } from './routes/contacts'
@@ -64,6 +66,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeadsRoute = LeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
@@ -72,6 +79,11 @@ const LeadsRoute = LeadsRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FinancialsRoute = FinancialsRouteImport.update({
@@ -255,8 +267,10 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
+  '/onboarding': typeof OnboardingRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -296,8 +310,10 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
+  '/onboarding': typeof OnboardingRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -337,8 +353,10 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/files': typeof FilesRoute
   '/financials': typeof FinancialsRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
+  '/onboarding': typeof OnboardingRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -380,8 +398,10 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/files'
     | '/financials'
+    | '/forgot-password'
     | '/inbox'
     | '/leads'
+    | '/onboarding'
     | '/settings'
     | '/signin'
     | '/signup'
@@ -421,8 +441,10 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/files'
     | '/financials'
+    | '/forgot-password'
     | '/inbox'
     | '/leads'
+    | '/onboarding'
     | '/settings'
     | '/signin'
     | '/signup'
@@ -461,8 +483,10 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/files'
     | '/financials'
+    | '/forgot-password'
     | '/inbox'
     | '/leads'
+    | '/onboarding'
     | '/settings'
     | '/signin'
     | '/signup'
@@ -503,8 +527,10 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   FilesRoute: typeof FilesRoute
   FinancialsRoute: typeof FinancialsRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   InboxRoute: typeof InboxRouteWithChildren
   LeadsRoute: typeof LeadsRoute
+  OnboardingRoute: typeof OnboardingRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
@@ -542,6 +568,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/leads': {
       id: '/leads'
       path: '/leads'
@@ -554,6 +587,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/financials': {
@@ -878,8 +918,10 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   FilesRoute: FilesRoute,
   FinancialsRoute: FinancialsRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   InboxRoute: InboxRouteWithChildren,
   LeadsRoute: LeadsRoute,
+  OnboardingRoute: OnboardingRoute,
   SettingsRoute: SettingsRouteWithChildren,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
