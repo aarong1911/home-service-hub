@@ -63,11 +63,21 @@ export function AuthLayout({
 
           <p className="mt-4 text-center text-xs text-muted-foreground">
             By continuing, you agree to our{" "}
-            <a href="#" className="text-primary hover:underline">
+            <a
+              href="https://renometa.com/terms-of-service"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="#" className="text-primary hover:underline">
+            <a
+              href="https://renometa.com/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
               Privacy Policy
             </a>
             .
