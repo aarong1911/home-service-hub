@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Mail, MessageSquare, FileSpreadsheet, ListChecks, FileText, Plus, Search, Star,
   Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon,
 } from "lucide-react";
