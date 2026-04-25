@@ -941,6 +941,29 @@ function TemplatesPage() {
           )}
         </Card>
       </div>
+
+      {/* Form preview modal */}
+      <Dialog open={previewId !== null} onOpenChange={(o) => !o && setPreviewId(null)}>
+        <DialogContent className="max-w-xl p-0">
+          {(() => {
+            const pt = items.find((x) => x.id === previewId);
+            if (!pt || pt.kind !== "form") return null;
+            return (
+              <>
+                <DialogHeader className="border-b px-5 py-4">
+                  <DialogTitle className="text-base">{pt.name}</DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Live preview — submissions create a real lead in your pipeline.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[70vh] overflow-auto bg-muted/20 p-4">
+                  <FormPreview t={pt} />
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
