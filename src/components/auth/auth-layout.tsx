@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
 import logoUrl from "@/assets/renometa-connect-logo.png";
 
 /**
@@ -45,17 +44,11 @@ export function AuthLayout({
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-border/60 bg-card/80 p-8 shadow-elev-2 backdrop-blur-xl sm:p-10">
             <div className="mb-6 flex flex-col items-center text-center">
-              <Link
-                to="/"
-                className="mb-4 inline-flex items-center justify-center transition-opacity hover:opacity-80"
-                aria-label="RenoMeta Connect"
-              >
-                <img
-                  src={logoUrl}
-                  alt="RenoMeta Connect"
-                  className="h-14 w-auto object-contain"
-                />
-              </Link>
+              <img
+                src={logoUrl}
+                alt="RenoMeta Connect"
+                className="mb-4 h-14 w-auto object-contain"
+              />
               <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
               {subtitle && (
                 <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
