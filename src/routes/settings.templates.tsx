@@ -19,6 +19,8 @@ import {
 import { formatMoney } from "@/lib/format";
 import { toast } from "sonner";
 import { useOrganization } from "@/lib/organization";
+import { addLead } from "@/lib/leads-store";
+import type { Lead } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/settings/templates")({
   head: () => ({
@@ -1356,6 +1358,73 @@ function FormEditor({ t, onChange }: { t: FormTemplate; onChange: (p: Partial<Fo
 
 function FormPreview({ t }: { t: FormTemplate }) {
   const isEmergency = t.variant === "emergency";
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const setValue = (k: string, v: string) => {
+    setValues((prev) => ({ ...prev, [k]: v }));
+    if (errors[k]) setErrors((prev) => ({ ...prev, [k]: false }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const nextErrors: Record<string, boolean> = {};
+    for (const f of t.fields) {
+      if (f.required && f.type !== "file" && !(values[f.key] ?? "").trim()) {
+        nextErrors[f.key] = true;
+      }
+    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      toast.error("Please fill in the required fields.");
+      return;
+    }
+
+    const first = values.first_name ?? "";
+    const last = values.last_name ?? "";
+    const fullName = `${first} ${last}`.trim() || values.email || values.phone || "Website lead";
+    const score: Lead["score"] = t.variant === "emergency" ? "hot"
+      : t.variant === "free_estimate" ? "warm" : "cold";
+    const projectType = values.project_type || values.issue_type ||
+      (t.variant === "general_contact" ? "General inquiry"
+        : t.variant === "schedule_consultation" ? "Consultation"
+        : t.variant === "emergency" ? "Emergency service" : "Estimate request");
+    const noteParts: string[] = [`Submitted via "${t.name}" form.`];
+    if (values.description) noteParts.push(`Description: ${values.description}`);
+    if (values.message) noteParts.push(`Message: ${values.message}`);
+    if (values.notes) noteParts.push(`Notes: ${values.notes}`);
+    if (values.timeline) noteParts.push(`Timeline: ${values.timeline}`);
+    if (values.preferred_date) noteParts.push(`Preferred date: ${values.preferred_date}`);
+    if (values.preferred_time) noteParts.push(`Preferred time: ${values.preferred_time}`);
+    if (values.urgency) noteParts.push(`Urgency: ${values.urgency}`);
+
+    const now = new Date().toISOString();
+    const lead = addLead({
+      name: fullName,
+      email: values.email ?? "",
+      phone: values.phone ?? "",
+      address: values.address ?? "",
+      source: "Website",
+      status: "new",
+      score,
+      projectType,
+      estimatedBudget: 0,
+      notes: noteParts.join("\n"),
+      owner: "Unassigned",
+      ownerInitials: "—",
+      createdAt: now,
+      lastActivity: now,
+    });
+
+    setSubmitted(true);
+    setValues({});
+    setErrors({});
+    toast.success("Lead created", {
+      description: `${lead.name} added to your leads pipeline.`,
+    });
+  };
+
   return (
     <div className="bg-background">
       <div className={"px-4 py-3 " + (isEmergency ? "bg-destructive/10 border-b border-destructive/30" : "border-b bg-muted/30")}>
@@ -1370,23 +1439,52 @@ function FormPreview({ t }: { t: FormTemplate }) {
           <Badge variant="outline" className="text-[10px]">{t.fields.length} fields</Badge>
         </div>
       </div>
-      <form className="space-y-2.5 p-4" onSubmit={(e) => e.preventDefault()}>
-        {t.fields.map((f) => (
-          <FormFieldPreview key={f.key} field={f} />
-        ))}
-        <Button
-          type="submit"
-          className={"mt-1 w-full " + (isEmergency ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "")}
-        >
-          {t.submitLabel}
-        </Button>
-        <p className="text-center text-[10px] text-muted-foreground">{t.successMessage}</p>
-      </form>
+      {submitted ? (
+        <div className="space-y-3 p-6 text-center">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+            ✓
+          </div>
+          <p className="text-sm font-medium">{t.successMessage}</p>
+          <p className="text-[11px] text-muted-foreground">A new lead was added to your pipeline.</p>
+          <Button size="sm" variant="outline" onClick={() => setSubmitted(false)}>
+            Submit another
+          </Button>
+        </div>
+      ) : (
+        <form className="space-y-2.5 p-4" onSubmit={handleSubmit}>
+          {t.fields.map((f) => (
+            <FormFieldPreview
+              key={f.key}
+              field={f}
+              value={values[f.key] ?? ""}
+              onChange={(v) => setValue(f.key, v)}
+              invalid={!!errors[f.key]}
+            />
+          ))}
+          <Button
+            type="submit"
+            className={"mt-1 w-full " + (isEmergency ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "")}
+          >
+            {t.submitLabel}
+          </Button>
+          <p className="text-center text-[10px] text-muted-foreground">Submissions land in Leads as Website source.</p>
+        </form>
+      )}
     </div>
   );
 }
 
-function FormFieldPreview({ field }: { field: FormField }) {
+function FormFieldPreview({
+  field,
+  value,
+  onChange,
+  invalid,
+}: {
+  field: FormField;
+  value: string;
+  onChange: (v: string) => void;
+  invalid: boolean;
+}) {
   const labelEl = (
     <Label className={"text-xs " + (field.emphasized ? "text-destructive font-semibold" : "")}>
       {field.label}
@@ -1398,16 +1496,26 @@ function FormFieldPreview({ field }: { field: FormField }) {
       {labelEl}
       {input}
       {field.helpText && <p className="text-[10px] text-muted-foreground">{field.helpText}</p>}
+      {invalid && <p className="text-[10px] text-destructive">Required.</p>}
     </div>
   );
+  const invalidCls = invalid ? " border-destructive" : "";
   switch (field.type) {
     case "textarea":
-      return wrap(<Textarea rows={3} className="text-sm" placeholder={`Enter ${field.label.toLowerCase()}…`} />);
+      return wrap(
+        <Textarea
+          rows={3}
+          className={"text-sm" + invalidCls}
+          placeholder={`Enter ${field.label.toLowerCase()}…`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />,
+      );
     case "select":
     case "time-slot":
       return wrap(
-        <Select>
-          <SelectTrigger className="h-9 text-sm">
+        <Select value={value || undefined} onValueChange={onChange}>
+          <SelectTrigger className={"h-9 text-sm" + invalidCls}>
             <SelectValue placeholder="Select…" />
           </SelectTrigger>
           <SelectContent>
@@ -1421,7 +1529,12 @@ function FormFieldPreview({ field }: { field: FormField }) {
       return wrap(
         <div className="relative">
           <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input type="date" className="h-9 pl-8 text-sm" />
+          <Input
+            type="date"
+            className={"h-9 pl-8 text-sm" + invalidCls}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
         </div>,
       );
     case "file":
@@ -1437,16 +1550,40 @@ function FormFieldPreview({ field }: { field: FormField }) {
           <Phone className={"pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 " + (field.emphasized ? "text-destructive" : "text-muted-foreground")} />
           <Input
             type="tel"
-            className={"h-9 pl-8 text-sm " + (field.emphasized ? "border-destructive font-medium" : "")}
+            className={"h-9 pl-8 text-sm " + (field.emphasized ? "border-destructive font-medium" : "") + invalidCls}
             placeholder="(555) 123-4567"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
           />
         </div>,
       );
     case "address":
-      return wrap(<Input className="h-9 text-sm" placeholder="Street, City, State ZIP" />);
+      return wrap(
+        <Input
+          className={"h-9 text-sm" + invalidCls}
+          placeholder="Street, City, State ZIP"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />,
+      );
     case "email":
-      return wrap(<Input type="email" className="h-9 text-sm" placeholder="you@example.com" />);
+      return wrap(
+        <Input
+          type="email"
+          className={"h-9 text-sm" + invalidCls}
+          placeholder="you@example.com"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />,
+      );
     default:
-      return wrap(<Input className="h-9 text-sm" placeholder={`Enter ${field.label.toLowerCase()}…`} />);
+      return wrap(
+        <Input
+          className={"h-9 text-sm" + invalidCls}
+          placeholder={`Enter ${field.label.toLowerCase()}…`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />,
+      );
   }
 }
