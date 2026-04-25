@@ -399,6 +399,16 @@ function TasksPage() {
                 <Fact label="Priority" value={PRIORITIES.find((p) => p.id === viewing.priority)?.label ?? ""} />
                 <Fact label="Status" value={STATUS_COLUMNS.find((s) => s.id === viewing.status)?.label ?? ""} />
                 <Fact label="Repeats" value={recurrenceLabel(viewing.recurrence)} />
+                {viewing.recurrence && viewing.recurrence !== "none" && (viewing.recurrenceEndDate || viewing.recurrenceCount) && (
+                  <Fact
+                    label="Ends"
+                    value={
+                      viewing.recurrenceEndDate
+                        ? `On ${fmtDue(viewing.recurrenceEndDate)}`
+                        : `After ${viewing.recurrenceCount} occurrences${viewing.recurrenceIndex ? ` (${viewing.recurrenceIndex}/${viewing.recurrenceCount})` : ""}`
+                    }
+                  />
+                )}
                 <div className="flex gap-2 pt-4">
                   <Button
                     variant="outline"
@@ -548,6 +558,14 @@ function TaskFormDialog({
   const [status, setStatus] = useState<Status>(task?.status ?? "todo");
   const [due, setDue] = useState(task ? task.due.slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence ?? "none");
+  type EndMode = "never" | "on" | "after";
+  const initialEndMode: EndMode =
+    task?.recurrenceEndDate ? "on" : task?.recurrenceCount ? "after" : "never";
+  const [endMode, setEndMode] = useState<EndMode>(initialEndMode);
+  const [endDate, setEndDate] = useState<string>(task?.recurrenceEndDate?.slice(0, 10) ?? "");
+  const [occurrences, setOccurrences] = useState<string>(
+    task?.recurrenceCount ? String(task.recurrenceCount) : "5",
+  );
   const [notes, setNotes] = useState("");
 
   // Reset on open change
@@ -560,6 +578,9 @@ function TaskFormDialog({
       setStatus(task?.status ?? "todo");
       setDue(task ? task.due.slice(0, 10) : new Date().toISOString().slice(0, 10));
       setRecurrence(task?.recurrence ?? "none");
+      setEndMode(task?.recurrenceEndDate ? "on" : task?.recurrenceCount ? "after" : "never");
+      setEndDate(task?.recurrenceEndDate?.slice(0, 10) ?? "");
+      setOccurrences(task?.recurrenceCount ? String(task.recurrenceCount) : "5");
       setNotes("");
     }
   }, [open, task]);
@@ -570,6 +591,20 @@ function TaskFormDialog({
       return;
     }
     const owner = OWNERS.find((o) => o.name === assignee) ?? OWNERS[0];
+    let recurrenceEndDate: string | undefined;
+    let recurrenceCount: number | undefined;
+    if (recurrence !== "none") {
+      if (endMode === "on" && endDate) {
+        recurrenceEndDate = new Date(endDate).toISOString();
+      } else if (endMode === "after") {
+        const n = parseInt(occurrences, 10);
+        if (!Number.isFinite(n) || n < 1) {
+          toast.error("Occurrences must be at least 1");
+          return;
+        }
+        recurrenceCount = n;
+      }
+    }
     const payload: Omit<Task, "id"> = {
       title: title.trim(),
       projectId,
@@ -579,6 +614,9 @@ function TaskFormDialog({
       priority,
       status,
       recurrence,
+      recurrenceEndDate,
+      recurrenceCount,
+      recurrenceIndex: task?.recurrenceIndex ?? (recurrence !== "none" ? 1 : undefined),
     };
     if (isEdit && task) {
       updateTask(task.id, payload);
@@ -673,6 +711,39 @@ function TaskFormDialog({
               <p className="text-[11px] text-muted-foreground">
                 When marked complete, the next instance will be created automatically.
               </p>
+            )}
+            {recurrence !== "none" && (
+              <div className="mt-2 space-y-2 rounded-md border border-border bg-secondary/40 p-3">
+                <Label className="text-xs">Ends</Label>
+                <Select value={endMode} onValueChange={(v) => setEndMode(v as "never" | "on" | "after")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="never">Never</SelectItem>
+                    <SelectItem value="on">On date</SelectItem>
+                    <SelectItem value="after">After N occurrences</SelectItem>
+                  </SelectContent>
+                </Select>
+                {endMode === "on" && (
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={due}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                )}
+                {endMode === "after" && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={occurrences}
+                      onChange={(e) => setOccurrences(e.target.value)}
+                      className="w-24"
+                    />
+                    <span className="text-xs text-muted-foreground">occurrences total</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
