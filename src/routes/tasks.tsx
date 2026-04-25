@@ -548,6 +548,14 @@ function TaskFormDialog({
   const [status, setStatus] = useState<Status>(task?.status ?? "todo");
   const [due, setDue] = useState(task ? task.due.slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [recurrence, setRecurrence] = useState<Recurrence>(task?.recurrence ?? "none");
+  type EndMode = "never" | "on" | "after";
+  const initialEndMode: EndMode =
+    task?.recurrenceEndDate ? "on" : task?.recurrenceCount ? "after" : "never";
+  const [endMode, setEndMode] = useState<EndMode>(initialEndMode);
+  const [endDate, setEndDate] = useState<string>(task?.recurrenceEndDate?.slice(0, 10) ?? "");
+  const [occurrences, setOccurrences] = useState<string>(
+    task?.recurrenceCount ? String(task.recurrenceCount) : "5",
+  );
   const [notes, setNotes] = useState("");
 
   // Reset on open change
@@ -560,6 +568,9 @@ function TaskFormDialog({
       setStatus(task?.status ?? "todo");
       setDue(task ? task.due.slice(0, 10) : new Date().toISOString().slice(0, 10));
       setRecurrence(task?.recurrence ?? "none");
+      setEndMode(task?.recurrenceEndDate ? "on" : task?.recurrenceCount ? "after" : "never");
+      setEndDate(task?.recurrenceEndDate?.slice(0, 10) ?? "");
+      setOccurrences(task?.recurrenceCount ? String(task.recurrenceCount) : "5");
       setNotes("");
     }
   }, [open, task]);
@@ -570,6 +581,20 @@ function TaskFormDialog({
       return;
     }
     const owner = OWNERS.find((o) => o.name === assignee) ?? OWNERS[0];
+    let recurrenceEndDate: string | undefined;
+    let recurrenceCount: number | undefined;
+    if (recurrence !== "none") {
+      if (endMode === "on" && endDate) {
+        recurrenceEndDate = new Date(endDate).toISOString();
+      } else if (endMode === "after") {
+        const n = parseInt(occurrences, 10);
+        if (!Number.isFinite(n) || n < 1) {
+          toast.error("Occurrences must be at least 1");
+          return;
+        }
+        recurrenceCount = n;
+      }
+    }
     const payload: Omit<Task, "id"> = {
       title: title.trim(),
       projectId,
@@ -579,6 +604,9 @@ function TaskFormDialog({
       priority,
       status,
       recurrence,
+      recurrenceEndDate,
+      recurrenceCount,
+      recurrenceIndex: task?.recurrenceIndex ?? (recurrence !== "none" ? 1 : undefined),
     };
     if (isEdit && task) {
       updateTask(task.id, payload);
