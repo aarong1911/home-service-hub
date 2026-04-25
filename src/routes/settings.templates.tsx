@@ -14,10 +14,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Mail, MessageSquare, FileSpreadsheet, ListChecks, FileText, Plus, Search, Star,
-  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp,
+  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon,
 } from "lucide-react";
 import { formatMoney } from "@/lib/format";
 import { toast } from "sonner";
+import { useOrganization } from "@/lib/organization";
 
 export const Route = createFileRoute("/settings/templates")({
   head: () => ({
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/settings/templates")({
 });
 
 // ============ Types & seed data ============
-type TemplateKind = "message" | "estimate" | "plan" | "document";
+type TemplateKind = "message" | "estimate" | "plan" | "document" | "form";
 type MessageChannel = "email" | "sms";
 
 type BaseTemplate = {
@@ -78,7 +79,208 @@ type DocumentTemplate = BaseTemplate & {
   body: string;
 };
 
-type AnyTemplate = MessageTemplate | EstimateTemplate | PlanTemplate | DocumentTemplate;
+// ============ Forms (embeddable lead capture) ============
+type FormFieldType =
+  | "text"
+  | "email"
+  | "tel"
+  | "address"
+  | "textarea"
+  | "select"
+  | "date"
+  | "time-slot"
+  | "file";
+
+type FormField = {
+  key: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  /** Options for select fields. */
+  options?: string[];
+  /** Optional help text shown under the field. */
+  helpText?: string;
+  /** Optional emphasis (e.g. emergency phone). */
+  emphasized?: boolean;
+};
+
+type FormVariant = "general_contact" | "free_estimate" | "schedule_consultation" | "emergency";
+
+type FormTemplate = BaseTemplate & {
+  kind: "form";
+  variant: FormVariant;
+  /** Recommended placement on the customer's website. */
+  placement: string;
+  /** Submit button label. */
+  submitLabel: string;
+  /** Confirmation message shown after submit. */
+  successMessage: string;
+  fields: FormField[];
+};
+
+type AnyTemplate = MessageTemplate | EstimateTemplate | PlanTemplate | DocumentTemplate | FormTemplate;
+
+// ----- Trade-specific seed values -----
+/** Map an industry label (from organization settings) to a normalized trade key. */
+function tradeKey(industry: string | undefined): string {
+  const i = (industry ?? "").toLowerCase();
+  if (i.includes("hvac")) return "hvac";
+  if (i.includes("plumb")) return "plumbing";
+  if (i.includes("electric")) return "electrical";
+  if (i.includes("roof")) return "roofing";
+  if (i.includes("paint")) return "painting";
+  if (i.includes("landscap")) return "landscaping";
+  if (i.includes("floor")) return "flooring";
+  if (i.includes("window") || i.includes("door")) return "windows";
+  if (i.includes("handyman")) return "handyman";
+  return "general"; // General Contractor / Remodeler default
+}
+
+const PROJECT_TYPES_BY_TRADE: Record<string, string[]> = {
+  general: ["Kitchen remodel", "Bathroom remodel", "Whole home renovation", "Addition", "Basement finish", "Other"],
+  hvac: ["AC install / replace", "Furnace install / replace", "Heat pump", "Ductwork", "Maintenance / tune-up", "Other"],
+  plumbing: ["Water heater", "Repipe", "Drain / sewer", "Fixture install", "Bathroom remodel", "Other"],
+  electrical: ["Panel upgrade", "EV charger", "Lighting", "Rewire", "Generator", "Other"],
+  roofing: ["Full replacement", "Repair", "Inspection", "Gutters", "Skylight", "Other"],
+  painting: ["Interior painting", "Exterior painting", "Cabinet refinish", "Deck / fence stain", "Commercial", "Other"],
+  landscaping: ["Design + install", "Lawn care", "Hardscape (patio / walkway)", "Irrigation", "Tree service", "Other"],
+  flooring: ["Hardwood", "LVP / vinyl", "Tile", "Carpet", "Refinish", "Other"],
+  windows: ["Window replacement", "Patio door", "Entry door", "Storm windows", "Other"],
+  handyman: ["Small repair", "Honey-do list", "Mounting / install", "Drywall patch", "Other"],
+};
+
+const EMERGENCY_ISSUES_BY_TRADE: Record<string, string[]> = {
+  hvac: ["No heat", "No cooling", "Strange noise / smell", "Water leak from unit", "Thermostat failure", "Other"],
+  plumbing: ["Burst pipe", "No hot water", "Sewer backup", "Major leak", "Toilet overflow", "Other"],
+  electrical: ["Power outage (whole home)", "Sparking outlet", "Burning smell", "Breaker keeps tripping", "Exposed wiring", "Other"],
+  roofing: ["Active leak", "Storm damage", "Missing shingles", "Tree on roof", "Other"],
+  general: ["Water damage", "Structural concern", "Other"],
+};
+
+/** Trades that handle true emergencies — these get the Emergency form seeded. */
+const EMERGENCY_TRADES = new Set(["hvac", "plumbing", "electrical", "roofing"]);
+
+const URGENCY_OPTIONS = ["Right now", "Within 24 hours", "Within 48 hours"];
+const TIMELINE_OPTIONS = ["ASAP", "Within 1 month", "1–3 months", "3–6 months", "Just researching"];
+const TIME_SLOTS = ["Morning (8am–12pm)", "Midday (12pm–2pm)", "Afternoon (2pm–5pm)", "Evening (5pm–8pm)"];
+
+function buildSeedForms(industry: string | undefined): FormTemplate[] {
+  const trade = tradeKey(industry);
+  const projectTypes = PROJECT_TYPES_BY_TRADE[trade] ?? PROJECT_TYPES_BY_TRADE.general;
+  const issueTypes = EMERGENCY_ISSUES_BY_TRADE[trade] ?? EMERGENCY_ISSUES_BY_TRADE.general;
+  const today = new Date().toISOString().slice(0, 10);
+  const base = (overrides: Partial<FormTemplate>): FormTemplate => ({
+    id: "",
+    kind: "form",
+    name: "",
+    category: "Lead capture",
+    description: "",
+    tags: ["embed", "lead-capture"],
+    owner: "Maria Chen",
+    updatedAt: today,
+    uses: 0,
+    starred: false,
+    variant: "general_contact",
+    placement: "Contact page",
+    submitLabel: "Submit",
+    successMessage: "Thanks — we'll be in touch shortly.",
+    fields: [],
+    ...overrides,
+  });
+
+  const forms: FormTemplate[] = [
+    base({
+      id: "f1",
+      variant: "general_contact",
+      name: "General Contact Form",
+      category: "Contact",
+      description: "Simple get-in-touch form for the Contact page.",
+      placement: "Contact page",
+      submitLabel: "Send message",
+      successMessage: "Thanks for reaching out — we'll reply within 1 business day.",
+      starred: true,
+      uses: 412,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: false },
+        { key: "message", label: "Message", type: "textarea", required: true },
+      ],
+    }),
+    base({
+      id: "f2",
+      variant: "free_estimate",
+      name: "Free Estimate Request",
+      category: "Estimate",
+      description: "High-intent lead capture for Services / Home page.",
+      placement: "Services or Home page",
+      submitLabel: "Get my free estimate",
+      successMessage: "Got it — we'll review your project and reach out within 24 hours.",
+      starred: true,
+      uses: 631,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: true },
+        { key: "address", label: "Project address", type: "address", required: true },
+        { key: "project_type", label: "Project type", type: "select", required: true, options: projectTypes },
+        { key: "description", label: "Tell us about your project", type: "textarea", required: true },
+        { key: "timeline", label: "Preferred timeline", type: "select", required: false, options: TIMELINE_OPTIONS },
+        { key: "photos", label: "Photos (optional)", type: "file", required: false, helpText: "Upload up to 5 photos to help us scope your project." },
+      ],
+    }),
+    base({
+      id: "f3",
+      variant: "schedule_consultation",
+      name: "Schedule Consultation",
+      category: "Booking",
+      description: "Book a discovery call or on-site visit.",
+      placement: "Booking page",
+      submitLabel: "Request appointment",
+      successMessage: "We received your request — you'll get a confirmation shortly.",
+      uses: 188,
+      fields: [
+        { key: "first_name", label: "First name", type: "text", required: true },
+        { key: "last_name", label: "Last name", type: "text", required: true },
+        { key: "email", label: "Email", type: "email", required: true },
+        { key: "phone", label: "Phone", type: "tel", required: true },
+        { key: "project_type", label: "Project type", type: "select", required: true, options: projectTypes },
+        { key: "preferred_date", label: "Preferred date", type: "date", required: true },
+        { key: "preferred_time", label: "Preferred time", type: "time-slot", required: true, options: TIME_SLOTS },
+        { key: "notes", label: "Anything we should know?", type: "textarea", required: false },
+      ],
+    }),
+  ];
+
+  if (EMERGENCY_TRADES.has(trade)) {
+    forms.push(
+      base({
+        id: "f4",
+        variant: "emergency",
+        name: "Emergency / Urgent Request",
+        category: "Emergency",
+        description: "Surface-level intake for after-hours or urgent issues.",
+        placement: "Emergency Service page (sticky CTA)",
+        submitLabel: "Get help now",
+        successMessage: "Help is on the way — we'll call you back within 15 minutes.",
+        tags: ["embed", "lead-capture", "emergency"],
+        uses: 96,
+        fields: [
+          { key: "first_name", label: "First name", type: "text", required: true },
+          { key: "phone", label: "Phone (we'll call you back)", type: "tel", required: true, emphasized: true, helpText: "Best number to reach you right now." },
+          { key: "address", label: "Service address", type: "address", required: true },
+          { key: "issue_type", label: "Issue type", type: "select", required: true, options: issueTypes },
+          { key: "description", label: "Describe the issue", type: "textarea", required: true },
+          { key: "urgency", label: "How soon do you need help?", type: "select", required: true, options: URGENCY_OPTIONS },
+        ],
+      }),
+    );
+  }
+
+  return forms;
+}
 
 const MERGE_TAGS = [
   "{{first_name}}", "{{last_name}}", "{{project_address}}", "{{project_type}}",
