@@ -661,6 +661,21 @@ function TaskFormDialog({
           </div>
 
           <div className="space-y-1.5">
+            <Label>Repeats</Label>
+            <Select value={recurrence} onValueChange={(v) => setRecurrence(v as Recurrence)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {RECURRENCES.map((r) => <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {recurrence !== "none" && (
+              <p className="text-[11px] text-muted-foreground">
+                When marked complete, the next instance will be created automatically.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="task-notes">Notes (optional)</Label>
             <Textarea
               id="task-notes"
