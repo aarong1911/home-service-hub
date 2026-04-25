@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { type Deal, type LostReason } from "@/lib/mock-data";
 import { useContacts, updateContact } from "@/lib/contacts-store";
-import { formatMoney, formatDateShort } from "@/lib/format";
+import { formatMoney, formatDateShort, formatPhone } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";

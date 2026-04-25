@@ -22,7 +22,7 @@ import {
   Users, Wallet, Hammer, Pencil, ExternalLink, MoreHorizontal,
 } from "lucide-react";
 import { mockCompanies, type Company, type CompanyType, type CompanyStatus } from "@/lib/mock-data";
-import { formatMoney, formatDateShort } from "@/lib/format";
+import { formatMoney, formatDateShort, formatPhone } from "@/lib/format";
 import { toast } from "sonner";
 
 type CompaniesSearch = { companyId?: string };

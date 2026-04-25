@@ -30,7 +30,7 @@ import { Download, Upload } from "lucide-react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { StickyNote, Pencil, Check, X as XIcon } from "lucide-react";
 import { type Lead, type LeadSource, type LeadStatus, type LeadScore } from "@/lib/mock-data";
-import { formatMoney, formatDateShort } from "@/lib/format";
+import { formatMoney, formatDateShort, formatPhone } from "@/lib/format";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useTeam } from "@/lib/organization";
