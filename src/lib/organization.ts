@@ -36,13 +36,16 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const INDUSTRIES = [
-  "Construction",
-  "Remodeling",
-  "Flooring",
-  "Roofing",
-  "Electrical",
+  "General Contractor / Remodeler",
+  "HVAC",
   "Plumbing",
+  "Electrical",
+  "Roofing",
+  "Painting",
+  "Landscaping",
+  "Flooring",
   "Windows & Doors",
+  "Handyman",
 ] as const;
 
 export const TIMEZONE_OPTIONS = [
