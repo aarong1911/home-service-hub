@@ -516,6 +516,14 @@ function TaskCard({
           )}>
             <CalendarIcon className="h-3 w-3" /> {fmtDue(task.due)}
           </span>
+          {task.recurrence && task.recurrence !== "none" && (
+            <span
+              className="inline-flex items-center gap-1 rounded-md bg-primary-soft px-1.5 py-0.5 text-[10px] font-medium text-primary"
+              title={`Repeats ${recurrenceLabel(task.recurrence).toLowerCase()}`}
+            >
+              <Repeat className="h-3 w-3" /> {recurrenceLabel(task.recurrence)}
+            </span>
+          )}
         </div>
         <span
           className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-soft text-[10px] font-semibold text-primary"
