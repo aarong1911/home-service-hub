@@ -91,6 +91,17 @@ type FolderId = "all" | "unread" | "assigned" | "mentions" | "starred" | "unassi
 type ChannelFilter = "all" | "email" | "sms" | "voice";
 type ComposeChannel = "email" | "sms" | "note";
 
+export type TemplateInsertLog = {
+  ts: string;
+  surface: "inbox" | "project-comms";
+  templateId: string;
+  templateName: string;
+  channel: "email" | "sms";
+  mode: "replace" | "append";
+  subjectAction: "replace" | "append" | "noop" | "n/a";
+  bodyAction: "replace" | "append" | "noop";
+};
+
 const folders: { id: FolderId; label: string; icon: typeof InboxIcon }[] = [
   { id: "all", label: "All", icon: InboxIcon },
   { id: "unread", label: "Unread", icon: Circle },
