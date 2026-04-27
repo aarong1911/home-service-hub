@@ -716,7 +716,7 @@ function InboxPage() {
         <AlertDialogHeader>
           <AlertDialogTitle>Replace or append your draft?</AlertDialogTitle>
           <AlertDialogDescription>
-            You already have text in the composer. Choose whether to append "{pendingTemplate?.name}" to the end or replace what's there.
+            Your composer already has content{pendingTemplate?.channel === "email" && pendingTemplate?.subject ? " (including a subject)" : ""}. Append keeps your existing subject and adds the template body to the end. Replace overwrites both the subject and body with "{pendingTemplate?.name}".
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
