@@ -672,17 +672,38 @@ function TemplatesPage() {
   const [kind, setKind] = useState<TemplateKind>("message");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
+  const [projectTypeFilter, setProjectTypeFilter] = useState<string>("All");
   const [selectedId, setSelectedId] = useState<string>(SEED[0].id);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const ofKind = useMemo(() => items.filter((t) => t.kind === kind), [items, kind]);
   const categories = useMemo(() => ["All", ...Array.from(new Set(ofKind.map((t) => t.category)))], [ofKind]);
+  const projectTypes = useMemo(
+    () => [
+      "All",
+      ...Array.from(
+        new Set(
+          ofKind
+            .filter((t): t is EstimateTemplate => t.kind === "estimate")
+            .map((t) => t.projectType),
+        ),
+      ),
+    ],
+    [ofKind],
+  );
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
     return ofKind.filter((t) => {
       if (category !== "All" && t.category !== category) return false;
+      if (
+        kind === "estimate" &&
+        projectTypeFilter !== "All" &&
+        (t as EstimateTemplate).projectType !== projectTypeFilter
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         t.name.toLowerCase().includes(q) ||
@@ -690,7 +711,7 @@ function TemplatesPage() {
         t.tags.some((tag) => tag.toLowerCase().includes(q))
       );
     });
-  }, [ofKind, query, category]);
+  }, [ofKind, query, category, kind, projectTypeFilter]);
 
   const selected = items.find((t) => t.id === selectedId && t.kind === kind) ?? filtered[0];
 
@@ -698,6 +719,7 @@ function TemplatesPage() {
   const switchKind = (k: TemplateKind) => {
     setKind(k);
     setCategory("All");
+    setProjectTypeFilter("All");
     setQuery("");
     const first = items.find((t) => t.kind === k);
     if (first) setSelectedId(first.id);
@@ -845,6 +867,27 @@ function TemplatesPage() {
                 </button>
               ))}
             </div>
+            {kind === "estimate" && projectTypes.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Project type
+                </span>
+                {projectTypes.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setProjectTypeFilter(p)}
+                    className={
+                      "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors " +
+                      (projectTypeFilter === p
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-muted-foreground hover:bg-secondary/50")
+                    }
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <ScrollArea className="max-h-[640px] flex-1">
             <div className="divide-y">
