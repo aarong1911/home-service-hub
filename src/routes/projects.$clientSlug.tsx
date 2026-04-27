@@ -1116,7 +1116,12 @@ function CommunicationsTab({ project }: { project: Project }) {
   };
 
   const insertTemplate = (t: SharedMessageTemplate) => {
-    if (draft.trim().length > 0) {
+    const subjectCollides =
+      t.channel === "email" &&
+      !!t.subject &&
+      subject.trim().length > 0 &&
+      resolveMergeTags(t.subject, mergeCtx) !== subject.trim();
+    if (draft.trim().length > 0 || subjectCollides) {
       setPendingTemplate(t);
       return;
     }
