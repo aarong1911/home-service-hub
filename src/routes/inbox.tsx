@@ -50,6 +50,7 @@ import {
   resolveMergeTags,
   type MergeContext,
   type SharedMessageTemplate,
+  type TemplateInsertLog,
 } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
