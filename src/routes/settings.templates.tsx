@@ -760,6 +760,7 @@ function TemplatesPage() {
   const [selectedId, setSelectedId] = useState<string>(SEED[0].id);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [autoSyncPlans, setAutoSyncPlans] = useState<boolean>(true);
 
   const ofKind = useMemo(() => items.filter((t) => t.kind === kind), [items, kind]);
   const categories = useMemo(() => ["All", ...Array.from(new Set(ofKind.map((t) => t.category)))], [ofKind]);
