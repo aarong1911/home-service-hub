@@ -1088,6 +1088,7 @@ function CommunicationsTab({ project }: { project: Project }) {
   const [draft, setDraft] = useState("");
   const [subject, setSubject] = useState("");
   const [tplOpen, setTplOpen] = useState(false);
+  const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
 
   const mergeCtx: MergeContext = useMemo(() => {
     const [first, ...rest] = project.client.split(" ");
@@ -1101,16 +1102,25 @@ function CommunicationsTab({ project }: { project: Project }) {
     };
   }, [project]);
 
-  const insertTemplate = (t: SharedMessageTemplate) => {
+  const writeTemplate = (t: SharedMessageTemplate, mode: "replace" | "append") => {
     setComposer(t.channel === "email" ? "Email" : "SMS");
     const body = resolveMergeTags(t.body, mergeCtx);
-    setDraft((prev) => (prev ? `${prev}\n\n${body}` : body));
+    setDraft((prev) => (mode === "append" && prev.trim() ? `${prev}\n\n${body}` : body));
     if (t.channel === "email" && t.subject) {
-      setSubject(resolveMergeTags(t.subject, mergeCtx));
+      const nextSubject = resolveMergeTags(t.subject, mergeCtx);
+      setSubject((prev) => (mode === "append" && prev.trim() ? prev : nextSubject));
     }
     recordTemplateUse(t.id);
     setTplOpen(false);
-    toast.success(`Inserted "${t.name}"`);
+    toast.success(mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`);
+  };
+
+  const insertTemplate = (t: SharedMessageTemplate) => {
+    if (draft.trim().length > 0) {
+      setPendingTemplate(t);
+      return;
+    }
+    writeTemplate(t, "replace");
   };
 
   const counts = {
