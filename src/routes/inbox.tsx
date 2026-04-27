@@ -126,6 +126,17 @@ function bodyToneClass(action: TemplateInsertLog["bodyAction"] | TemplateInsertL
   }
 }
 
+function formatLogTs(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const date = d.toISOString().slice(5, 10).replace("-", "/"); // MM/DD
+    const time = d.toLocaleTimeString(undefined, { hour12: false });
+    return `${date} ${time}`;
+  } catch {
+    return iso;
+  }
+}
+
 function InboxPage() {
   const { templateId } = Route.useSearch();
   const navigate = useNavigate({ from: "/inbox" });
@@ -264,6 +275,7 @@ function InboxPage() {
       mode,
       subjectAction,
       bodyAction,
+      userName: "sales@yourco.com",
     };
     appendInsertLog(entry);
     // eslint-disable-next-line no-console
@@ -657,12 +669,22 @@ function InboxPage() {
                     ) : (
                       insertLog.map((e, i) => (
                         <div key={i} className="border-t border-border/60 py-1 first:border-0 first:pt-0">
-                          <span className="text-muted-foreground">{e.ts.slice(11, 19)}</span>{" "}
-                          <span className="font-semibold">{e.templateName}</span>{" "}
-                          <span className="text-muted-foreground">[{e.channel}]</span> →{" "}
-                          mode=<span className="font-semibold">{e.mode}</span>{" "}
-                          body=<span className={bodyToneClass(e.bodyAction)}>{e.bodyAction}</span>{" "}
-                          subject=<span className={bodyToneClass(e.subjectAction)}>{e.subjectAction}</span>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="text-muted-foreground" title={e.ts}>{formatLogTs(e.ts)}</span>
+                            {e.userName && (
+                              <span className="text-muted-foreground">· user=<span className="text-foreground">{e.userName}</span></span>
+                            )}
+                            {e.clientSlug && (
+                              <span className="text-muted-foreground">· client=<span className="text-foreground">{e.clientSlug}</span></span>
+                            )}
+                            <span className="font-semibold">{e.templateName}</span>
+                            <span className="text-muted-foreground">[{e.channel}]</span>
+                          </div>
+                          <div className="pl-1 text-muted-foreground">
+                            mode=<span className="font-semibold text-foreground">{e.mode}</span>{" "}
+                            body=<span className={bodyToneClass(e.bodyAction)}>{e.bodyAction}</span>{" "}
+                            subject=<span className={bodyToneClass(e.subjectAction)}>{e.subjectAction}</span>
+                          </div>
                         </div>
                       ))
                     )}

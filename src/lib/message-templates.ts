@@ -95,6 +95,10 @@ export type TemplateInsertLog = {
   mode: "replace" | "append";
   subjectAction: "replace" | "append" | "noop" | "n/a";
   bodyAction: "replace" | "append" | "noop";
+  /** Best-effort current user (e.g. composer's "from" identity or project owner). */
+  userName?: string;
+  /** Project slug when the insertion happened on a project page. */
+  clientSlug?: string;
 };
 
 // Persistence for the composer debug log so users can review prior
