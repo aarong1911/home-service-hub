@@ -823,43 +823,45 @@ function TemplatesPage() {
                       />
                     </button>
                   </div>
-                  {t.kind === "form" && (
-                    <div className="mt-1.5 flex justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 text-[10px]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPreviewId(t.id);
-                        }}
-                      >
-                        <Eye className="h-3 w-3" /> Preview
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 text-[10px]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedId(t.id);
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" /> Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 text-[10px] text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteId(t.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" /> Delete
-                      </Button>
-                    </div>
-                  )}
+                  <div className="mt-1.5 flex justify-end gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[10px]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewId(t.id);
+                      }}
+                    >
+                      <Eye className="h-3 w-3" /> Preview
+                    </Button>
+                    {t.kind === "form" && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedId(t.id);
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" /> Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[10px] text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteId(t.id);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" /> Delete
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </button>
               ))}
               {filtered.length === 0 && (
@@ -988,22 +990,24 @@ function TemplatesPage() {
         </Card>
       </div>
 
-      {/* Form preview modal */}
+      {/* Live preview modal */}
       <Dialog open={previewId !== null} onOpenChange={(o) => !o && setPreviewId(null)}>
-        <DialogContent className="max-w-xl p-0">
+        <DialogContent className="max-w-2xl p-0">
           {(() => {
             const pt = items.find((x) => x.id === previewId);
-            if (!pt || pt.kind !== "form") return null;
+            if (!pt) return null;
             return (
               <>
                 <DialogHeader className="border-b px-5 py-4">
                   <DialogTitle className="text-base">{pt.name}</DialogTitle>
                   <DialogDescription className="text-xs">
-                    Live preview — submissions create a real lead in your pipeline.
+                    {pt.kind === "form"
+                      ? "Live preview — submissions create a real lead in your pipeline."
+                      : "Live preview of this template."}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[70vh] overflow-auto bg-muted/20 p-4">
-                  <FormPreview t={pt} />
+                  <Preview t={pt} />
                 </div>
               </>
             );
