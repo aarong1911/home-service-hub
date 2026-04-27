@@ -264,6 +264,7 @@ function InboxPage() {
       mode,
       subjectAction,
       bodyAction,
+      userName: "sales@yourco.com",
     };
     appendInsertLog(entry);
     // eslint-disable-next-line no-console
