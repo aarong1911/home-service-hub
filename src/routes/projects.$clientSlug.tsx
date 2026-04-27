@@ -1108,7 +1108,11 @@ function CommunicationsTab({ project }: { project: Project }) {
     setDraft((prev) => (mode === "append" && prev.trim() ? `${prev}\n\n${body}` : body));
     if (t.channel === "email" && t.subject) {
       const nextSubject = resolveMergeTags(t.subject, mergeCtx);
-      setSubject((prev) => (mode === "append" && prev.trim() ? prev : nextSubject));
+      setSubject((prev) => {
+        if (mode === "append" && prev.trim()) return prev;
+        if (prev.trim() === nextSubject) return prev;
+        return nextSubject;
+      });
     }
     recordTemplateUse(t.id);
     setTplOpen(false);
