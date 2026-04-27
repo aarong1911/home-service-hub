@@ -1203,6 +1203,15 @@ function MessageEditor({ t, onChange }: { t: MessageTemplate; onChange: (p: Part
 function EstimateEditor({ t, onChange }: { t: EstimateTemplate; onChange: (p: Partial<EstimateTemplate>) => void }) {
   const subtotal = t.lines.reduce((s, l) => s + l.qty * l.price, 0);
   const total = subtotal * (1 + t.markup / 100);
+  const updateLine = (idx: number, patch: Partial<EstimateLine>) => {
+    onChange({ lines: t.lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)) });
+  };
+  const removeLine = (idx: number) => {
+    onChange({ lines: t.lines.filter((_, i) => i !== idx) });
+  };
+  const addLine = () => {
+    onChange({ lines: [...t.lines, { name: "New line item", qty: 1, unit: "lot", price: 0 }] });
+  };
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
@@ -1225,24 +1234,76 @@ function EstimateEditor({ t, onChange }: { t: EstimateTemplate; onChange: (p: Pa
         </div>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Line items ({t.lines.length})</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Line items ({t.lines.length})</Label>
+          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={addLine}>
+            <Plus className="h-3 w-3" /> Add line
+          </Button>
+        </div>
         <div className="max-h-56 overflow-auto rounded-md border">
           <table className="w-full text-xs">
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-2 py-1 text-left font-medium">Item</th>
-                <th className="px-2 py-1 text-right font-medium">Qty</th>
-                <th className="px-2 py-1 text-right font-medium">Total</th>
+                <th className="px-2 py-1 text-right font-medium w-16">Qty</th>
+                <th className="px-2 py-1 text-left font-medium w-14">Unit</th>
+                <th className="px-2 py-1 text-right font-medium w-20">Rate</th>
+                <th className="px-2 py-1 text-right font-medium w-20">Total</th>
+                <th className="px-1 py-1 w-6"></th>
               </tr>
             </thead>
             <tbody>
               {t.lines.map((l, i) => (
                 <tr key={i} className="border-t">
-                  <td className="px-2 py-1">{l.name}</td>
-                  <td className="px-2 py-1 text-right tabular-nums">{l.qty} {l.unit}</td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      value={l.name}
+                      onChange={(e) => updateLine(i, { name: e.target.value })}
+                      className="h-7 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-1"
+                    />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      type="number"
+                      value={l.qty}
+                      onChange={(e) => updateLine(i, { qty: Number(e.target.value) || 0 })}
+                      className="h-7 border-0 bg-transparent px-1 text-right text-xs tabular-nums shadow-none focus-visible:ring-1"
+                    />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      value={l.unit}
+                      onChange={(e) => updateLine(i, { unit: e.target.value })}
+                      className="h-7 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-1"
+                    />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      type="number"
+                      value={l.price}
+                      onChange={(e) => updateLine(i, { price: Number(e.target.value) || 0 })}
+                      className="h-7 border-0 bg-transparent px-1 text-right text-xs tabular-nums shadow-none focus-visible:ring-1"
+                    />
+                  </td>
                   <td className="px-2 py-1 text-right tabular-nums">{formatMoney(l.qty * l.price)}</td>
+                  <td className="px-1 py-1 text-right">
+                    <button
+                      onClick={() => removeLine(i)}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Remove line"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </td>
                 </tr>
               ))}
+              {t.lines.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    No line items yet — click "Add line" to start.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
