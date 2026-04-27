@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ import {
   Bed,
   Bath as BathIcon,
   Home,
+  Sparkles,
+  ListChecks,
 } from "lucide-react";
 import {
   getProjectBySlug,
@@ -36,6 +38,18 @@ import {
   type ProjectStage,
   type ProjectTask,
 } from "@/lib/mock-data";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
+import { Badge as UiBadge } from "@/components/ui/badge";
+import { planTemplates, type SharedPlanTemplate } from "@/lib/plan-templates";
+import { TemplatePicker } from "@/components/inbox/template-picker";
+import { resolveMergeTags, type SharedMessageTemplate, type MergeContext } from "@/lib/message-templates";
+import { recordTemplateUse } from "@/lib/recent-templates";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/projects/$clientSlug")({
   loader: ({ params }) => {
