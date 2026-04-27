@@ -1095,6 +1095,17 @@ function insertActionTone(action: TemplateInsertLog["bodyAction"] | TemplateInse
   }
 }
 
+function formatInsertLogTs(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const date = d.toISOString().slice(5, 10).replace("-", "/");
+    const time = d.toLocaleTimeString(undefined, { hour12: false });
+    return `${date} ${time}`;
+  } catch {
+    return iso;
+  }
+}
+
 function CommunicationsTab({ project }: { project: Project }) {
   const [filter, setFilter] = useState<"All" | CommChannel>("All");
   const [selected, setSelected] = useState<string>("c1");
