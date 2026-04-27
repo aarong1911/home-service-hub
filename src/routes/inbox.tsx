@@ -198,14 +198,36 @@ function InboxPage() {
 
   const writeTemplate = (t: SharedMessageTemplate, mode: "replace" | "append") => {
     const body = resolveMergeTags(t.body, mergeCtx);
-    setDraft((prev) => (mode === "append" && prev.trim() ? `${prev}\n\n${body}` : body));
+    let bodyAction: "replace" | "append" | "noop" = "replace";
+    setDraft((prev) => {
+      if (mode === "append" && prev.trim()) {
+        if (prev.includes(body)) {
+          bodyAction = "noop";
+          return prev;
+        }
+        bodyAction = "append";
+        return `${prev}\n\n${body}`;
+      }
+      if (prev === body) {
+        bodyAction = "noop";
+        return prev;
+      }
+      bodyAction = "replace";
+      return body;
+    });
+    let subjectAction: "replace" | "append" | "noop" | "n/a" = "n/a";
     if (t.channel === "email" && t.subject) {
       const nextSubject = resolveMergeTags(t.subject, mergeCtx);
       setSubject((prev) => {
-        // Append: never touch existing subject.
-        if (mode === "append" && prev.trim()) return prev;
-        // Replace: skip if identical to avoid a redundant write / duplicate state churn.
-        if (prev.trim() === nextSubject) return prev;
+        if (mode === "append" && prev.trim()) {
+          subjectAction = "noop";
+          return prev;
+        }
+        if (prev.trim() === nextSubject) {
+          subjectAction = "noop";
+          return prev;
+        }
+        subjectAction = "replace";
         return nextSubject;
       });
       if (composeChannel !== "email") setComposeChannel("email");
@@ -215,7 +237,23 @@ function InboxPage() {
     setTplOpen(false);
     setTplSearch("");
     recordTemplateUse(t.id);
-    toast.success(mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`);
+    const entry: TemplateInsertLog = {
+      ts: new Date().toISOString(),
+      surface: "inbox",
+      templateId: t.id,
+      templateName: t.name,
+      channel: t.channel,
+      mode,
+      subjectAction,
+      bodyAction,
+    };
+    setInsertLog((log) => [entry, ...log].slice(0, 20));
+    // eslint-disable-next-line no-console
+    console.debug("[template-insert]", entry);
+    toast.success(
+      mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`,
+      { description: `body: ${bodyAction}${t.channel === "email" ? ` · subject: ${subjectAction}` : ""}` },
+    );
   };
 
   const applyTemplate = (t: SharedMessageTemplate) => {
