@@ -96,3 +96,79 @@ export type TemplateInsertLog = {
   subjectAction: "replace" | "append" | "noop" | "n/a";
   bodyAction: "replace" | "append" | "noop";
 };
+
+// Persistence for the composer debug log so users can review prior
+// Replace/Append/no-op decisions across page refreshes.
+import { useEffect, useState } from "react";
+
+const LOG_MAX = 20;
+const LOG_EVENT = "template-insert-log-change";
+
+function logKey(surface: TemplateInsertLog["surface"]): string {
+  return `composer.templateInsertLog.${surface}`;
+}
+
+function readLog(surface: TemplateInsertLog["surface"]): TemplateInsertLog[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(logKey(surface));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((e): e is TemplateInsertLog =>
+      !!e && typeof e === "object" && typeof (e as TemplateInsertLog).ts === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeLog(surface: TemplateInsertLog["surface"], entries: TemplateInsertLog[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(logKey(surface), JSON.stringify(entries.slice(0, LOG_MAX)));
+    window.dispatchEvent(new CustomEvent(LOG_EVENT, { detail: { surface } }));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+/**
+ * Persistent template-insertion debug log, scoped per surface.
+ * Returns [entries, append, clear].
+ */
+export function usePersistentInsertLog(
+  surface: TemplateInsertLog["surface"],
+): [TemplateInsertLog[], (entry: TemplateInsertLog) => void, () => void] {
+  const [entries, setEntries] = useState<TemplateInsertLog[]>(() => readLog(surface));
+
+  useEffect(() => {
+    const sync = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { surface?: string } | undefined;
+      if (detail?.surface && detail.surface !== surface) return;
+      setEntries(readLog(surface));
+    };
+    const storageSync = (e: StorageEvent) => {
+      if (e.key === logKey(surface)) setEntries(readLog(surface));
+    };
+    window.addEventListener(LOG_EVENT, sync);
+    window.addEventListener("storage", storageSync);
+    return () => {
+      window.removeEventListener(LOG_EVENT, sync);
+      window.removeEventListener("storage", storageSync);
+    };
+  }, [surface]);
+
+  const append = (entry: TemplateInsertLog) => {
+    const next = [entry, ...readLog(surface)].slice(0, LOG_MAX);
+    writeLog(surface, next);
+    setEntries(next);
+  };
+
+  const clear = () => {
+    writeLog(surface, []);
+    setEntries([]);
+  };
+
+  return [entries, append, clear];
+}
