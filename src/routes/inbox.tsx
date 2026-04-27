@@ -51,6 +51,7 @@ import {
   type MergeContext,
   type SharedMessageTemplate,
   type TemplateInsertLog,
+  usePersistentInsertLog,
 } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -139,7 +140,7 @@ function InboxPage() {
   const [tplSearch, setTplSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
-  const [insertLog, setInsertLog] = useState<TemplateInsertLog[]>([]);
+  const [insertLog, appendInsertLog, clearInsertLog] = usePersistentInsertLog("inbox");
   const [showInsertLog, setShowInsertLog] = useState(false);
 
   const conversations = useMemo(() => {
@@ -264,7 +265,7 @@ function InboxPage() {
       subjectAction,
       bodyAction,
     };
-    setInsertLog((log) => [entry, ...log].slice(0, 20));
+    appendInsertLog(entry);
     // eslint-disable-next-line no-console
     console.debug("[template-insert]", entry);
     toast.success(
@@ -646,7 +647,7 @@ function InboxPage() {
                       <button
                         type="button"
                         className="text-muted-foreground hover:text-foreground"
-                        onClick={() => setInsertLog([])}
+                        onClick={clearInsertLog}
                       >
                         clear
                       </button>
