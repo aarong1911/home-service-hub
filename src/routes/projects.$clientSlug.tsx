@@ -555,7 +555,35 @@ function InvoiceStatus({ status }: { status: "Paid" | "Sent" | "Overdue" | "Draf
 
 // ============= SCHEDULE & TASKS =============
 function ScheduleTab({ project }: { project: Project }) {
+  const [, forceTick] = useState(0);
+  const [planOpen, setPlanOpen] = useState(false);
   const tasks = projectTasks[project.id] ?? [];
+
+  const applyPlan = (tpl: SharedPlanTemplate) => {
+    const start = new Date();
+    const colors = ["bg-purple-100 text-purple-700", "bg-emerald-100 text-emerald-700", "bg-orange-100 text-orange-700", "bg-amber-100 text-amber-700", "bg-sky-100 text-sky-700"];
+    let cursor = 0;
+    const newTasks: ProjectTask[] = tpl.tasks.map((t, i) => {
+      const due = new Date(start.getTime() + (cursor + t.days) * 86400000);
+      cursor += t.days;
+      return {
+        id: `pt-${project.id}-${Date.now()}-${i}`,
+        projectId: project.id,
+        title: t.name,
+        status: "not-started",
+        due: due.toISOString().slice(0, 10),
+        assigneeInitials: (t.trade ?? "TBD").slice(0, 2).toUpperCase(),
+        assigneeColor: colors[i % colors.length],
+      };
+    });
+    projectTasks[project.id] = [...newTasks, ...tasks];
+    setPlanOpen(false);
+    forceTick((n) => n + 1);
+    toast.success(`Applied "${tpl.name}" — ${newTasks.length} tasks added`, {
+      description: `Estimated ${tpl.durationDays}-day schedule starting today.`,
+    });
+  };
+
   const cols: { key: ProjectTask["status"]; label: string; tone: string }[] = [
     { key: "not-started", label: "Not Started", tone: "muted" },
     { key: "in-progress", label: "In Progress", tone: "primary" },
@@ -580,7 +608,12 @@ function ScheduleTab({ project }: { project: Project }) {
           <span className="ml-2 text-xs text-muted-foreground">Status: All</span>
           <span className="text-xs text-muted-foreground">Owner: All</span>
         </div>
-        <Button size="sm" className="h-8"><Plus className="mr-1.5 h-3.5 w-3.5" /> Add Task</Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="h-8" onClick={() => setPlanOpen(true)}>
+            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" /> Apply plan template
+          </Button>
+          <Button size="sm" className="h-8"><Plus className="mr-1.5 h-3.5 w-3.5" /> Add Task</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -623,7 +656,117 @@ function ScheduleTab({ project }: { project: Project }) {
           );
         })}
       </div>
+
+      <ApplyPlanDialog
+        open={planOpen}
+        onOpenChange={setPlanOpen}
+        project={project}
+        onApply={applyPlan}
+      />
     </>
+  );
+}
+
+function ApplyPlanDialog({
+  open, onOpenChange, project, onApply,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  project: Project;
+  onApply: (tpl: SharedPlanTemplate) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  // Sort: matching project type first, then starred, then most-used
+  const ordered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? planTemplates.filter((t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.category.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q),
+        )
+      : planTemplates;
+    return [...filtered].sort((a, b) => {
+      const aMatch = a.projectType.toLowerCase() === project.type.toLowerCase() ? 1 : 0;
+      const bMatch = b.projectType.toLowerCase() === project.type.toLowerCase() ? 1 : 0;
+      if (aMatch !== bMatch) return bMatch - aMatch;
+      if (a.starred !== b.starred) return a.starred ? -1 : 1;
+      return b.uses - a.uses;
+    });
+  }, [query, project.type]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Apply plan template
+          </DialogTitle>
+          <DialogDescription>
+            Seed this project's schedule with a plan template. Existing tasks are preserved — new tasks are added at the top with due dates starting today.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search plan templates…"
+            className="h-9 pl-8 text-sm"
+            autoFocus
+          />
+        </div>
+
+        <div className="grid max-h-[420px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+          {ordered.map((t) => {
+            const isMatch = t.projectType.toLowerCase() === project.type.toLowerCase();
+            return (
+              <button
+                key={t.id}
+                onClick={() => onApply(t)}
+                className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/60 hover:bg-secondary/30"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold">{t.name}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <UiBadge variant="outline" className="h-4 px-1.5 text-[9px]">{t.category}</UiBadge>
+                      {isMatch && (
+                        <UiBadge variant="secondary" className="h-4 bg-primary-soft px-1.5 text-[9px] text-primary">
+                          Matches project
+                        </UiBadge>
+                      )}
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </div>
+                <p className="line-clamp-2 text-[11px] text-muted-foreground">{t.description}</p>
+                <div className="mt-auto flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground">
+                    {t.tasks.length} tasks · {t.durationDays}d
+                  </span>
+                  <span className="text-muted-foreground">{t.uses} uses</span>
+                </div>
+              </button>
+            );
+          })}
+          {ordered.length === 0 && (
+            <div className="col-span-full py-10 text-center text-xs text-muted-foreground">
+              No plan templates match "{query}".
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
