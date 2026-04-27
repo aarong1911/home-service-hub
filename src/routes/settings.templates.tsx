@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Mail, MessageSquare, FileSpreadsheet, ListChecks, FileText, Plus, Search, Star,
-  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon, Pencil,
+  Copy, Trash2, Send, Eye, BarChart3, Clock, TrendingUp, ClipboardList, Code2, Phone, AlertTriangle, Calendar, Image as ImageIcon, Pencil, RefreshCw,
 } from "lucide-react";
 import { formatMoney } from "@/lib/format";
 import { toast } from "sonner";
@@ -760,6 +760,7 @@ function TemplatesPage() {
   const [selectedId, setSelectedId] = useState<string>(SEED[0].id);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [autoSyncPlans, setAutoSyncPlans] = useState<boolean>(true);
 
   const ofKind = useMemo(() => items.filter((t) => t.kind === kind), [items, kind]);
   const categories = useMemo(() => ["All", ...Array.from(new Set(ofKind.map((t) => t.category)))], [ofKind]);
@@ -882,6 +883,59 @@ function TemplatesPage() {
     return { totalUses, avgOpen, avgReply, top };
   }, [ofKind]);
 
+  // Auto-sync project plans from estimate categories.
+  // For every estimate category without a matching plan, create a starter plan
+  // whose tasks mirror the estimate line items (1 day each, "Build" phase).
+  const syncPlansFromEstimates = (silent = false) => {
+    setItems((prev) => {
+      const estimates = prev.filter((t): t is EstimateTemplate => t.kind === "estimate");
+      const planCategories = new Set(
+        prev.filter((t) => t.kind === "plan").map((t) => t.category.toLowerCase()),
+      );
+      // Pick one representative estimate per category (highest uses).
+      const byCategory = new Map<string, EstimateTemplate>();
+      for (const e of estimates) {
+        const key = e.category.toLowerCase();
+        const existing = byCategory.get(key);
+        if (!existing || e.uses > existing.uses) byCategory.set(key, e);
+      }
+      const additions: PlanTemplate[] = [];
+      for (const [key, est] of byCategory) {
+        if (planCategories.has(key)) continue;
+        const tasks: PlanTask[] = est.lines.length
+          ? est.lines.map((l) => ({ name: l.name, phase: "Build", days: 1 }))
+          : [{ name: "Scope of work", phase: "Build", days: 1 }];
+        additions.push({
+          id: `plan-sync-${key}-${Date.now()}`,
+          kind: "plan",
+          name: `${est.category} — plan (synced)`,
+          category: est.category,
+          description: `Auto-generated from estimate "${est.name}". Edit phases and durations to fit your typical schedule.`,
+          tags: ["synced", est.category.toLowerCase()],
+          owner: "System",
+          updatedAt: new Date().toISOString().slice(0, 10),
+          uses: 0,
+          starred: false,
+          projectType: est.projectType,
+          durationDays: tasks.reduce((s, t) => s + t.days, 0),
+          tasks,
+        });
+      }
+      if (!additions.length) {
+        if (!silent) toast.info("Plans already cover every estimate category.");
+        return prev;
+      }
+      if (!silent) toast.success(`Synced ${additions.length} plan${additions.length === 1 ? "" : "s"} from estimates.`);
+      return [...additions, ...prev];
+    });
+  };
+
+  // Run auto-sync silently on mount and whenever the toggle is turned on.
+  useEffect(() => {
+    if (autoSyncPlans) syncPlansFromEstimates(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSyncPlans]);
+
   return (
     <div className="space-y-4">
       {/* Kind tabs */}
@@ -970,6 +1024,38 @@ function TemplatesPage() {
                     {p}
                   </button>
                 ))}
+              </div>
+            )}
+            {kind === "plan" && (
+              <div className="rounded-md border border-dashed bg-muted/30 p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                      <RefreshCw className="h-3 w-3 text-primary" />
+                      Sync with estimates
+                    </div>
+                    <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                      Auto-create a plan for every estimate category.
+                    </p>
+                  </div>
+                  <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={autoSyncPlans}
+                      onChange={(e) => setAutoSyncPlans(e.target.checked)}
+                      className="h-3 w-3 accent-primary"
+                    />
+                    Auto
+                  </label>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 h-6 w-full text-[10px]"
+                  onClick={() => syncPlansFromEstimates(false)}
+                >
+                  <RefreshCw className="h-3 w-3" /> Sync now
+                </Button>
               </div>
             )}
           </div>
