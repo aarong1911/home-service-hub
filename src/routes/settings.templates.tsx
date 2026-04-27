@@ -1247,11 +1247,7 @@ function renderMerged(text: string) {
     const match = p.match(/^\{\{([^}]+)\}\}$/);
     if (match) {
       const val = SAMPLE[match[1].trim()];
-      return (
-        <span key={i} className="rounded bg-primary/10 px-1 text-primary">
-          {val ?? p}
-        </span>
-      );
+      return <span key={i}>{val ?? p}</span>;
     }
     return <span key={i}>{p}</span>;
   });
