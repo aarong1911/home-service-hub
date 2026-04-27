@@ -1321,14 +1321,18 @@ function EstimateEditor({ t, onChange }: { t: EstimateTemplate; onChange: (p: Pa
 }
 
 function PlanEditor({ t, onChange }: { t: PlanTemplate; onChange: (p: Partial<PlanTemplate>) => void }) {
+  const sumDays = (tasks: PlanTask[]) => tasks.reduce((s, task) => s + (Number(task.days) || 0), 0);
+  const applyTasks = (tasks: PlanTask[]) => {
+    onChange({ tasks, durationDays: sumDays(tasks) });
+  };
   const updateTask = (idx: number, patch: Partial<PlanTask>) => {
-    onChange({ tasks: t.tasks.map((task, i) => (i === idx ? { ...task, ...patch } : task)) });
+    applyTasks(t.tasks.map((task, i) => (i === idx ? { ...task, ...patch } : task)));
   };
   const removeTask = (idx: number) => {
-    onChange({ tasks: t.tasks.filter((_, i) => i !== idx) });
+    applyTasks(t.tasks.filter((_, i) => i !== idx));
   };
   const addTask = () => {
-    onChange({ tasks: [...t.tasks, { name: "New task", phase: "Pre-con", days: 1 }] });
+    applyTasks([...t.tasks, { name: "New task", phase: "Pre-con", days: 1 }]);
   };
   return (
     <div className="space-y-3">
@@ -1342,12 +1346,13 @@ function PlanEditor({ t, onChange }: { t: PlanTemplate; onChange: (p: Partial<Pl
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Duration (days)</Label>
+          <Label className="text-xs">Duration (days) · auto</Label>
           <Input
             type="number"
-            value={t.durationDays}
-            onChange={(e) => onChange({ durationDays: Number(e.target.value) || 0 })}
-            className="h-8 text-sm"
+            value={sumDays(t.tasks)}
+            readOnly
+            tabIndex={-1}
+            className="h-8 bg-muted/40 text-sm"
           />
         </div>
       </div>
