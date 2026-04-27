@@ -1081,6 +1081,20 @@ const followUp: CommMsg = {
   body: "Perfect. We'll be out of the house by 8:30 — code's still 4729.", time: "11:02 AM",
 };
 
+function insertActionTone(action: TemplateInsertLog["bodyAction"] | TemplateInsertLog["subjectAction"]): string {
+  switch (action) {
+    case "replace":
+      return "text-warning";
+    case "append":
+      return "text-primary";
+    case "noop":
+      return "text-muted-foreground";
+    case "n/a":
+    default:
+      return "text-muted-foreground/60";
+  }
+}
+
 function CommunicationsTab({ project }: { project: Project }) {
   const [filter, setFilter] = useState<"All" | CommChannel>("All");
   const [selected, setSelected] = useState<string>("c1");
