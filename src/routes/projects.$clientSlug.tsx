@@ -49,6 +49,16 @@ import { planTemplates, type SharedPlanTemplate } from "@/lib/plan-templates";
 import { TemplatePicker } from "@/components/inbox/template-picker";
 import { resolveMergeTags, type SharedMessageTemplate, type MergeContext } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/projects/$clientSlug")({
@@ -1078,6 +1088,7 @@ function CommunicationsTab({ project }: { project: Project }) {
   const [draft, setDraft] = useState("");
   const [subject, setSubject] = useState("");
   const [tplOpen, setTplOpen] = useState(false);
+  const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
 
   const mergeCtx: MergeContext = useMemo(() => {
     const [first, ...rest] = project.client.split(" ");
@@ -1091,16 +1102,25 @@ function CommunicationsTab({ project }: { project: Project }) {
     };
   }, [project]);
 
-  const insertTemplate = (t: SharedMessageTemplate) => {
+  const writeTemplate = (t: SharedMessageTemplate, mode: "replace" | "append") => {
     setComposer(t.channel === "email" ? "Email" : "SMS");
     const body = resolveMergeTags(t.body, mergeCtx);
-    setDraft((prev) => (prev ? `${prev}\n\n${body}` : body));
+    setDraft((prev) => (mode === "append" && prev.trim() ? `${prev}\n\n${body}` : body));
     if (t.channel === "email" && t.subject) {
-      setSubject(resolveMergeTags(t.subject, mergeCtx));
+      const nextSubject = resolveMergeTags(t.subject, mergeCtx);
+      setSubject((prev) => (mode === "append" && prev.trim() ? prev : nextSubject));
     }
     recordTemplateUse(t.id);
     setTplOpen(false);
-    toast.success(`Inserted "${t.name}"`);
+    toast.success(mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`);
+  };
+
+  const insertTemplate = (t: SharedMessageTemplate) => {
+    if (draft.trim().length > 0) {
+      setPendingTemplate(t);
+      return;
+    }
+    writeTemplate(t, "replace");
   };
 
   const counts = {
@@ -1288,6 +1308,36 @@ function CommunicationsTab({ project }: { project: Project }) {
           </div>
         </SheetContent>
       </Sheet>
+      <AlertDialog open={pendingTemplate !== null} onOpenChange={(o) => { if (!o) setPendingTemplate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace or append your draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You already have text in the composer. Choose whether to append "{pendingTemplate?.name}" to the end or replace what's there.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (pendingTemplate) writeTemplate(pendingTemplate, "append");
+                setPendingTemplate(null);
+              }}
+            >
+              Append
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingTemplate) writeTemplate(pendingTemplate, "replace");
+                setPendingTemplate(null);
+              }}
+            >
+              Replace
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
