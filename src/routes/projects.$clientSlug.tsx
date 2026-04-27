@@ -47,7 +47,7 @@ import {
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { planTemplates, type SharedPlanTemplate } from "@/lib/plan-templates";
 import { TemplatePicker } from "@/components/inbox/template-picker";
-import { resolveMergeTags, type SharedMessageTemplate, type MergeContext } from "@/lib/message-templates";
+import { resolveMergeTags, type SharedMessageTemplate, type MergeContext, type TemplateInsertLog } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
 import {
   AlertDialog,
