@@ -47,7 +47,7 @@ import {
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { planTemplates, type SharedPlanTemplate } from "@/lib/plan-templates";
 import { TemplatePicker } from "@/components/inbox/template-picker";
-import { resolveMergeTags, type SharedMessageTemplate, type MergeContext } from "@/lib/message-templates";
+import { resolveMergeTags, type SharedMessageTemplate, type MergeContext, type TemplateInsertLog } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
 import {
   AlertDialog,
@@ -1081,6 +1081,20 @@ const followUp: CommMsg = {
   body: "Perfect. We'll be out of the house by 8:30 — code's still 4729.", time: "11:02 AM",
 };
 
+function insertActionTone(action: TemplateInsertLog["bodyAction"] | TemplateInsertLog["subjectAction"]): string {
+  switch (action) {
+    case "replace":
+      return "text-warning";
+    case "append":
+      return "text-primary";
+    case "noop":
+      return "text-muted-foreground";
+    case "n/a":
+    default:
+      return "text-muted-foreground/60";
+  }
+}
+
 function CommunicationsTab({ project }: { project: Project }) {
   const [filter, setFilter] = useState<"All" | CommChannel>("All");
   const [selected, setSelected] = useState<string>("c1");
@@ -1089,6 +1103,8 @@ function CommunicationsTab({ project }: { project: Project }) {
   const [subject, setSubject] = useState("");
   const [tplOpen, setTplOpen] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
+  const [insertLog, setInsertLog] = useState<TemplateInsertLog[]>([]);
+  const [showInsertLog, setShowInsertLog] = useState(false);
 
   const mergeCtx: MergeContext = useMemo(() => {
     const [first, ...rest] = project.client.split(" ");
@@ -1105,18 +1121,58 @@ function CommunicationsTab({ project }: { project: Project }) {
   const writeTemplate = (t: SharedMessageTemplate, mode: "replace" | "append") => {
     setComposer(t.channel === "email" ? "Email" : "SMS");
     const body = resolveMergeTags(t.body, mergeCtx);
-    setDraft((prev) => (mode === "append" && prev.trim() ? `${prev}\n\n${body}` : body));
+    let bodyAction: "replace" | "append" | "noop" = "replace";
+    setDraft((prev) => {
+      if (mode === "append" && prev.trim()) {
+        if (prev.includes(body)) {
+          bodyAction = "noop";
+          return prev;
+        }
+        bodyAction = "append";
+        return `${prev}\n\n${body}`;
+      }
+      if (prev === body) {
+        bodyAction = "noop";
+        return prev;
+      }
+      bodyAction = "replace";
+      return body;
+    });
+    let subjectAction: "replace" | "append" | "noop" | "n/a" = "n/a";
     if (t.channel === "email" && t.subject) {
       const nextSubject = resolveMergeTags(t.subject, mergeCtx);
       setSubject((prev) => {
-        if (mode === "append" && prev.trim()) return prev;
-        if (prev.trim() === nextSubject) return prev;
+        if (mode === "append" && prev.trim()) {
+          subjectAction = "noop";
+          return prev;
+        }
+        if (prev.trim() === nextSubject) {
+          subjectAction = "noop";
+          return prev;
+        }
+        subjectAction = "replace";
         return nextSubject;
       });
     }
     recordTemplateUse(t.id);
     setTplOpen(false);
-    toast.success(mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`);
+    const entry: TemplateInsertLog = {
+      ts: new Date().toISOString(),
+      surface: "project-comms",
+      templateId: t.id,
+      templateName: t.name,
+      channel: t.channel,
+      mode,
+      subjectAction,
+      bodyAction,
+    };
+    setInsertLog((log) => [entry, ...log].slice(0, 20));
+    // eslint-disable-next-line no-console
+    console.debug("[template-insert]", entry);
+    toast.success(
+      mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`,
+      { description: `body: ${bodyAction}${t.channel === "email" ? ` · subject: ${subjectAction}` : ""}` },
+    );
   };
 
   const insertTemplate = (t: SharedMessageTemplate) => {
@@ -1292,8 +1348,44 @@ function CommunicationsTab({ project }: { project: Project }) {
                 <ListChecks className="h-3 w-3" /> Templates
               </button>
               <button className="hover:text-foreground">Insert variable</button>
+              <button
+                type="button"
+                onClick={() => setShowInsertLog((v) => !v)}
+                className="hover:text-foreground"
+                title="Toggle template-insert debug log"
+              >
+                Debug ({insertLog.length})
+              </button>
               <span className="ml-auto opacity-0">{project.id}</span>
             </div>
+            {showInsertLog && (
+              <div className="mt-2 max-h-40 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="font-semibold text-muted-foreground">Template insert log</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setInsertLog([])}
+                  >
+                    clear
+                  </button>
+                </div>
+                {insertLog.length === 0 ? (
+                  <div className="text-muted-foreground">No template inserts yet.</div>
+                ) : (
+                  insertLog.map((e, i) => (
+                    <div key={i} className="border-t border-border/60 py-1 first:border-0 first:pt-0">
+                      <span className="text-muted-foreground">{e.ts.slice(11, 19)}</span>{" "}
+                      <span className="font-semibold">{e.templateName}</span>{" "}
+                      <span className="text-muted-foreground">[{e.channel}]</span> →{" "}
+                      mode=<span className="font-semibold">{e.mode}</span>{" "}
+                      body=<span className={insertActionTone(e.bodyAction)}>{e.bodyAction}</span>{" "}
+                      subject=<span className={insertActionTone(e.subjectAction)}>{e.subjectAction}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </Card>
       </div>

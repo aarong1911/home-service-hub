@@ -83,3 +83,16 @@ export function resolveMergeTags(text: string, ctx: MergeContext): string {
     return v ?? full;
   });
 }
+
+// Debug log entry produced by composers when a template is inserted.
+// Tracks whether subject/body were replaced, appended, or left alone.
+export type TemplateInsertLog = {
+  ts: string;
+  surface: "inbox" | "project-comms";
+  templateId: string;
+  templateName: string;
+  channel: MessageChannel;
+  mode: "replace" | "append";
+  subjectAction: "replace" | "append" | "noop" | "n/a";
+  bodyAction: "replace" | "append" | "noop";
+};
