@@ -49,6 +49,16 @@ import { planTemplates, type SharedPlanTemplate } from "@/lib/plan-templates";
 import { TemplatePicker } from "@/components/inbox/template-picker";
 import { resolveMergeTags, type SharedMessageTemplate, type MergeContext } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/projects/$clientSlug")({
