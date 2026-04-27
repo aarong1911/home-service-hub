@@ -1308,6 +1308,36 @@ function CommunicationsTab({ project }: { project: Project }) {
           </div>
         </SheetContent>
       </Sheet>
+      <AlertDialog open={pendingTemplate !== null} onOpenChange={(o) => { if (!o) setPendingTemplate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace or append your draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You already have text in the composer. Choose whether to append "{pendingTemplate?.name}" to the end or replace what's there.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (pendingTemplate) writeTemplate(pendingTemplate, "append");
+                setPendingTemplate(null);
+              }}
+            >
+              Append
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingTemplate) writeTemplate(pendingTemplate, "replace");
+                setPendingTemplate(null);
+              }}
+            >
+              Replace
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
