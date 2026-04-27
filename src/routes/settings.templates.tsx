@@ -1321,6 +1321,15 @@ function EstimateEditor({ t, onChange }: { t: EstimateTemplate; onChange: (p: Pa
 }
 
 function PlanEditor({ t, onChange }: { t: PlanTemplate; onChange: (p: Partial<PlanTemplate>) => void }) {
+  const updateTask = (idx: number, patch: Partial<PlanTask>) => {
+    onChange({ tasks: t.tasks.map((task, i) => (i === idx ? { ...task, ...patch } : task)) });
+  };
+  const removeTask = (idx: number) => {
+    onChange({ tasks: t.tasks.filter((_, i) => i !== idx) });
+  };
+  const addTask = () => {
+    onChange({ tasks: [...t.tasks, { name: "New task", phase: "Pre-con", days: 1 }] });
+  };
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
@@ -1343,24 +1352,74 @@ function PlanEditor({ t, onChange }: { t: PlanTemplate; onChange: (p: Partial<Pl
         </div>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Tasks ({t.tasks.length})</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Tasks ({t.tasks.length})</Label>
+          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={addTask}>
+            <Plus className="h-3 w-3" /> Add task
+          </Button>
+        </div>
         <div className="max-h-72 overflow-auto rounded-md border">
           <table className="w-full text-xs">
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-2 py-1 text-left font-medium">Task</th>
-                <th className="px-2 py-1 text-left font-medium">Phase</th>
-                <th className="px-2 py-1 text-right font-medium">Days</th>
+                <th className="px-2 py-1 text-left font-medium w-28">Phase</th>
+                <th className="px-2 py-1 text-left font-medium w-24">Trade</th>
+                <th className="px-2 py-1 text-right font-medium w-14">Days</th>
+                <th className="px-1 py-1 w-6"></th>
               </tr>
             </thead>
             <tbody>
               {t.tasks.map((task, i) => (
                 <tr key={i} className="border-t">
-                  <td className="px-2 py-1">{task.name}</td>
-                  <td className="px-2 py-1 text-muted-foreground">{task.phase}</td>
-                  <td className="px-2 py-1 text-right tabular-nums">{task.days}</td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      value={task.name}
+                      onChange={(e) => updateTask(i, { name: e.target.value })}
+                      className="h-7 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-1"
+                    />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      value={task.phase}
+                      onChange={(e) => updateTask(i, { phase: e.target.value })}
+                      className="h-7 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-1"
+                    />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      value={task.trade ?? ""}
+                      onChange={(e) => updateTask(i, { trade: e.target.value || undefined })}
+                      placeholder="—"
+                      className="h-7 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-1"
+                    />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <Input
+                      type="number"
+                      value={task.days}
+                      onChange={(e) => updateTask(i, { days: Number(e.target.value) || 0 })}
+                      className="h-7 border-0 bg-transparent px-1 text-right text-xs tabular-nums shadow-none focus-visible:ring-1"
+                    />
+                  </td>
+                  <td className="px-1 py-1 text-right">
+                    <button
+                      onClick={() => removeTask(i)}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Remove task"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </td>
                 </tr>
               ))}
+              {t.tasks.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    No tasks yet — click "Add task" to start.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
