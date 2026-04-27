@@ -1026,6 +1026,38 @@ function TemplatesPage() {
                 ))}
               </div>
             )}
+            {kind === "plan" && (
+              <div className="rounded-md border border-dashed bg-muted/30 p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                      <RefreshCw className="h-3 w-3 text-primary" />
+                      Sync with estimates
+                    </div>
+                    <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                      Auto-create a plan for every estimate category.
+                    </p>
+                  </div>
+                  <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={autoSyncPlans}
+                      onChange={(e) => setAutoSyncPlans(e.target.checked)}
+                      className="h-3 w-3 accent-primary"
+                    />
+                    Auto
+                  </label>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 h-6 w-full text-[10px]"
+                  onClick={() => syncPlansFromEstimates(false)}
+                >
+                  <RefreshCw className="h-3 w-3" /> Sync now
+                </Button>
+              </div>
+            )}
           </div>
           <ScrollArea className="max-h-[640px] flex-1">
             <div className="divide-y">
