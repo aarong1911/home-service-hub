@@ -1089,6 +1089,8 @@ function CommunicationsTab({ project }: { project: Project }) {
   const [subject, setSubject] = useState("");
   const [tplOpen, setTplOpen] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
+  const [insertLog, setInsertLog] = useState<TemplateInsertLog[]>([]);
+  const [showInsertLog, setShowInsertLog] = useState(false);
 
   const mergeCtx: MergeContext = useMemo(() => {
     const [first, ...rest] = project.client.split(" ");
@@ -1105,18 +1107,58 @@ function CommunicationsTab({ project }: { project: Project }) {
   const writeTemplate = (t: SharedMessageTemplate, mode: "replace" | "append") => {
     setComposer(t.channel === "email" ? "Email" : "SMS");
     const body = resolveMergeTags(t.body, mergeCtx);
-    setDraft((prev) => (mode === "append" && prev.trim() ? `${prev}\n\n${body}` : body));
+    let bodyAction: "replace" | "append" | "noop" = "replace";
+    setDraft((prev) => {
+      if (mode === "append" && prev.trim()) {
+        if (prev.includes(body)) {
+          bodyAction = "noop";
+          return prev;
+        }
+        bodyAction = "append";
+        return `${prev}\n\n${body}`;
+      }
+      if (prev === body) {
+        bodyAction = "noop";
+        return prev;
+      }
+      bodyAction = "replace";
+      return body;
+    });
+    let subjectAction: "replace" | "append" | "noop" | "n/a" = "n/a";
     if (t.channel === "email" && t.subject) {
       const nextSubject = resolveMergeTags(t.subject, mergeCtx);
       setSubject((prev) => {
-        if (mode === "append" && prev.trim()) return prev;
-        if (prev.trim() === nextSubject) return prev;
+        if (mode === "append" && prev.trim()) {
+          subjectAction = "noop";
+          return prev;
+        }
+        if (prev.trim() === nextSubject) {
+          subjectAction = "noop";
+          return prev;
+        }
+        subjectAction = "replace";
         return nextSubject;
       });
     }
     recordTemplateUse(t.id);
     setTplOpen(false);
-    toast.success(mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`);
+    const entry: TemplateInsertLog = {
+      ts: new Date().toISOString(),
+      surface: "project-comms",
+      templateId: t.id,
+      templateName: t.name,
+      channel: t.channel,
+      mode,
+      subjectAction,
+      bodyAction,
+    };
+    setInsertLog((log) => [entry, ...log].slice(0, 20));
+    // eslint-disable-next-line no-console
+    console.debug("[template-insert]", entry);
+    toast.success(
+      mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`,
+      { description: `body: ${bodyAction}${t.channel === "email" ? ` · subject: ${subjectAction}` : ""}` },
+    );
   };
 
   const insertTemplate = (t: SharedMessageTemplate) => {
