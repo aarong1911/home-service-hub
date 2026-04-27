@@ -1165,6 +1165,8 @@ function CommunicationsTab({ project }: { project: Project }) {
       mode,
       subjectAction,
       bodyAction,
+      userName: project.ownerName,
+      clientSlug: project.slug,
     };
     appendInsertLog(entry);
     // eslint-disable-next-line no-console
