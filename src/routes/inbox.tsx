@@ -126,6 +126,17 @@ function bodyToneClass(action: TemplateInsertLog["bodyAction"] | TemplateInsertL
   }
 }
 
+function formatLogTs(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const date = d.toISOString().slice(5, 10).replace("-", "/"); // MM/DD
+    const time = d.toLocaleTimeString(undefined, { hour12: false });
+    return `${date} ${time}`;
+  } catch {
+    return iso;
+  }
+}
+
 function InboxPage() {
   const { templateId } = Route.useSearch();
   const navigate = useNavigate({ from: "/inbox" });
