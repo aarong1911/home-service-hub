@@ -47,7 +47,7 @@ import {
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { planTemplates, type SharedPlanTemplate } from "@/lib/plan-templates";
 import { TemplatePicker } from "@/components/inbox/template-picker";
-import { resolveMergeTags, type SharedMessageTemplate, type MergeContext, type TemplateInsertLog } from "@/lib/message-templates";
+import { resolveMergeTags, usePersistentInsertLog, type SharedMessageTemplate, type MergeContext, type TemplateInsertLog } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
 import {
   AlertDialog,
@@ -1103,7 +1103,7 @@ function CommunicationsTab({ project }: { project: Project }) {
   const [subject, setSubject] = useState("");
   const [tplOpen, setTplOpen] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
-  const [insertLog, setInsertLog] = useState<TemplateInsertLog[]>([]);
+  const [insertLog, appendInsertLog, clearInsertLog] = usePersistentInsertLog("project-comms");
   const [showInsertLog, setShowInsertLog] = useState(false);
 
   const mergeCtx: MergeContext = useMemo(() => {
@@ -1166,7 +1166,7 @@ function CommunicationsTab({ project }: { project: Project }) {
       subjectAction,
       bodyAction,
     };
-    setInsertLog((log) => [entry, ...log].slice(0, 20));
+    appendInsertLog(entry);
     // eslint-disable-next-line no-console
     console.debug("[template-insert]", entry);
     toast.success(
@@ -1365,7 +1365,7 @@ function CommunicationsTab({ project }: { project: Project }) {
                   <button
                     type="button"
                     className="text-muted-foreground hover:text-foreground"
-                    onClick={() => setInsertLog([])}
+                    onClick={clearInsertLog}
                   >
                     clear
                   </button>
