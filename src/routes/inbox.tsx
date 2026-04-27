@@ -618,6 +618,15 @@ function InboxPage() {
                     {composeChannel === "note" && "Internal · @mention to notify"}
                   </div>
                   <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-[11px] text-muted-foreground"
+                      onClick={() => setShowInsertLog((v) => !v)}
+                      title="Toggle template-insert debug log"
+                    >
+                      Debug ({insertLog.length})
+                    </Button>
                     <Button variant="outline" size="sm" className="h-8 text-xs">
                       <Clock className="mr-1 h-3 w-3" /> Schedule
                     </Button>
@@ -626,6 +635,34 @@ function InboxPage() {
                     </Button>
                   </div>
                 </div>
+                {showInsertLog && (
+                  <div className="mt-2 max-h-40 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="font-semibold text-muted-foreground">Template insert log</span>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => setInsertLog([])}
+                      >
+                        clear
+                      </button>
+                    </div>
+                    {insertLog.length === 0 ? (
+                      <div className="text-muted-foreground">No template inserts yet.</div>
+                    ) : (
+                      insertLog.map((e, i) => (
+                        <div key={i} className="border-t border-border/60 py-1 first:border-0 first:pt-0">
+                          <span className="text-muted-foreground">{e.ts.slice(11, 19)}</span>{" "}
+                          <span className="font-semibold">{e.templateName}</span>{" "}
+                          <span className="text-muted-foreground">[{e.channel}]</span> →{" "}
+                          mode=<span className="font-semibold">{e.mode}</span>{" "}
+                          body=<span className={bodyToneClass(e.bodyAction)}>{e.bodyAction}</span>{" "}
+                          subject=<span className={bodyToneClass(e.subjectAction)}>{e.subjectAction}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </>
           ) : (
