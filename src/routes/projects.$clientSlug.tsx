@@ -1076,6 +1076,32 @@ function CommunicationsTab({ project }: { project: Project }) {
   const [selected, setSelected] = useState<string>("c1");
   const [composer, setComposer] = useState<"SMS" | "Email">("SMS");
   const [draft, setDraft] = useState("");
+  const [subject, setSubject] = useState("");
+  const [tplOpen, setTplOpen] = useState(false);
+
+  const mergeCtx: MergeContext = useMemo(() => {
+    const [first, ...rest] = project.client.split(" ");
+    return {
+      first_name: first ?? project.client,
+      last_name: rest.join(" "),
+      project_address: project.address,
+      project_type: project.type,
+      owner_name: project.ownerName,
+      company_name: "Marquez Construction",
+    };
+  }, [project]);
+
+  const insertTemplate = (t: SharedMessageTemplate) => {
+    setComposer(t.channel === "email" ? "Email" : "SMS");
+    const body = resolveMergeTags(t.body, mergeCtx);
+    setDraft((prev) => (prev ? `${prev}\n\n${body}` : body));
+    if (t.channel === "email" && t.subject) {
+      setSubject(resolveMergeTags(t.subject, mergeCtx));
+    }
+    recordTemplateUse(t.id);
+    setTplOpen(false);
+    toast.success(`Inserted "${t.name}"`);
+  };
 
   const counts = {
     All: projectComms.length + 39,
@@ -1208,12 +1234,21 @@ function CommunicationsTab({ project }: { project: Project }) {
               </div>
               <button className="text-xs font-medium text-primary hover:underline">✨ AI Draft</button>
             </div>
-            <div className="flex items-end gap-2 rounded-md border bg-background p-2">
+            {composer === "Email" && (
               <Input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Subject"
+                className="mb-2 h-8 text-sm"
+              />
+            )}
+            <div className="flex items-end gap-2 rounded-md border bg-background p-2">
+              <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Type a message..."
-                className="h-8 flex-1 border-0 px-1 shadow-none focus-visible:ring-0"
+                rows={draft.includes("\n") ? 4 : 1}
+                className="min-h-[32px] flex-1 resize-none border-0 bg-transparent px-1 text-sm shadow-none outline-none focus-visible:ring-0"
               />
               <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
                 <Upload className="h-4 w-4" />
@@ -1221,13 +1256,38 @@ function CommunicationsTab({ project }: { project: Project }) {
               <Button size="sm" className="h-8">Send</Button>
             </div>
             <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
-              <button className="hover:text-foreground">Templates</button>
+              <button
+                onClick={() => setTplOpen(true)}
+                className="flex items-center gap-1 font-medium text-primary hover:underline"
+              >
+                <ListChecks className="h-3 w-3" /> Templates
+              </button>
               <button className="hover:text-foreground">Insert variable</button>
               <span className="ml-auto opacity-0">{project.id}</span>
             </div>
           </div>
         </Card>
       </div>
+
+      <Sheet open={tplOpen} onOpenChange={setTplOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-primary" /> Insert message template
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Merge tags will be filled with this project's client and details.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            <TemplatePicker
+              initialChannel={composer === "Email" ? "email" : "sms"}
+              onInsert={insertTemplate}
+              compact
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
