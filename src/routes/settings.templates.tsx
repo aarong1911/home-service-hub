@@ -501,6 +501,72 @@ const SEED: AnyTemplate[] = [
     ],
     notes: "Excludes flooring and HVAC equipment. 12–14 week schedule from permit.",
   },
+  {
+    id: "e4", kind: "estimate", name: "Deck — 320 sqft composite",
+    category: "Outdoor", description: "Pressure-treated frame with composite decking, aluminum railing, and stairs.",
+    tags: ["deck", "outdoor"], owner: "James Park", updatedAt: "2026-04-14", uses: 54, starred: false,
+    projectType: "Deck", markup: 22,
+    lines: [
+      { name: "Permits + design", qty: 1, unit: "lot", price: 1200 },
+      { name: "Footings + posts", qty: 8, unit: "ea", price: 320 },
+      { name: "Pressure-treated framing", qty: 320, unit: "sf", price: 18 },
+      { name: "Composite decking + fasteners", qty: 320, unit: "sf", price: 22 },
+      { name: "Aluminum railing system", qty: 56, unit: "lf", price: 78 },
+      { name: "Stairs (4 risers) + landing", qty: 1, unit: "lot", price: 2400 },
+      { name: "Project management", qty: 1, unit: "lot", price: 2800 },
+    ],
+    notes: "Excludes lighting, gas line, and demo of existing deck. 3–4 week schedule.",
+  },
+  {
+    id: "e5", kind: "estimate", name: "Roof replacement — asphalt shingle",
+    category: "Roofing", description: "Tear-off and re-roof up to 24 squares with architectural shingles.",
+    tags: ["roofing"], owner: "Priya Shah", updatedAt: "2026-04-12", uses: 76, starred: true,
+    projectType: "Roofing", markup: 18,
+    lines: [
+      { name: "Tear-off + dump fees", qty: 24, unit: "sq", price: 95 },
+      { name: "Underlayment + ice & water shield", qty: 24, unit: "sq", price: 65 },
+      { name: "Architectural shingles + install", qty: 24, unit: "sq", price: 380 },
+      { name: "Drip edge + flashing", qty: 1, unit: "lot", price: 1200 },
+      { name: "Ridge vent (continuous)", qty: 42, unit: "lf", price: 14 },
+      { name: "Pipe boots + step flashing", qty: 1, unit: "lot", price: 600 },
+      { name: "Project management", qty: 1, unit: "lot", price: 1800 },
+    ],
+    notes: "Includes 30-year manufacturer warranty + 5-year workmanship. Excludes deck repair beyond 2 sheets.",
+  },
+  {
+    id: "e6", kind: "estimate", name: "Basement finish — 800 sqft",
+    category: "Basement", description: "Open-plan basement with bedroom, full bath, and rec room.",
+    tags: ["basement"], owner: "Maria Chen", updatedAt: "2026-04-02", uses: 41, starred: false,
+    projectType: "Basement", markup: 22,
+    lines: [
+      { name: "Framing + insulation", qty: 800, unit: "sf", price: 16 },
+      { name: "Egress window + cut", qty: 1, unit: "ea", price: 4200 },
+      { name: "Plumbing rough + finish (bath)", qty: 1, unit: "lot", price: 6800 },
+      { name: "Electrical rough + finish", qty: 1, unit: "lot", price: 5200 },
+      { name: "HVAC supply + return", qty: 1, unit: "lot", price: 3800 },
+      { name: "Drywall + paint", qty: 800, unit: "sf", price: 9 },
+      { name: "LVP flooring + base", qty: 800, unit: "sf", price: 7 },
+      { name: "Bath tile + fixtures install", qty: 1, unit: "lot", price: 4400 },
+      { name: "Project management", qty: 1, unit: "lot", price: 6400 },
+    ],
+    notes: "Excludes vanity, fixtures, and flooring material upgrades. 8–10 week schedule.",
+  },
+  {
+    id: "e7", kind: "estimate", name: "Whole-home interior repaint",
+    category: "Painting", description: "2,400 sqft home — walls, ceilings, trim, and doors.",
+    tags: ["painting", "refresh"], owner: "Devon Reyes", updatedAt: "2026-04-18", uses: 112, starred: false,
+    projectType: "Painting", markup: 15,
+    lines: [
+      { name: "Surface prep + patching", qty: 1, unit: "lot", price: 2400 },
+      { name: "Walls — 2 coats", qty: 2400, unit: "sf", price: 2.6 },
+      { name: "Ceilings — flat white", qty: 2400, unit: "sf", price: 1.4 },
+      { name: "Trim + baseboards", qty: 1100, unit: "lf", price: 3.2 },
+      { name: "Interior doors (paint both sides)", qty: 14, unit: "ea", price: 110 },
+      { name: "Mask, drop, cleanup", qty: 1, unit: "lot", price: 1200 },
+      { name: "Project management", qty: 1, unit: "lot", price: 1600 },
+    ],
+    notes: "Owner selects colors from supplier deck. 5–7 working days, occupied home.",
+  },
 
   // Project plan templates
   {
@@ -835,32 +901,28 @@ function TemplatesPage() {
                     >
                       <Eye className="h-3 w-3" /> Preview
                     </Button>
-                    {t.kind === "form" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2 text-[10px]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedId(t.id);
-                          }}
-                        >
-                          <Pencil className="h-3 w-3" /> Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2 text-[10px] text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteId(t.id);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" /> Delete
-                        </Button>
-                      </>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[10px]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedId(t.id);
+                      }}
+                    >
+                      <Pencil className="h-3 w-3" /> Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[10px] text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteId(t.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </Button>
                   </div>
                 </button>
               ))}
