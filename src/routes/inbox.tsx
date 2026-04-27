@@ -201,7 +201,13 @@ function InboxPage() {
     setDraft((prev) => (mode === "append" && prev.trim() ? `${prev}\n\n${body}` : body));
     if (t.channel === "email" && t.subject) {
       const nextSubject = resolveMergeTags(t.subject, mergeCtx);
-      setSubject((prev) => (mode === "append" && prev.trim() ? prev : nextSubject));
+      setSubject((prev) => {
+        // Append: never touch existing subject.
+        if (mode === "append" && prev.trim()) return prev;
+        // Replace: skip if identical to avoid a redundant write / duplicate state churn.
+        if (prev.trim() === nextSubject) return prev;
+        return nextSubject;
+      });
       if (composeChannel !== "email") setComposeChannel("email");
     } else if (t.channel === "sms" && composeChannel !== "sms") {
       setComposeChannel("sms");
