@@ -124,6 +124,8 @@ function InboxPage() {
   const [tplSearch, setTplSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
+  const [insertLog, setInsertLog] = useState<TemplateInsertLog[]>([]);
+  const [showInsertLog, setShowInsertLog] = useState(false);
 
   const conversations = useMemo(() => {
     return mockConversations.filter((c) => {
