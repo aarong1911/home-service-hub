@@ -20,19 +20,40 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { FinancialDetailDrawer } from "@/components/financials/financial-detail-drawer";
 import { toast } from "sonner";
+import { useEffect } from "react";
+import { useSearch, useNavigate } from "@tanstack/react-router";
+
+type EstimatesSearch = { template?: string; clientName?: string };
 
 export const Route = createFileRoute("/financials/estimates")({
+  validateSearch: (raw: Record<string, unknown>): EstimatesSearch => ({
+    template: typeof raw.template === "string" ? raw.template : undefined,
+    clientName: typeof raw.clientName === "string" ? raw.clientName : undefined,
+  }),
   component: EstimatesPage,
 });
 
 const STATUSES: Estimate["status"][] = ["Draft", "Sent", "Viewed", "Accepted", "Declined"];
 
 function EstimatesPage() {
+  const search = useSearch({ from: "/financials/estimates" });
+  const navigate = useNavigate({ from: "/financials/estimates" });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Estimate["status"] | "All">("All");
   const [selected, setSelected] = useState<Estimate | null>(null);
   const [drafts, setDrafts] = useState<Estimate[]>([]);
   const [tplOpen, setTplOpen] = useState(false);
+  const [prefillClient, setPrefillClient] = useState<string | undefined>(undefined);
+
+  // Deep-link: open template wizard with prefilled client
+  useEffect(() => {
+    if (search.template === "open" || search.clientName) {
+      setPrefillClient(search.clientName);
+      setTplOpen(true);
+      navigate({ search: {}, replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.template, search.clientName]);
 
   const allEstimates = useMemo(() => [...drafts, ...mockEstimates], [drafts]);
 
@@ -160,6 +181,7 @@ function EstimatesPage() {
         onOpenChange={setTplOpen}
         existingCount={allEstimates.length}
         onCreate={handleCreated}
+        prefillClient={prefillClient}
       />
     </>
   );
@@ -171,11 +193,13 @@ function StartFromTemplateDialog({
   onOpenChange,
   existingCount,
   onCreate,
+  prefillClient,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   existingCount: number;
   onCreate: (estimate: Estimate) => void;
+  prefillClient?: string;
 }) {
   const [step, setStep] = useState<"pick" | "customize">("pick");
   const [tplId, setTplId] = useState<string>(estimateTemplates[0]?.id ?? "");
@@ -184,6 +208,11 @@ function StartFromTemplateDialog({
   const [markup, setMarkup] = useState<number>(estimateTemplates[0]?.markup ?? 20);
   const [notes, setNotes] = useState<string>(estimateTemplates[0]?.notes ?? "");
   const [lines, setLines] = useState<EstimateLine[]>(estimateTemplates[0]?.lines ?? []);
+
+  // Apply prefilled client when dialog opens from a deep link
+  useEffect(() => {
+    if (open && prefillClient) setClient(prefillClient);
+  }, [open, prefillClient]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

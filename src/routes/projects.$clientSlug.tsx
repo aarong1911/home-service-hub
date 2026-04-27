@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ import {
   Bed,
   Bath as BathIcon,
   Home,
+  Sparkles,
+  ListChecks,
 } from "lucide-react";
 import {
   getProjectBySlug,
@@ -36,6 +38,18 @@ import {
   type ProjectStage,
   type ProjectTask,
 } from "@/lib/mock-data";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
+import { Badge as UiBadge } from "@/components/ui/badge";
+import { planTemplates, type SharedPlanTemplate } from "@/lib/plan-templates";
+import { TemplatePicker } from "@/components/inbox/template-picker";
+import { resolveMergeTags, type SharedMessageTemplate, type MergeContext } from "@/lib/message-templates";
+import { recordTemplateUse } from "@/lib/recent-templates";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/projects/$clientSlug")({
   loader: ({ params }) => {
@@ -541,7 +555,35 @@ function InvoiceStatus({ status }: { status: "Paid" | "Sent" | "Overdue" | "Draf
 
 // ============= SCHEDULE & TASKS =============
 function ScheduleTab({ project }: { project: Project }) {
+  const [, forceTick] = useState(0);
+  const [planOpen, setPlanOpen] = useState(false);
   const tasks = projectTasks[project.id] ?? [];
+
+  const applyPlan = (tpl: SharedPlanTemplate) => {
+    const start = new Date();
+    const colors = ["bg-purple-100 text-purple-700", "bg-emerald-100 text-emerald-700", "bg-orange-100 text-orange-700", "bg-amber-100 text-amber-700", "bg-sky-100 text-sky-700"];
+    let cursor = 0;
+    const newTasks: ProjectTask[] = tpl.tasks.map((t, i) => {
+      const due = new Date(start.getTime() + (cursor + t.days) * 86400000);
+      cursor += t.days;
+      return {
+        id: `pt-${project.id}-${Date.now()}-${i}`,
+        projectId: project.id,
+        title: t.name,
+        status: "not-started",
+        due: due.toISOString().slice(0, 10),
+        assigneeInitials: (t.trade ?? "TBD").slice(0, 2).toUpperCase(),
+        assigneeColor: colors[i % colors.length],
+      };
+    });
+    projectTasks[project.id] = [...newTasks, ...tasks];
+    setPlanOpen(false);
+    forceTick((n) => n + 1);
+    toast.success(`Applied "${tpl.name}" — ${newTasks.length} tasks added`, {
+      description: `Estimated ${tpl.durationDays}-day schedule starting today.`,
+    });
+  };
+
   const cols: { key: ProjectTask["status"]; label: string; tone: string }[] = [
     { key: "not-started", label: "Not Started", tone: "muted" },
     { key: "in-progress", label: "In Progress", tone: "primary" },
@@ -566,7 +608,12 @@ function ScheduleTab({ project }: { project: Project }) {
           <span className="ml-2 text-xs text-muted-foreground">Status: All</span>
           <span className="text-xs text-muted-foreground">Owner: All</span>
         </div>
-        <Button size="sm" className="h-8"><Plus className="mr-1.5 h-3.5 w-3.5" /> Add Task</Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="h-8" onClick={() => setPlanOpen(true)}>
+            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" /> Apply plan template
+          </Button>
+          <Button size="sm" className="h-8"><Plus className="mr-1.5 h-3.5 w-3.5" /> Add Task</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -609,7 +656,117 @@ function ScheduleTab({ project }: { project: Project }) {
           );
         })}
       </div>
+
+      <ApplyPlanDialog
+        open={planOpen}
+        onOpenChange={setPlanOpen}
+        project={project}
+        onApply={applyPlan}
+      />
     </>
+  );
+}
+
+function ApplyPlanDialog({
+  open, onOpenChange, project, onApply,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  project: Project;
+  onApply: (tpl: SharedPlanTemplate) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  // Sort: matching project type first, then starred, then most-used
+  const ordered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? planTemplates.filter((t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.category.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q),
+        )
+      : planTemplates;
+    return [...filtered].sort((a, b) => {
+      const aMatch = a.projectType.toLowerCase() === project.type.toLowerCase() ? 1 : 0;
+      const bMatch = b.projectType.toLowerCase() === project.type.toLowerCase() ? 1 : 0;
+      if (aMatch !== bMatch) return bMatch - aMatch;
+      if (a.starred !== b.starred) return a.starred ? -1 : 1;
+      return b.uses - a.uses;
+    });
+  }, [query, project.type]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Apply plan template
+          </DialogTitle>
+          <DialogDescription>
+            Seed this project's schedule with a plan template. Existing tasks are preserved — new tasks are added at the top with due dates starting today.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search plan templates…"
+            className="h-9 pl-8 text-sm"
+            autoFocus
+          />
+        </div>
+
+        <div className="grid max-h-[420px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+          {ordered.map((t) => {
+            const isMatch = t.projectType.toLowerCase() === project.type.toLowerCase();
+            return (
+              <button
+                key={t.id}
+                onClick={() => onApply(t)}
+                className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/60 hover:bg-secondary/30"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold">{t.name}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <UiBadge variant="outline" className="h-4 px-1.5 text-[9px]">{t.category}</UiBadge>
+                      {isMatch && (
+                        <UiBadge variant="secondary" className="h-4 bg-primary-soft px-1.5 text-[9px] text-primary">
+                          Matches project
+                        </UiBadge>
+                      )}
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </div>
+                <p className="line-clamp-2 text-[11px] text-muted-foreground">{t.description}</p>
+                <div className="mt-auto flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground">
+                    {t.tasks.length} tasks · {t.durationDays}d
+                  </span>
+                  <span className="text-muted-foreground">{t.uses} uses</span>
+                </div>
+              </button>
+            );
+          })}
+          {ordered.length === 0 && (
+            <div className="col-span-full py-10 text-center text-xs text-muted-foreground">
+              No plan templates match "{query}".
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -919,6 +1076,32 @@ function CommunicationsTab({ project }: { project: Project }) {
   const [selected, setSelected] = useState<string>("c1");
   const [composer, setComposer] = useState<"SMS" | "Email">("SMS");
   const [draft, setDraft] = useState("");
+  const [subject, setSubject] = useState("");
+  const [tplOpen, setTplOpen] = useState(false);
+
+  const mergeCtx: MergeContext = useMemo(() => {
+    const [first, ...rest] = project.client.split(" ");
+    return {
+      first_name: first ?? project.client,
+      last_name: rest.join(" "),
+      project_address: project.address,
+      project_type: project.type,
+      owner_name: project.ownerName,
+      company_name: "Marquez Construction",
+    };
+  }, [project]);
+
+  const insertTemplate = (t: SharedMessageTemplate) => {
+    setComposer(t.channel === "email" ? "Email" : "SMS");
+    const body = resolveMergeTags(t.body, mergeCtx);
+    setDraft((prev) => (prev ? `${prev}\n\n${body}` : body));
+    if (t.channel === "email" && t.subject) {
+      setSubject(resolveMergeTags(t.subject, mergeCtx));
+    }
+    recordTemplateUse(t.id);
+    setTplOpen(false);
+    toast.success(`Inserted "${t.name}"`);
+  };
 
   const counts = {
     All: projectComms.length + 39,
@@ -1051,12 +1234,21 @@ function CommunicationsTab({ project }: { project: Project }) {
               </div>
               <button className="text-xs font-medium text-primary hover:underline">✨ AI Draft</button>
             </div>
-            <div className="flex items-end gap-2 rounded-md border bg-background p-2">
+            {composer === "Email" && (
               <Input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Subject"
+                className="mb-2 h-8 text-sm"
+              />
+            )}
+            <div className="flex items-end gap-2 rounded-md border bg-background p-2">
+              <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Type a message..."
-                className="h-8 flex-1 border-0 px-1 shadow-none focus-visible:ring-0"
+                rows={draft.includes("\n") ? 4 : 1}
+                className="min-h-[32px] flex-1 resize-none border-0 bg-transparent px-1 text-sm shadow-none outline-none focus-visible:ring-0"
               />
               <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
                 <Upload className="h-4 w-4" />
@@ -1064,13 +1256,38 @@ function CommunicationsTab({ project }: { project: Project }) {
               <Button size="sm" className="h-8">Send</Button>
             </div>
             <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
-              <button className="hover:text-foreground">Templates</button>
+              <button
+                onClick={() => setTplOpen(true)}
+                className="flex items-center gap-1 font-medium text-primary hover:underline"
+              >
+                <ListChecks className="h-3 w-3" /> Templates
+              </button>
               <button className="hover:text-foreground">Insert variable</button>
               <span className="ml-auto opacity-0">{project.id}</span>
             </div>
           </div>
         </Card>
       </div>
+
+      <Sheet open={tplOpen} onOpenChange={setTplOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-primary" /> Insert message template
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Merge tags will be filled with this project's client and details.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            <TemplatePicker
+              initialChannel={composer === "Email" ? "email" : "sms"}
+              onInsert={insertTemplate}
+              compact
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

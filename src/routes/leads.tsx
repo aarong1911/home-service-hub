@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Search, Mail, Phone, MapPin, Target, Flame, Thermometer, Snowflake,
   ArrowRight, MoreHorizontal, DollarSign, Calendar, User, Building2,
-  ExternalLink, SlidersHorizontal,
+  ExternalLink, SlidersHorizontal, FileText, Sparkles,
 } from "lucide-react";
 import { Download, Upload } from "lucide-react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -763,6 +763,18 @@ function LeadDetailDrawer({
               </Button>
             ))}
           </div>
+
+          {/* Quick actions */}
+          <Button asChild size="sm" variant="outline" className="w-full">
+            <Link
+              to="/financials/estimates"
+              search={{ template: "open", clientName: lead.name }}
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              Create estimate from template
+            </Link>
+          </Button>
         </SheetHeader>
 
         <div className="mt-4 space-y-5">
