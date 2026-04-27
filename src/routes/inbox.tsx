@@ -121,6 +121,20 @@ const channelTabs: { id: ChannelFilter; label: string; icon: typeof Mail }[] = [
 
 const NOW = Date.UTC(2026, 3, 18);
 
+function bodyToneClass(action: TemplateInsertLog["bodyAction"] | TemplateInsertLog["subjectAction"]): string {
+  switch (action) {
+    case "replace":
+      return "text-warning";
+    case "append":
+      return "text-primary";
+    case "noop":
+      return "text-muted-foreground";
+    case "n/a":
+    default:
+      return "text-muted-foreground/60";
+  }
+}
+
 function InboxPage() {
   const { templateId } = Route.useSearch();
   const navigate = useNavigate({ from: "/inbox" });
