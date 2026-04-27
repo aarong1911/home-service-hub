@@ -883,6 +883,59 @@ function TemplatesPage() {
     return { totalUses, avgOpen, avgReply, top };
   }, [ofKind]);
 
+  // Auto-sync project plans from estimate categories.
+  // For every estimate category without a matching plan, create a starter plan
+  // whose tasks mirror the estimate line items (1 day each, "Build" phase).
+  const syncPlansFromEstimates = (silent = false) => {
+    setItems((prev) => {
+      const estimates = prev.filter((t): t is EstimateTemplate => t.kind === "estimate");
+      const planCategories = new Set(
+        prev.filter((t) => t.kind === "plan").map((t) => t.category.toLowerCase()),
+      );
+      // Pick one representative estimate per category (highest uses).
+      const byCategory = new Map<string, EstimateTemplate>();
+      for (const e of estimates) {
+        const key = e.category.toLowerCase();
+        const existing = byCategory.get(key);
+        if (!existing || e.uses > existing.uses) byCategory.set(key, e);
+      }
+      const additions: PlanTemplate[] = [];
+      for (const [key, est] of byCategory) {
+        if (planCategories.has(key)) continue;
+        const tasks: PlanTask[] = est.lines.length
+          ? est.lines.map((l) => ({ name: l.name, phase: "Build", days: 1 }))
+          : [{ name: "Scope of work", phase: "Build", days: 1 }];
+        additions.push({
+          id: `plan-sync-${key}-${Date.now()}`,
+          kind: "plan",
+          name: `${est.category} — plan (synced)`,
+          category: est.category,
+          description: `Auto-generated from estimate "${est.name}". Edit phases and durations to fit your typical schedule.`,
+          tags: ["synced", est.category.toLowerCase()],
+          owner: "System",
+          updatedAt: new Date().toISOString().slice(0, 10),
+          uses: 0,
+          starred: false,
+          projectType: est.projectType,
+          durationDays: tasks.reduce((s, t) => s + t.days, 0),
+          tasks,
+        });
+      }
+      if (!additions.length) {
+        if (!silent) toast.info("Plans already cover every estimate category.");
+        return prev;
+      }
+      if (!silent) toast.success(`Synced ${additions.length} plan${additions.length === 1 ? "" : "s"} from estimates.`);
+      return [...additions, ...prev];
+    });
+  };
+
+  // Run auto-sync silently on mount and whenever the toggle is turned on.
+  useEffect(() => {
+    if (autoSyncPlans) syncPlansFromEstimates(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSyncPlans]);
+
   return (
     <div className="space-y-4">
       {/* Kind tabs */}
