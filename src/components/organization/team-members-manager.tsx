@@ -1,3 +1,4 @@
+// src/components/organization/team-members-manager.tsx
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Plus, Trash2, Info, Loader2, Mail, Phone, Pencil,
-  MapPin, Shield, Building2, WifiOff,
+  MapPin, Shield, Building2, WifiOff, Eye, EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +48,19 @@ function fmtPhone(raw: string): string {
   return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
+function fmtSSN(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 9);
+  if (d.length <= 3) return d;
+  if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
+}
+
+function fmtEIN(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 9);
+  if (d.length <= 2) return d;
+  return `${d.slice(0, 2)}-${d.slice(2)}`;
+}
+
 type FullProfile = {
   id: string; email: string; first_name: string | null; last_name: string | null;
   phone: string | null; address_line1: string | null; address_line2: string | null;
@@ -54,6 +68,33 @@ type FullProfile = {
   ssn: string | null; ein: string | null; company_name: string | null;
   worker_type: string | null;
 };
+
+// ── SSN / EIN input with eye toggle ──────────────────────────────────────────
+
+function SensitiveInput({ value, onChange, placeholder, autoComplete = "new-password" }: {
+  value: string; onChange: (v: string) => void; placeholder: string; autoComplete?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        className="h-9 pr-9"
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+      />
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      >
+        {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+}
 
 // ── Grouped role selector ─────────────────────────────────────────────────────
 
@@ -87,6 +128,71 @@ function StatusBadge({ status }: { status: TeamMember["status"] }) {
   };
   const { cls, label } = map[status] ?? map.active;
   return <Badge variant="secondary" className={`h-5 rounded px-1.5 text-[10px] ${cls}`}>{label}</Badge>;
+}
+
+// ── Address fields block ──────────────────────────────────────────────────────
+
+function AddressFields({ addr1, addr2, city, stateFld, zip, setAddr1, setAddr2, setCity, setStateFld, setZip }: {
+  addr1: string; addr2: string; city: string; stateFld: string; zip: string;
+  setAddr1: (v: string) => void; setAddr2: (v: string) => void;
+  setCity: (v: string) => void; setStateFld: (v: string) => void; setZip: (v: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="col-span-2 space-y-1.5">
+        <Label className="text-xs">Street</Label>
+        <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)}
+          placeholder="123 Main St" autoComplete="street-address" />
+      </div>
+      <div className="col-span-2 space-y-1.5">
+        <Label className="text-xs">Apt / Suite</Label>
+        <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)}
+          placeholder="Apt 4B" autoComplete="address-line2" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">City</Label>
+        <Input className="h-9" value={city} onChange={e => setCity(e.target.value)}
+          placeholder="Miami" autoComplete="address-level2" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">State</Label>
+        <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)}
+          placeholder="FL" autoComplete="address-level1" />
+      </div>
+      <div className="col-span-2 space-y-1.5">
+        <Label className="text-xs">ZIP</Label>
+        <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)}
+          placeholder="33101" autoComplete="postal-code" inputMode="numeric" />
+      </div>
+    </div>
+  );
+}
+
+// ── Payroll fields block ──────────────────────────────────────────────────────
+
+function PayrollFields({ isSub, ssn, ein, companyName, setSsn, setEin, setCompanyName }: {
+  isSub: boolean; ssn: string; ein: string; companyName: string;
+  setSsn: (v: string) => void; setEin: (v: string) => void; setCompanyName: (v: string) => void;
+}) {
+  return isSub ? (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
+        <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)}
+          placeholder="Acme LLC" autoComplete="organization" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">EIN (XX-XXXXXXX)</Label>
+        <SensitiveInput value={ein} onChange={v => setEin(fmtEIN(v))} placeholder="12-3456789" />
+      </div>
+    </div>
+  ) : (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Social Security Number (XXX-XX-XXXX)</Label>
+      <SensitiveInput value={ssn} onChange={v => setSsn(fmtSSN(v))} placeholder="123-45-6789" />
+      <p className="text-[10px] text-muted-foreground">Stored securely for payroll purposes only.</p>
+    </div>
+  );
 }
 
 // ── Email modal ───────────────────────────────────────────────────────────────
@@ -295,7 +401,7 @@ function MemberInfoModal({
                 </p>
                 {companyName && <p className="mt-1 flex items-center gap-1.5 text-xs"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{companyName}</p>}
                 {ein && <p className="mt-0.5 text-xs text-muted-foreground">EIN: {ein}</p>}
-                {ssn && <p className="mt-0.5 text-xs text-muted-foreground">SSN: ••••••{ssn.slice(-4)}</p>}
+                {ssn && <p className="mt-0.5 text-xs text-muted-foreground">SSN: ••••••{ssn.replace(/-/g, "").slice(-4)}</p>}
               </div>
             </>
           )}
@@ -317,9 +423,9 @@ function MemberInfoModal({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5"><Label className="text-xs">Name</Label>
-              <Input className="h-9" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" /></div>
+              <Input className="h-9" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" autoComplete="name" /></div>
             <div className="col-span-2 space-y-1.5"><Label className="text-xs">Phone</Label>
-              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="555-123-4567" inputMode="tel" /></div>
+              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="555-123-4567" inputMode="tel" autoComplete="tel" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Role</Label>
               <RoleSelect value={role} onChange={setRole} /></div>
             <div className="space-y-1.5"><Label className="text-xs">Employment type</Label>
@@ -336,33 +442,14 @@ function MemberInfoModal({
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <MapPin className="h-3 w-3" /> Address
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5"><Label className="text-xs">Street</Label>
-              <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)} placeholder="123 Main St" /></div>
-            <div className="col-span-2 space-y-1.5"><Label className="text-xs">Apt / Suite</Label>
-              <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)} placeholder="Apt 4B" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">City</Label>
-              <Input className="h-9" value={city} onChange={e => setCity(e.target.value)} placeholder="Miami" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">State</Label>
-              <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)} placeholder="FL" /></div>
-            <div className="col-span-2 space-y-1.5"><Label className="text-xs">ZIP</Label>
-              <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)} placeholder="33101" /></div>
-          </div>
+          <AddressFields addr1={addr1} addr2={addr2} city={city} stateFld={stateFld} zip={zip}
+            setAddr1={setAddr1} setAddr2={setAddr2} setCity={setCity} setStateFld={setStateFld} setZip={setZip} />
           <Separator />
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <Shield className="h-3 w-3" /> {isSub ? "Business Info" : "Payroll Info"}
           </p>
-          {isSub ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5"><Label className="text-xs">Company name</Label>
-                <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme LLC" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">EIN</Label>
-                <Input className="h-9" value={ein} onChange={e => setEin(e.target.value)} placeholder="XX-XXXXXXX" /></div>
-            </div>
-          ) : (
-            <div className="space-y-1.5"><Label className="text-xs">SSN</Label>
-              <Input className="h-9" type="password" value={ssn} onChange={e => setSsn(e.target.value)} placeholder="XXX-XX-XXXX" /></div>
-          )}
+          <PayrollFields isSub={isSub} ssn={ssn} ein={ein} companyName={companyName}
+            setSsn={setSsn} setEin={setEin} setCompanyName={setCompanyName} />
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
             <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -518,17 +605,15 @@ function MemberDialog({
   onSave: (m: Omit<TeamMember, "id">) => void; trigger: React.ReactNode;
 }) {
   const [open,       setOpen]       = useState(false);
-  const [name,       setName]       = useState(initial?.name && initial.name !== initial.email ? initial.name : "");
-  const [email,      setEmail]      = useState(initial?.email ?? "");
-  const [phone,      setPhone]      = useState(initial?.phone ?? "");
-  const [role,       setRole]       = useState<Role>(initial?.role ?? "field_worker");
-  const [workerType, setWorkerType] = useState<WorkerType>(initial?.workerType ?? "employee");
+  const [name,       setName]       = useState("");
+  const [email,      setEmail]      = useState("");
+  const [phone,      setPhone]      = useState("");
+  const [role,       setRole]       = useState<Role>("field_worker");
+  const [workerType, setWorkerType] = useState<WorkerType>("employee");
   const [sendNow,    setSendNow]    = useState(true);
   const [isOffline,  setIsOffline]  = useState(false);
   const [rosterOnly, setRosterOnly] = useState(false);
   const [sending,    setSending]    = useState(false);
-
-  // Address & payroll
   const [addr1,       setAddr1]       = useState("");
   const [addr2,       setAddr2]       = useState("");
   const [city,        setCity]        = useState("");
@@ -542,13 +627,19 @@ function MemberDialog({
   const showRosterToggle  = role === "field_worker";
   const isSub = workerType === "subcontractor";
 
-  function reset() {
-    setName(""); setEmail(""); setPhone("");
-    setRole("field_worker"); setWorkerType("employee");
-    setSendNow(true); setIsOffline(false); setRosterOnly(false); setSending(false);
-    setAddr1(""); setAddr2(""); setCity(""); setStateFld(""); setZip("");
-    setSsn(""); setEin(""); setCompanyName("");
-  }
+  // Reset all fields when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      setName(initial?.name && initial.name !== initial.email ? initial.name : "");
+      setEmail(initial?.email ?? "");
+      setPhone(initial?.phone ?? "");
+      setRole(initial?.role ?? "field_worker");
+      setWorkerType(initial?.workerType ?? "employee");
+      setSendNow(true); setIsOffline(false); setRosterOnly(false); setSending(false);
+      setAddr1(""); setAddr2(""); setCity(""); setStateFld(""); setZip("");
+      setSsn(""); setEin(""); setCompanyName("");
+    }
+  }, [open]);
 
   async function handleSubmit() {
     if (!email.trim()) return;
@@ -562,7 +653,6 @@ function MemberDialog({
     });
 
     setOpen(false);
-    if (mode === "add") reset();
 
     if (shouldInvite || rosterOnly) {
       setSending(true);
@@ -586,7 +676,7 @@ function MemberDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -598,15 +688,18 @@ function MemberDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Name</Label>
-              <Input className="h-9" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" />
+              <Input className="h-9" value={name} onChange={e => setName(e.target.value)}
+                placeholder="Full name" autoComplete="name" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Email</Label>
-              <Input className="h-9" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" />
+              <Input className="h-9" type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="name@company.com" autoComplete="email" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Phone</Label>
-              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="555-123-4567" inputMode="tel" />
+              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))}
+                placeholder="555-123-4567" inputMode="tel" autoComplete="tel" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Role</Label>
@@ -629,28 +722,8 @@ function MemberDialog({
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <MapPin className="h-3 w-3" /> Address
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs">Street</Label>
-                <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)} placeholder="123 Main St" />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs">Apt / Suite</Label>
-                <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)} placeholder="Apt 4B" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">City</Label>
-                <Input className="h-9" value={city} onChange={e => setCity(e.target.value)} placeholder="Miami" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">State</Label>
-                <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)} placeholder="FL" />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs">ZIP</Label>
-                <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)} placeholder="33101" />
-              </div>
-            </div>
+            <AddressFields addr1={addr1} addr2={addr2} city={city} stateFld={stateFld} zip={zip}
+              setAddr1={setAddr1} setAddr2={setAddr2} setCity={setCity} setStateFld={setStateFld} setZip={setZip} />
           </div>
 
           {/* Payroll */}
@@ -658,24 +731,8 @@ function MemberDialog({
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <Shield className="h-3 w-3" /> {isSub ? "Business Info" : "Payroll Info"}
             </p>
-            {isSub ? (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
-                  <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme LLC" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">EIN</Label>
-                  <Input className="h-9" value={ein} onChange={e => setEin(e.target.value)} placeholder="XX-XXXXXXX" />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Social Security Number (SSN)</Label>
-                <Input className="h-9" type="password" value={ssn} onChange={e => setSsn(e.target.value)} placeholder="XXX-XX-XXXX" />
-                <p className="text-[10px] text-muted-foreground">Stored securely for payroll purposes only.</p>
-              </div>
-            )}
+            <PayrollFields isSub={isSub} ssn={ssn} ein={ein} companyName={companyName}
+              setSsn={setSsn} setEin={setEin} setCompanyName={setCompanyName} />
           </div>
 
           {/* Invite options */}
