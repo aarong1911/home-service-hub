@@ -683,7 +683,8 @@ function MemberDialog({
           <DialogTitle>{mode === "add" ? (inviteDefault ? "Invite member" : "Add member") : "Edit member"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form autoComplete="on" onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
+  {/* Basic info */}
           {/* Basic info */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -766,14 +767,14 @@ function MemberDialog({
               )}
             </div>
           )}
-        </div>
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button size="sm" onClick={handleSubmit} disabled={!email.trim() || sending}>
+          <Button type="submit" size="sm" disabled={!email.trim() || sending}>
             {sending ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving…</> : mode === "add" ? "Add" : "Save"}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
