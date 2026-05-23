@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { inviteMember, removeMemberFromOrg } from "@/lib/team";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -39,8 +41,6 @@ export type TeamMembersManagerProps = {
   title?: string;
   subtitle?: string;
 };
-
-// ── Formatters ────────────────────────────────────────────────────────────────
 
 function fmtPhone(raw: string): string {
   const d = raw.replace(/\D/g, "").slice(0, 10);
@@ -185,7 +185,6 @@ function MemberInfoModal({
   const [loading,     setLoading]     = useState(true);
   const [editing,     setEditing]     = useState(false);
   const [saving,      setSaving]      = useState(false);
-
   const [name,        setName]        = useState(member.name && member.name !== member.email ? member.name : "");
   const [phone,       setPhone]       = useState(member.phone ?? "");
   const [role,        setRole]        = useState<Role>(member.role);
@@ -388,7 +387,17 @@ function MemberInfoModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label className="text-xs">Street</Label>
-              <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)} placeholder="123 Main St" autoComplete="street-address" />
+              <AddressAutocomplete
+                className="h-9"
+                value={addr1}
+                onChange={setAddr1}
+                onSelect={parts => {
+                  setAddr1(parts.street);
+                  setCity(parts.city);
+                  setStateFld(parts.state);
+                  setZip(parts.zip);
+                }}
+              />
             </div>
             <div className="col-span-2 space-y-1.5">
               <Label className="text-xs">Apt / Suite</Label>
@@ -660,9 +669,7 @@ function MemberDialog({
           <DialogTitle>{mode === "add" ? (inviteDefault ? "Invite member" : "Add member") : "Edit member"}</DialogTitle>
         </DialogHeader>
 
-        {/* Wrap in form for browser autoComplete support */}
         <form autoComplete="on" onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
-
           {/* Basic info */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -704,8 +711,17 @@ function MemberDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1.5">
                 <Label className="text-xs">Street</Label>
-                <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)}
-                  placeholder="123 Main St" autoComplete="street-address" name="street-address" />
+                <AddressAutocomplete
+                  className="h-9"
+                  value={addr1}
+                  onChange={setAddr1}
+                  onSelect={parts => {
+                    setAddr1(parts.street);
+                    setCity(parts.city);
+                    setStateFld(parts.state);
+                    setZip(parts.zip);
+                  }}
+                />
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label className="text-xs">Apt / Suite</Label>
