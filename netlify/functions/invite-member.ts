@@ -94,78 +94,42 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: "Failed to create invitation" }) };
   }
 
-  // ── Roster-only: create ghost auth user + profile + org_membership ─────────
+  // ── Roster-only: create profile + org_membership (no auth user needed) ─────
   if (rosterOnly) {
     console.log(`[invite-member] roster-only: ${email}`);
 
-    // Clean up any existing unconfirmed user for this email
-    try {
-      const { data: rows } = await supabaseAdmin.rpc("get_user_id_by_email", { user_email: email });
-      const existingId = rows?.[0]?.id;
-      if (existingId) {
-        const { data: existing } = await supabaseAdmin.auth.admin.getUserById(existingId);
-        if (existing?.user && !existing.user.email_confirmed_at) {
-          await supabaseAdmin.auth.admin.deleteUser(existingId);
-          console.log(`[invite-member] cleaned up existing unconfirmed user`);
-        }
-      }
-    } catch (e) {
-      console.warn("[invite-member] cleanup check failed:", e);
-    }
+    // Generate a UUID — no auth user needed since profiles.id has no FK to auth.users
+    const rosterId = crypto.randomUUID();
 
-    // Create ghost auth user — no password, email confirmed, can never sign in
-    const { data: ghostUser, error: ghostErr } = await supabaseAdmin.auth.admin.createUser({
+    const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
+      id:              rosterId,
       email,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName, last_name: lastName, full_name: fullName,
-        phone: phone || null, org_id: orgId, role, roster_only: true,
-      },
+      first_name:      firstName,
+      last_name:       lastName,
+      phone:           phone         || null,
+      organization_id: orgId,
+      address_line1:   addressLine1  || null,
+      address_line2:   addressLine2  || null,
+      city:            city          || null,
+      state:           state         || null,
+      postal_code:     postalCode    || null,
+      worker_type:     workerType,
+      ssn:             ssn           || null,
+      ein:             ein           || null,
+      company_name:    companyName   || null,
+    }, { onConflict: "id" });
+    if (profileErr) console.error("[invite-member] profile failed:", profileErr.message);
+    else console.log(`[invite-member] profile created: ${rosterId}`);
+
+    const { error: memberErr } = await supabaseAdmin.from("org_memberships").insert({
+      member_id:   rosterId,
+      org_id:      orgId,
+      role,
+      worker_type: workerType,
+      name:        fullName,
     });
-
-    if (ghostErr) {
-      console.error("[invite-member] ghost user failed:", ghostErr.message);
-      // Non-fatal — invitation row was saved, member shows as roster
-    } else {
-      const userId = ghostUser.user.id;
-      console.log(`[invite-member] ghost user created: ${userId}`);
-
-      // Create profile
-      const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
-        id: userId, email,
-        first_name:      firstName,
-        last_name:       lastName,
-        phone:           phone         || null,
-        organization_id: orgId,
-        address_line1:   addressLine1  || null,
-        address_line2:   addressLine2  || null,
-        city:            city          || null,
-        state:           state         || null,
-        postal_code:     postalCode    || null,
-        worker_type:     workerType,
-        ssn:             ssn           || null,
-        ein:             ein           || null,
-        company_name:    companyName   || null,
-      }, { onConflict: "id" });
-      if (profileErr) console.error("[invite-member] profile upsert failed:", profileErr.message);
-      else console.log("[invite-member] profile created");
-
-      // Add to org_memberships
-      const { error: memberErr } = await supabaseAdmin.from("org_memberships").insert({
-        member_id:   userId,
-        org_id:      orgId,
-        role,
-        worker_type: workerType,
-        name:        fullName,
-      });
-      if (memberErr) console.error("[invite-member] org_memberships failed:", memberErr.message);
-      else console.log("[invite-member] added to org_memberships");
-
-      // Update invitation with the user id
-      await supabaseAdmin.from("invitations")
-        .update({ status: "roster_only" })
-        .eq("id", invitation.id);
-    }
+    if (memberErr) console.error("[invite-member] org_memberships failed:", memberErr.message);
+    else console.log("[invite-member] added to org_memberships");
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ success: true, invitationId: invitation.id, rosterOnly: true }) };
