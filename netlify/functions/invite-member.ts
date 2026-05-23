@@ -20,19 +20,6 @@ function getInviteUrl(role: string, isOffline: boolean, token: string): string {
   return `${CONNECT_URL}/auth/callback?token=${token}`;
 }
 
-async function sendInviteEmail(
-  to: string, subject: string, html: string
-): Promise<void> {
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com", port: 587, secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-  await transporter.sendMail({
-    from: `"RenoMeta Connect" <${process.env.SMTP_USER}>`,
-    to, subject, html,
-  });
-}
-
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
 
@@ -59,9 +46,9 @@ export const handler: Handler = async (event) => {
 
   const {
     email, role, name, phone,
-    workerType = "employee",
-    isOffline  = false,
-    rosterOnly = false,
+    workerType  = "employee",
+    isOffline   = false,
+    rosterOnly  = false,
     addressLine1, addressLine2, city, state, postalCode,
     ssn, ein, companyName,
   } = body;
@@ -74,17 +61,19 @@ export const handler: Handler = async (event) => {
   const orgPhone = org?.phone || "";
 
   const trimmedName = (name ?? "").trim();
-  const parts       = trimmedName ? trimmedName.split(" ") : [];
-  const firstName   = parts[0]                || null;
-  const lastName    = parts.slice(1).join(" ") || null;
-  const fullName    = trimmedName              || null;
+  const nameParts   = trimmedName ? trimmedName.split(" ") : [];
+  const firstName   = nameParts[0]                 || null;
+  const lastName    = nameParts.slice(1).join(" ") || null;
+  const fullName    = trimmedName                  || null;
   const invToken    = crypto.randomUUID();
 
   // ── Save invitation ────────────────────────────────────────────────────────
   const { data: invitation, error: invErr } = await supabaseAdmin
     .from("invitations")
     .insert({
-      organization_id: orgId, email, role,
+      organization_id: orgId,
+      email,
+      role,
       status:        rosterOnly ? "roster_only" : "pending",
       invited_by:    user.id,
       token:         invToken,
@@ -114,11 +103,11 @@ export const handler: Handler = async (event) => {
   if (rosterOnly) {
     console.log(`[invite-member] roster-only: ${email}`);
 
-    // Use a fresh UUID — profiles.id has no FK to auth.users so this is safe
     const rosterId = crypto.randomUUID();
 
     const { error: pe } = await supabaseAdmin.from("profiles").upsert({
-      id: rosterId, email,
+      id:              rosterId,
+      email,
       first_name:      firstName,
       last_name:       lastName,
       phone:           phone         || null,
@@ -153,68 +142,83 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  // ── Standard invite: send email ────────────────────────────────────────────
+  // ── Standard invite: build email + send ────────────────────────────────────
   const inviteUrl  = getInviteUrl(role, isOffline, invToken);
   const isExternal = (role === "field_worker" && isOffline) || role === "viewer";
 
-  let html: string;
+  const greeting   = fullName ? ` ${fullName}` : "";
+
+  let emailHtml: string;
+  let subject: string;
+
   if (role === "field_worker" && isOffline) {
-    html = `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#111">You've been added to the ${orgName} team!</h2>
-        <p>Hi${fullName ? ` ${fullName}` : ""},</p>
-        <p>You have been added to the <strong>${orgName}</strong> roster as <strong>Field Crew / Technician</strong>.</p>
-        <p style="margin:28px 0">
-          <a href="${inviteUrl}" style="background:#F59E0B;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
-            View Your Team Profile
-          </a>
-        </p>
-        ${orgPhone ? `<p><a href="tel:${orgPhone}" style="color:#3b82f6">📞 Call the office: ${orgPhone}</a></p>` : ""}
-        <p style="color:#6b7280;font-size:13px;">No account or password needed.</p>
-      </div>`;
+    subject   = `You've been added to the ${orgName} team`;
+    emailHtml = `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+<h2 style="color:#111">You've been added to the ${orgName} team!</h2>
+<p>Hi${greeting},</p>
+<p>You have been added to the <strong>${orgName}</strong> roster as <strong>Field Crew / Technician</strong>.</p>
+<p style="margin:28px 0">
+  <a href="${inviteUrl}" style="background:#F59E0B;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
+    View Your Team Profile
+  </a>
+</p>
+${orgPhone ? `<p><a href="tel:${orgPhone}" style="color:#3b82f6">Call the office: ${orgPhone}</a></p>` : ""}
+<p style="color:#6b7280;font-size:13px;">No account or password needed.</p>
+</div>`;
   } else if (role === "viewer") {
-    html = `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#111">Your project portal is ready</h2>
-        <p>Hi${fullName ? ` ${fullName}` : ""},</p>
-        <p><strong>${orgName}</strong> has set up a project portal for you.</p>
-        <p style="margin:28px 0">
-          <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
-            View Your Project Portal
-          </a>
-        </p>
-        <p style="color:#6b7280;font-size:13px;">No account or password needed.</p>
-      </div>`;
+    subject   = `Your project portal from ${orgName}`;
+    emailHtml = `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+<h2 style="color:#111">Your project portal is ready</h2>
+<p>Hi${greeting},</p>
+<p><strong>${orgName}</strong> has set up a project portal for you.</p>
+<p style="margin:28px 0">
+  <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
+    View Your Project Portal
+  </a>
+</p>
+<p style="color:#6b7280;font-size:13px;">No account or password needed.</p>
+</div>`;
   } else {
-    html = `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#111">You've been invited!</h2>
-        <p>Hi${fullName ? ` ${fullName}` : ""},</p>
-        <p>You've been invited to join <strong>${orgName}</strong> as <strong>${role.replace(/_/g, " ")}</strong> on RenoMeta Connect.</p>
-        <p style="margin:28px 0">
-          <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
-            Accept Invitation &amp; Set Password
-          </a>
-        </p>
-        <p style="color:#6b7280;font-size:13px;">This link expires in 7 days.</p>
-      </div>`;
+    subject   = `You've been invited to join ${orgName} on RenoMeta Connect`;
+    emailHtml = `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+<h2 style="color:#111">You've been invited!</h2>
+<p>Hi${greeting},</p>
+<p>You've been invited to join <strong>${orgName}</strong> as <strong>${role.replace(/_/g, " ")}</strong> on RenoMeta Connect.</p>
+<p style="margin:28px 0">
+  <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
+    Accept Invitation &amp; Set Password
+  </a>
+</p>
+<p style="color:#6b7280;font-size:13px;">This link expires in 7 days.</p>
+</div>`;
   }
 
-  const subject = isExternal
-    ? role === "viewer" ? `Your project portal from ${orgName}` : `You've been added to the ${orgName} team`
-    : `You've been invited to join ${orgName} on RenoMeta Connect`;
-
   try {
-    await sendInviteEmail(email, subject, html);
-    console.log(`[invite-member] ✓ email sent to ${email} (${role}, offline=${isOffline})`);
-  } catch (err) {
-    console.error("[invite-member] email failed:", err);
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
+    await transporter.sendMail({
+      from: `"RenoMeta Connect" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject,
+      html: emailHtml,
+    });
+    console.log(`[invite-member] email sent to ${email} (${role}, offline=${isOffline})`);
+  } catch (mailErr) {
+    console.error("[invite-member] email failed:", mailErr);
     return {
       statusCode: 207,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        success: false, invitationId: invitation.id,
-        error: `Invitation saved but email failed: ${(err as Error).message}`,
+        success: false,
+        invitationId: invitation.id,
+        error: `Invitation saved but email failed: ${(mailErr as Error).message}`,
       }),
     };
   }
