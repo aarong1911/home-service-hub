@@ -44,7 +44,8 @@ export const handler: Handler = async (event) => {
   catch { return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON" }) }; }
 
   const {
-    email, role, name, phone, workerType, isOffline = false, rosterOnly = false,
+    email, role, name, phone, workerType = "employee",
+    isOffline = false, rosterOnly = false,
     addressLine1, addressLine2, city, state, postalCode,
     ssn, ein, companyName,
   } = body;
@@ -55,33 +56,127 @@ export const handler: Handler = async (event) => {
   const orgName  = org?.name  || "your team";
   const orgPhone = org?.phone || "";
 
-  const nameParts = (name ?? "").trim().split(" ");
-  const firstName = nameParts[0] || null;
-  const lastName  = nameParts.slice(1).join(" ") || null;
-  const invToken  = crypto.randomUUID();
+  const trimmedName = (name ?? "").trim();
+  const nameParts   = trimmedName ? trimmedName.split(" ") : [];
+  const firstName   = nameParts[0]                   || null;
+  const lastName    = nameParts.slice(1).join(" ")   || null;
+  const fullName    = trimmedName || null;
+  const invToken    = crypto.randomUUID();
 
+  // ── Roster-only: create ghost auth user + profile + membership ─────────────
+  if (rosterOnly) {
+    console.log(`[invite-member] creating roster member: ${email}`);
+
+    // Clean up any existing unconfirmed user
+    try {
+      const { data: rows } = await supabaseAdmin.rpc("get_user_id_by_email", { user_email: email });
+      const existingId = rows?.[0]?.id;
+      if (existingId) {
+        const { data: existing } = await supabaseAdmin.auth.admin.getUserById(existingId);
+        if (existing?.user && !existing.user.email_confirmed_at) {
+          await supabaseAdmin.auth.admin.deleteUser(existingId);
+        }
+      }
+    } catch {}
+
+    // Create ghost auth user — random password they'll never know
+    const ghostPassword = crypto.randomUUID() + crypto.randomUUID();
+    const { data: ghostUser, error: ghostErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: ghostPassword,
+      email_confirm: true,
+      user_metadata: {
+        first_name: firstName, last_name: lastName, full_name: fullName,
+        phone: phone || null, org_id: orgId, role, roster_only: true,
+      },
+    });
+
+    if (ghostErr) {
+      console.error("[invite-member] ghost user creation failed:", ghostErr);
+      // Fall back: save invitation only
+    } else {
+      const userId = ghostUser.user.id;
+
+      // Create profile
+      await supabaseAdmin.from("profiles").upsert({
+        id: userId, email,
+        first_name:    firstName,
+        last_name:     lastName,
+        phone:         phone         || null,
+        organization_id: orgId,
+        address_line1: addressLine1  || null,
+        address_line2: addressLine2  || null,
+        city:          city          || null,
+        state:         state         || null,
+        postal_code:   postalCode    || null,
+        worker_type:   workerType,
+        ssn:           ssn           || null,
+        ein:           ein           || null,
+        company_name:  companyName   || null,
+      }, { onConflict: "id" });
+
+      // Add to org_memberships with name
+      await supabaseAdmin.from("org_memberships").insert({
+        member_id:   userId,
+        org_id:      orgId,
+        role,
+        worker_type: workerType,
+        name:        fullName,
+      });
+
+      console.log(`[invite-member] roster member ${email} added — uid: ${userId}`);
+    }
+
+    // Save invitation record
+    await supabaseAdmin.from("invitations").insert({
+      organization_id: orgId,
+      email, role,
+      status:        "roster_only",
+      invited_by:    user.id,
+      token:         invToken,
+      expires_at:    new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      first_name:    firstName,
+      last_name:     lastName,
+      primary_phone: phone        || null,
+      worker_type:   workerType,
+      address_line1: addressLine1 || null,
+      address_line2: addressLine2 || null,
+      city:          city         || null,
+      state:         state        || null,
+      postal_code:   postalCode   || null,
+      ssn:           ssn          || null,
+      ein:           ein          || null,
+      company_name:  companyName  || null,
+    });
+
+    return { statusCode: 200, headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: true, rosterOnly: true }) };
+  }
+
+  // ── Standard invite flow ───────────────────────────────────────────────────
+
+  // Save invitation
   const { data: invitation, error: invErr } = await supabaseAdmin
     .from("invitations")
     .insert({
       organization_id: orgId,
-      email,
-      role,
-      status:        rosterOnly ? "roster_only" : "pending",
+      email, role,
+      status:        "pending",
       invited_by:    user.id,
       token:         invToken,
       expires_at:    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       first_name:    firstName,
       last_name:     lastName,
-      primary_phone: phone || null,
-      worker_type:   workerType || "employee",
+      primary_phone: phone        || null,
+      worker_type:   workerType,
       address_line1: addressLine1 || null,
       address_line2: addressLine2 || null,
-      city:          city        || null,
-      state:         state       || null,
-      postal_code:   postalCode  || null,
-      ssn:           ssn         || null,
-      ein:           ein         || null,
-      company_name:  companyName || null,
+      city:          city         || null,
+      state:         state        || null,
+      postal_code:   postalCode   || null,
+      ssn:           ssn          || null,
+      ein:           ein          || null,
+      company_name:  companyName  || null,
     })
     .select("id")
     .single();
@@ -89,13 +184,6 @@ export const handler: Handler = async (event) => {
   if (invErr) {
     console.error("[invite-member] DB insert failed:", invErr);
     return { statusCode: 500, body: JSON.stringify({ error: "Failed to create invitation" }) };
-  }
-
-  // Roster-only — no email
-  if (rosterOnly) {
-    console.log(`[invite-member] roster-only: ${email} added to org ${orgId}`);
-    return { statusCode: 200, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, invitationId: invitation.id, rosterOnly: true }) };
   }
 
   const baseUrl   = process.env.URL ?? "http://localhost:9999";
@@ -107,7 +195,7 @@ export const handler: Handler = async (event) => {
     emailHtml = `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
         <h2 style="color:#111">You've been added to the ${orgName} team!</h2>
-        <p>Hi${name ? ` ${name}` : ""},</p>
+        <p>Hi${fullName ? ` ${fullName}` : ""},</p>
         <p>You have been added to the <strong>${orgName}</strong> roster as <strong>Field Crew / Technician</strong>.</p>
         <p style="margin:28px 0">
           <a href="${inviteUrl}" style="background:#F59E0B;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
@@ -121,20 +209,20 @@ export const handler: Handler = async (event) => {
     emailHtml = `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
         <h2 style="color:#111">Your project portal is ready</h2>
-        <p>Hi${name ? ` ${name}` : ""},</p>
+        <p>Hi${fullName ? ` ${fullName}` : ""},</p>
         <p><strong>${orgName}</strong> has set up a project portal for you to track progress, milestones, and site photos.</p>
         <p style="margin:28px 0">
           <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
             View Your Project Portal
           </a>
         </p>
-        <p style="color:#6b7280;font-size:13px;">No account or password needed. This link is private — just for you.</p>
+        <p style="color:#6b7280;font-size:13px;">No account or password needed.</p>
       </div>`;
   } else {
     emailHtml = `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
         <h2 style="color:#111">You've been invited!</h2>
-        <p>Hi${name ? ` ${name}` : ""},</p>
+        <p>Hi${fullName ? ` ${fullName}` : ""},</p>
         <p>You've been invited to join <strong>${orgName}</strong> as <strong>${role.replace(/_/g, " ")}</strong> on RenoMeta Connect.</p>
         <p style="margin:28px 0">
           <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
