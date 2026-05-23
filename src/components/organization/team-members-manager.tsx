@@ -47,14 +47,12 @@ function fmtPhone(raw: string): string {
   if (d.length <= 6) return `${d.slice(0, 3)}-${d.slice(3)}`;
   return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
 }
-
 function fmtSSN(raw: string): string {
   const d = raw.replace(/\D/g, "").slice(0, 9);
   if (d.length <= 3) return d;
   if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
   return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
 }
-
 function fmtEIN(raw: string): string {
   const d = raw.replace(/\D/g, "").slice(0, 9);
   if (d.length <= 2) return d;
@@ -69,48 +67,36 @@ type FullProfile = {
   worker_type: string | null;
 };
 
-// ── Sensitive input with eye toggle ──────────────────────────────────────────
+// ── Sensitive input ───────────────────────────────────────────────────────────
 
-function SensitiveInput({
-  value, onChange, placeholder,
-}: { value: string; onChange: (v: string) => void; placeholder: string }) {
+function SensitiveInput({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder: string;
+}) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
-      <Input
-        className="h-9 pr-9"
-        type={show ? "text" : "password"}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoComplete="new-password"
-      />
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-      >
+      <Input className="h-9 pr-9" type={show ? "text" : "password"}
+        value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder} autoComplete="new-password" />
+      <button type="button" onClick={() => setShow(s => !s)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
         {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
       </button>
     </div>
   );
 }
 
-// ── Grouped role selector ─────────────────────────────────────────────────────
+// ── Role selector ─────────────────────────────────────────────────────────────
 
 function RoleSelect({ value, onChange }: { value: Role; onChange: (v: Role) => void }) {
   return (
     <Select value={value} onValueChange={v => onChange(v as Role)}>
       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
       <SelectContent>
-        {ROLE_GROUPS.map(group => (
-          <SelectGroup key={group.label}>
-            <SelectLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {group.label}
-            </SelectLabel>
-            {group.roles.map(r => (
-              <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-            ))}
+        {ROLE_GROUPS.map(g => (
+          <SelectGroup key={g.label}>
+            <SelectLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.label}</SelectLabel>
+            {g.roles.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
           </SelectGroup>
         ))}
       </SelectContent>
@@ -130,11 +116,82 @@ function StatusBadge({ status }: { status: TeamMember["status"] }) {
   return <Badge variant="secondary" className={`h-5 rounded px-1.5 text-[10px] ${cls}`}>{label}</Badge>;
 }
 
+// ── pac-container props for Radix dialogs ─────────────────────────────────────
+
+const PAC_PROPS = {
+  onPointerDownOutside: (e: Event) => {
+    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
+  },
+  onInteractOutside: (e: Event) => {
+    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
+  },
+};
+
+// ── Address fields ────────────────────────────────────────────────────────────
+
+function AddressBlock({ addr1, addr2, city, stateFld, zip, setAddr1, setAddr2, setCity, setStateFld, setZip }: {
+  addr1: string; addr2: string; city: string; stateFld: string; zip: string;
+  setAddr1(v: string): void; setAddr2(v: string): void;
+  setCity(v: string): void; setStateFld(v: string): void; setZip(v: string): void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="col-span-2 space-y-1.5">
+        <Label className="text-xs">Street</Label>
+        <AddressAutocomplete className="h-9" value={addr1} onChange={setAddr1}
+          onSelect={p => { setAddr1(p.street); setCity(p.city); setStateFld(p.state); setZip(p.zip); }} />
+      </div>
+      <div className="col-span-2 space-y-1.5">
+        <Label className="text-xs">Apt / Suite</Label>
+        <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)} placeholder="Apt 4B" autoComplete="address-line2" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">City</Label>
+        <Input className="h-9" value={city} onChange={e => setCity(e.target.value)} placeholder="Miami" autoComplete="address-level2" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">State</Label>
+        <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)} placeholder="FL" autoComplete="address-level1" />
+      </div>
+      <div className="col-span-2 space-y-1.5">
+        <Label className="text-xs">ZIP</Label>
+        <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)} placeholder="33101" autoComplete="postal-code" inputMode="numeric" />
+      </div>
+    </div>
+  );
+}
+
+// ── Payroll fields ────────────────────────────────────────────────────────────
+
+function PayrollBlock({ isSub, ssn, ein, companyName, setSsn, setEin, setCompanyName }: {
+  isSub: boolean; ssn: string; ein: string; companyName: string;
+  setSsn(v: string): void; setEin(v: string): void; setCompanyName(v: string): void;
+}) {
+  return isSub ? (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
+        <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme LLC" autoComplete="organization" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">EIN (XX-XXXXXXX)</Label>
+        <SensitiveInput value={ein} onChange={v => setEin(fmtEIN(v))} placeholder="12-3456789" />
+      </div>
+    </div>
+  ) : (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Social Security Number (XXX-XX-XXXX)</Label>
+      <SensitiveInput value={ssn} onChange={v => setSsn(fmtSSN(v))} placeholder="123-45-6789" />
+      <p className="text-[10px] text-muted-foreground">Stored securely for payroll purposes only.</p>
+    </div>
+  );
+}
+
 // ── Email modal ───────────────────────────────────────────────────────────────
 
 function EmailModal({ to, onClose }: { to: string; onClose: () => void }) {
   const [subject, setSubject] = useState("");
-  const [body,    setBody]    = useState("");
+  const [body, setBody]       = useState("");
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
@@ -177,9 +234,9 @@ function EmailModal({ to, onClose }: { to: string; onClose: () => void }) {
 
 // ── Member info + edit modal ──────────────────────────────────────────────────
 
-function MemberInfoModal({
-  member, onUpdate,
-}: { member: TeamMember; onUpdate: (id: string, patch: Partial<TeamMember>) => void }) {
+function MemberInfoModal({ member, onUpdate }: {
+  member: TeamMember; onUpdate: (id: string, patch: Partial<TeamMember>) => void;
+}) {
   const [profile,     setProfile]     = useState<FullProfile | null>(null);
   const [loading,     setLoading]     = useState(true);
   const [editing,     setEditing]     = useState(false);
@@ -198,30 +255,19 @@ function MemberInfoModal({
   const [companyName, setCompanyName] = useState("");
 
   useEffect(() => {
-    const isInvitation = member.id.startsWith("inv-");
-    if (isInvitation) {
-      const invId = member.id.slice(4);
-      supabase.from("invitations").select("*").eq("id", invId).maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            setAddr1(data.address_line1 ?? ""); setAddr2(data.address_line2 ?? "");
-            setCity(data.city ?? ""); setStateFld(data.state ?? ""); setZip(data.postal_code ?? "");
-            setSsn(data.ssn ?? ""); setEin(data.ein ?? ""); setCompanyName(data.company_name ?? "");
-          }
-          setLoading(false);
-        });
-    } else {
-      supabase.from("profiles").select("*").eq("id", member.id).maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            setProfile(data as FullProfile);
-            setAddr1(data.address_line1 ?? ""); setAddr2(data.address_line2 ?? "");
-            setCity(data.city ?? ""); setStateFld(data.state ?? ""); setZip(data.postal_code ?? "");
-            setSsn(data.ssn ?? ""); setEin(data.ein ?? ""); setCompanyName(data.company_name ?? "");
-          }
-          setLoading(false);
-        });
-    }
+    const isInv = member.id.startsWith("inv-");
+    const srcId = isInv ? member.id.slice(4) : member.id;
+    const table = isInv ? "invitations" : "profiles";
+    supabase.from(table).select("*").eq("id", srcId).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setProfile(!isInv ? data as FullProfile : null);
+          setAddr1(data.address_line1 ?? ""); setAddr2(data.address_line2 ?? "");
+          setCity(data.city ?? ""); setStateFld(data.state ?? ""); setZip(data.postal_code ?? "");
+          setSsn(data.ssn ?? ""); setEin(data.ein ?? ""); setCompanyName(data.company_name ?? "");
+        }
+        setLoading(false);
+      });
   }, [member.id]);
 
   const isSub = (profile?.worker_type ?? member.workerType) === "subcontractor";
@@ -231,17 +277,16 @@ function MemberInfoModal({
     setSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { toast.error("Not authenticated"); setSaving(false); return; }
-    const parts = name.trim().split(" ");
+    const pts = name.trim().split(" ");
 
     if (isRosterOrInvited) {
       const invId = member.id.startsWith("inv-") ? member.id.slice(4) : member.id;
       await supabase.from("invitations").update({
-        first_name: parts[0] ?? "", last_name: parts.slice(1).join(" ") || null,
+        first_name: pts[0] ?? "", last_name: pts.slice(1).join(" ") || null,
         primary_phone: phone || null, role, worker_type: workerType,
         address_line1: addr1 || null, address_line2: addr2 || null,
         city: city || null, state: stateFld || null, postal_code: zip || null,
-        ssn: !isSub ? ssn || null : null,
-        ein: isSub  ? ein || null : null,
+        ssn: !isSub ? ssn || null : null, ein: isSub ? ein || null : null,
         company_name: isSub ? companyName || null : null,
       }).eq("id", invId);
     } else {
@@ -250,7 +295,7 @@ function MemberInfoModal({
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({
           targetUserId: member.id,
-          firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") ?? "",
+          firstName: pts[0] ?? "", lastName: pts.slice(1).join(" ") ?? "",
           phone: phone || "", role, workerType,
           addressLine1: addr1 || "", addressLine2: addr2 || "",
           city: city || "", state: stateFld || "", postalCode: zip || "",
@@ -270,15 +315,7 @@ function MemberInfoModal({
   const displayName = member.name && member.name !== member.email ? member.name : "—";
 
   return (
-    <DialogContent
-  className="sm:max-w-md max-h-[90vh] overflow-y-auto"
-  onPointerDownOutside={e => {
-    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
-  }}
-  onInteractOutside={e => {
-    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
-  }}
->
+    <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" {...PAC_PROPS}>
       <DialogHeader>
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
@@ -372,10 +409,7 @@ function MemberInfoModal({
               <Label className="text-xs">Phone</Label>
               <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="555-123-4567" inputMode="tel" autoComplete="tel" />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Role</Label>
-              <RoleSelect value={role} onChange={setRole} />
-            </div>
+            <div className="space-y-1.5"><Label className="text-xs">Role</Label><RoleSelect value={role} onChange={setRole} /></div>
             <div className="space-y-1.5">
               <Label className="text-xs">Employment type</Label>
               <Select value={workerType} onValueChange={v => setWorkerType(v as WorkerType)}>
@@ -391,59 +425,14 @@ function MemberInfoModal({
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <MapPin className="h-3 w-3" /> Address
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5">
-              <Label className="text-xs">Street</Label>
-              <AddressAutocomplete
-                className="h-9"
-                value={addr1}
-                onChange={setAddr1}
-                onSelect={parts => {
-                  setAddr1(parts.street);
-                  setCity(parts.city);
-                  setStateFld(parts.state);
-                  setZip(parts.zip);
-                }}
-              />
-            </div>
-            <div className="col-span-2 space-y-1.5">
-              <Label className="text-xs">Apt / Suite</Label>
-              <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)} placeholder="Apt 4B" autoComplete="address-line2" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">City</Label>
-              <Input className="h-9" value={city} onChange={e => setCity(e.target.value)} placeholder="Miami" autoComplete="address-level2" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">State</Label>
-              <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)} placeholder="FL" autoComplete="address-level1" />
-            </div>
-            <div className="col-span-2 space-y-1.5">
-              <Label className="text-xs">ZIP</Label>
-              <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)} placeholder="33101" autoComplete="postal-code" inputMode="numeric" />
-            </div>
-          </div>
+          <AddressBlock addr1={addr1} addr2={addr2} city={city} stateFld={stateFld} zip={zip}
+            setAddr1={setAddr1} setAddr2={setAddr2} setCity={setCity} setStateFld={setStateFld} setZip={setZip} />
           <Separator />
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <Shield className="h-3 w-3" /> {isSub ? "Business Info" : "Payroll Info"}
           </p>
-          {isSub ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
-                <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme LLC" autoComplete="organization" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">EIN (XX-XXXXXXX)</Label>
-                <SensitiveInput value={ein} onChange={v => setEin(fmtEIN(v))} placeholder="12-3456789" />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <Label className="text-xs">SSN (XXX-XX-XXXX)</Label>
-              <SensitiveInput value={ssn} onChange={v => setSsn(fmtSSN(v))} placeholder="123-45-6789" />
-            </div>
-          )}
+          <PayrollBlock isSub={isSub} ssn={ssn} ein={ein} companyName={companyName}
+            setSsn={setSsn} setEin={setEin} setCompanyName={setCompanyName} />
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
             <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -456,7 +445,7 @@ function MemberInfoModal({
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main table ────────────────────────────────────────────────────────────────
 
 export function TeamMembersManager({
   members, onAdd, onUpdate, onRemove, inviteMode,
@@ -490,8 +479,7 @@ export function TeamMembersManager({
           </p>
         </div>
         <MemberDialog mode="add" inviteDefault={!!inviteMode} onSave={onAdd}
-          trigger={<Button size="sm" className="h-8"><Plus className="mr-1.5 h-3.5 w-3.5" />{inviteMode ? "Invite member" : "Add member"}</Button>}
-        />
+          trigger={<Button size="sm" className="h-8"><Plus className="mr-1.5 h-3.5 w-3.5" />{inviteMode ? "Invite member" : "Add member"}</Button>} />
       </div>
 
       <div className="overflow-x-auto">
@@ -592,9 +580,7 @@ export function TeamMembersManager({
 
 // ── Add / Invite dialog ───────────────────────────────────────────────────────
 
-function MemberDialog({
-  mode, initial, inviteDefault, onSave, trigger,
-}: {
+function MemberDialog({ mode, initial, inviteDefault, onSave, trigger }: {
   mode: "add" | "edit"; initial?: TeamMember; inviteDefault?: boolean;
   onSave: (m: Omit<TeamMember, "id">) => void; trigger: React.ReactNode;
 }) {
@@ -621,18 +607,18 @@ function MemberDialog({
   const showRosterToggle  = role === "field_worker";
   const isSub = workerType === "subcontractor";
 
+  // Reset all state when dialog opens
   useEffect(() => {
-    if (open) {
-      setName(initial?.name && initial.name !== initial.email ? initial.name : "");
-      setEmail(initial?.email ?? "");
-      setPhone(initial?.phone ?? "");
-      setRole(initial?.role ?? "field_worker");
-      setWorkerType(initial?.workerType ?? "employee");
-      setSendNow(true); setIsOffline(false); setRosterOnly(false); setSending(false);
-      setAddr1(""); setAddr2(""); setCity(""); setStateFld(""); setZip("");
-      setSsn(""); setEin(""); setCompanyName("");
-    }
-  }, [open]);
+    if (!open) return;
+    setName(initial?.name && initial.name !== initial.email ? initial.name : "");
+    setEmail(initial?.email ?? "");
+    setPhone(initial?.phone ?? "");
+    setRole(initial?.role ?? "field_worker");
+    setWorkerType(initial?.workerType ?? "employee");
+    setSendNow(true); setIsOffline(false); setRosterOnly(false); setSending(false);
+    setAddr1(""); setAddr2(""); setCity(""); setStateFld(""); setZip("");
+    setSsn(""); setEin(""); setCompanyName("");
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
     if (!email.trim()) return;
@@ -644,42 +630,34 @@ function MemberDialog({
       phone: phone.trim() || undefined, role, workerType, status,
       invitedAt: status !== "active" ? new Date().toISOString() : initial?.invitedAt,
     });
-
     setOpen(false);
 
     if (shouldInvite || rosterOnly) {
       setSending(true);
       const result = await inviteMember({
         email: email.trim().toLowerCase(), role,
-        name: name.trim() || undefined, phone: phone.trim() || undefined,
-        workerType, isOffline, rosterOnly,
-        addressLine1: addr1.trim() || undefined,
-        addressLine2: addr2.trim() || undefined,
-        city:         city.trim()  || undefined,
-        state:        stateFld.trim() || undefined,
-        postalCode:   zip.trim()   || undefined,
+        name:        name.trim()     || undefined,
+        phone:       phone.trim()    || undefined,
+        workerType,  isOffline,       rosterOnly,
+        addressLine1: addr1.trim()   || undefined,
+        addressLine2: addr2.trim()   || undefined,
+        city:         city.trim()    || undefined,
+        state:        stateFld.trim()|| undefined,
+        postalCode:   zip.trim()     || undefined,
         ssn:          !isSub ? (ssn.trim() || undefined) : undefined,
         ein:          isSub  ? (ein.trim() || undefined) : undefined,
         companyName:  isSub  ? (companyName.trim() || undefined) : undefined,
       });
       setSending(false);
       if (result.success) toast.success(rosterOnly ? `${name || email} added to roster` : `Invitation sent to ${email.trim()}`);
-      else toast.error(`Member added but invite failed: ${result.error}`);
+      else toast.error(`Failed: ${result.error}`);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent
-  className="sm:max-w-md max-h-[90vh] overflow-y-auto"
-  onPointerDownOutside={e => {
-    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
-  }}
-  onInteractOutside={e => {
-    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
-  }}
->
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" {...PAC_PROPS}>
         <DialogHeader>
           <DialogTitle>{mode === "add" ? (inviteDefault ? "Invite member" : "Add member") : "Edit member"}</DialogTitle>
         </DialogHeader>
@@ -689,22 +667,19 @@ function MemberDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Name</Label>
-              <Input className="h-9" value={name} onChange={e => setName(e.target.value)}
-                placeholder="Full name" autoComplete="name" name="name" />
+              <Input className="h-9" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" autoComplete="name" name="name" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Email</Label>
-              <Input className="h-9" type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="name@company.com" autoComplete="email" name="email" />
+              <Input className="h-9" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.com" autoComplete="email" name="email" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Phone</Label>
-              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))}
-                placeholder="555-123-4567" inputMode="tel" autoComplete="tel" name="tel" />
+              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="555-123-4567" inputMode="tel" autoComplete="tel" name="tel" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Role</Label>
-              <RoleSelect value={role} onChange={r => { setRole(r); setIsOffline(false); setRosterOnly(false); }} />
+              <RoleSelect value={role} onChange={r => { setRole(r); setIsOffline(false); setRosterOnly(false); setSendNow(true); }} />
             </div>
             <div className="col-span-2 space-y-1.5">
               <Label className="text-xs">Employment type</Label>
@@ -723,42 +698,8 @@ function MemberDialog({
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <MapPin className="h-3 w-3" /> Address
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs">Street</Label>
-                <AddressAutocomplete
-                  className="h-9"
-                  value={addr1}
-                  onChange={setAddr1}
-                  onSelect={parts => {
-                    setAddr1(parts.street);
-                    setCity(parts.city);
-                    setStateFld(parts.state);
-                    setZip(parts.zip);
-                  }}
-                />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs">Apt / Suite</Label>
-                <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)}
-                  placeholder="Apt 4B" autoComplete="address-line2" name="address-line2" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">City</Label>
-                <Input className="h-9" value={city} onChange={e => setCity(e.target.value)}
-                  placeholder="Miami" autoComplete="address-level2" name="city" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">State</Label>
-                <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)}
-                  placeholder="FL" autoComplete="address-level1" name="state" />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs">ZIP</Label>
-                <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)}
-                  placeholder="33101" autoComplete="postal-code" name="postal-code" inputMode="numeric" />
-              </div>
-            </div>
+            <AddressBlock addr1={addr1} addr2={addr2} city={city} stateFld={stateFld} zip={zip}
+              setAddr1={setAddr1} setAddr2={setAddr2} setCity={setCity} setStateFld={setStateFld} setZip={setZip} />
           </div>
 
           {/* Payroll */}
@@ -766,25 +707,8 @@ function MemberDialog({
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <Shield className="h-3 w-3" /> {isSub ? "Business Info" : "Payroll Info"}
             </p>
-            {isSub ? (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
-                  <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)}
-                    placeholder="Acme LLC" autoComplete="organization" name="organization" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">EIN (XX-XXXXXXX)</Label>
-                  <SensitiveInput value={ein} onChange={v => setEin(fmtEIN(v))} placeholder="12-3456789" />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Social Security Number (XXX-XX-XXXX)</Label>
-                <SensitiveInput value={ssn} onChange={v => setSsn(fmtSSN(v))} placeholder="123-45-6789" />
-                <p className="text-[10px] text-muted-foreground">Stored securely for payroll purposes only.</p>
-              </div>
-            )}
+            <PayrollBlock isSub={isSub} ssn={ssn} ein={ein} companyName={companyName}
+              setSsn={setSsn} setEin={setEin} setCompanyName={setCompanyName} />
           </div>
 
           {/* Invite options */}
