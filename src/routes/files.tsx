@@ -33,7 +33,7 @@ import {
   fileIcon, formatBytes, approxBytes,
   FILE_CATEGORIES, type FileCategory, type FileRecord,
 } from "@/lib/files-store";
-import { mockProjects } from "@/lib/mock-data";
+import { useProjects } from "@/lib/projects-store";
 import { formatDate, formatDateShort } from "@/lib/format";
 
 type FilesSearch = { fileId?: string };
@@ -80,6 +80,7 @@ function FilesPage() {
   const { fileId } = useSearch({ from: "/files" });
   const navigate = useNavigate({ from: "/files" });
   const files = useFiles();
+  const { projects } = useProjects();
 
   const [folder, setFolder] = useState<FolderKey>("all");
   const [search, setSearch] = useState("");
@@ -247,7 +248,7 @@ function FilesPage() {
           ))}
 
           <Separator />
-          <ProjectFolders activeFolder={folder} projectFilter={projectFilter} setProjectFilter={setProjectFilter} setFolder={setFolder} />
+          <ProjectFolders projects={projects} activeFolder={folder} projectFilter={projectFilter} setProjectFilter={setProjectFilter} setFolder={setFolder} />
         </aside>
 
         {/* Library */}
@@ -270,7 +271,7 @@ function FilesPage() {
                 <SelectContent>
                   <SelectItem value="all">All projects</SelectItem>
                   <SelectItem value="_workspace">Workspace only</SelectItem>
-                  {mockProjects.map((p) => (
+                  {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -369,17 +370,19 @@ function FilesPage() {
 // ---------- Sidebar: project folders ----------
 
 function ProjectFolders({
+  projects,
   activeFolder,
   projectFilter,
   setProjectFilter,
   setFolder,
 }: {
+  projects: import("@/lib/projects-store").Project[];
   activeFolder: FolderKey;
   projectFilter: string;
   setProjectFilter: (v: string) => void;
   setFolder: (f: FolderKey) => void;
 }) {
-  const visible = mockProjects.slice(0, 8);
+  const visible = projects.slice(0, 8);
   return (
     <div>
       <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -398,7 +401,7 @@ function ProjectFolders({
               }
             >
               <FolderOpen className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">{p.client}</span>
+              <span className="flex-1 truncate">{p.name}</span>
             </button>
           );
         })}
@@ -479,6 +482,7 @@ function StatCard({ icon: Icon, label, value }: { icon: React.ComponentType<{ cl
 // ---------- Drawer ----------
 
 function FileDrawer({ file, onOpenChange }: { file: FileRecord | null; onOpenChange: (o: boolean) => void }) {
+  const { projects } = useProjects();
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState("");
   const versionInputRef = useRef<HTMLInputElement>(null);
@@ -630,7 +634,7 @@ function FileDrawer({ file, onOpenChange }: { file: FileRecord | null; onOpenCha
                   <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_workspace">Workspace</SelectItem>
-                    {mockProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </Field>
