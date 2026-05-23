@@ -1,6 +1,6 @@
 [build]
   command = "pnpm build"
-  publish = ".netlify/output"
+  publish = "dist"
 
 [dev]
   command = "pnpm dev"
