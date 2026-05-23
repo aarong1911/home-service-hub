@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -271,7 +270,15 @@ function MemberInfoModal({
   const displayName = member.name && member.name !== member.email ? member.name : "—";
 
   return (
-    <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+    <DialogContent
+  className="sm:max-w-md max-h-[90vh] overflow-y-auto"
+  onPointerDownOutside={e => {
+    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
+  }}
+  onInteractOutside={e => {
+    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
+  }}
+>
       <DialogHeader>
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
@@ -664,7 +671,15 @@ function MemberDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent
+  className="sm:max-w-md max-h-[90vh] overflow-y-auto"
+  onPointerDownOutside={e => {
+    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
+  }}
+  onInteractOutside={e => {
+    if ((e.target as Element)?.closest?.(".pac-container")) e.preventDefault();
+  }}
+>
         <DialogHeader>
           <DialogTitle>{mode === "add" ? (inviteDefault ? "Invite member" : "Add member") : "Edit member"}</DialogTitle>
         </DialogHeader>
