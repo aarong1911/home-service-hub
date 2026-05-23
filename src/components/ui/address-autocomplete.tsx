@@ -28,17 +28,11 @@ declare global {
 }
 
 function ensureScript(apiKey: string, onReady: () => void) {
-  // Already loaded
   if (window.__googlePlacesReady) { onReady(); return; }
-
-  // Queue callback
   if (!window.__googlePlacesCallbacks) window.__googlePlacesCallbacks = [];
   window.__googlePlacesCallbacks.push(onReady);
-
-  // Already loading
   if (document.querySelector('script[data-google-places]')) return;
 
-  // Set up callback
   window.initGooglePlacesCallback = () => {
     window.__googlePlacesReady = true;
     window.__googlePlacesCallbacks?.forEach(cb => cb());
@@ -52,9 +46,18 @@ function ensureScript(apiKey: string, onReady: () => void) {
   document.head.appendChild(script);
 }
 
-export function AddressAutocomplete({ value, onChange, onSelect, placeholder = "123 Main St", className }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const acRef    = useRef<{ getPlace: () => { address_components?: GACComponent[]; formatted_address?: string }; addListener: (e: string, fn: () => void) => void } | null>(null);
+export function AddressAutocomplete({
+  value, onChange, onSelect,
+  placeholder = "123 Main St", className,
+}: Props) {
+  const inputRef    = useRef<HTMLInputElement>(null);
+  const acRef       = useRef<unknown>(null);
+  // Keep latest callbacks in refs so the place_changed listener never goes stale
+  const onSelectRef = useRef(onSelect);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined;
@@ -65,7 +68,6 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder = "
 
     ensureScript(apiKey, () => {
       if (!inputRef.current || acRef.current) return;
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const google = (window as any).google;
       if (!google?.maps?.places) return;
@@ -79,24 +81,23 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder = "
 
       ac.addListener("place_changed", () => {
         const place = ac.getPlace();
-        if (!place.address_components) return;
+        if (!place?.address_components) return;
 
-        const get      = (type: string) => place.address_components!.find((c: GACComponent) => c.types.includes(type))?.long_name  ?? "";
-        const getShort = (type: string) => place.address_components!.find((c: GACComponent) => c.types.includes(type))?.short_name ?? "";
+        const get      = (type: string) => (place.address_components as GACComponent[]).find(c => c.types.includes(type))?.long_name  ?? "";
+        const getShort = (type: string) => (place.address_components as GACComponent[]).find(c => c.types.includes(type))?.short_name ?? "";
 
         const street = [get("street_number"), get("route")].filter(Boolean).join(" ");
         const city   = get("locality") || get("sublocality") || get("neighborhood");
         const state  = getShort("administrative_area_level_1");
         const zip    = get("postal_code");
 
-        onSelect({ street, city, state, zip });
-        onChange(street);
+        // Use refs so we always call the latest version of the callbacks
+        onSelectRef.current({ street, city, state, zip });
+        onChangeRef.current(street);
       });
     });
 
-    return () => {
-      acRef.current = null;
-    };
+    return () => { acRef.current = null; };
   }, []);
 
   return (
