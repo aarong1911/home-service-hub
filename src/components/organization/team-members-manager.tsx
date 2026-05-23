@@ -1,4 +1,3 @@
-// src/components/organization/team-members-manager.tsx
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +40,8 @@ export type TeamMembersManagerProps = {
   subtitle?: string;
 };
 
+// ── Formatters ────────────────────────────────────────────────────────────────
+
 function fmtPhone(raw: string): string {
   const d = raw.replace(/\D/g, "").slice(0, 10);
   if (d.length <= 3) return d;
@@ -69,11 +70,11 @@ type FullProfile = {
   worker_type: string | null;
 };
 
-// ── SSN / EIN input with eye toggle ──────────────────────────────────────────
+// ── Sensitive input with eye toggle ──────────────────────────────────────────
 
-function SensitiveInput({ value, onChange, placeholder, autoComplete = "new-password" }: {
-  value: string; onChange: (v: string) => void; placeholder: string; autoComplete?: string;
-}) {
+function SensitiveInput({
+  value, onChange, placeholder,
+}: { value: string; onChange: (v: string) => void; placeholder: string }) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -83,7 +84,7 @@ function SensitiveInput({ value, onChange, placeholder, autoComplete = "new-pass
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        autoComplete={autoComplete}
+        autoComplete="new-password"
       />
       <button
         type="button"
@@ -128,71 +129,6 @@ function StatusBadge({ status }: { status: TeamMember["status"] }) {
   };
   const { cls, label } = map[status] ?? map.active;
   return <Badge variant="secondary" className={`h-5 rounded px-1.5 text-[10px] ${cls}`}>{label}</Badge>;
-}
-
-// ── Address fields block ──────────────────────────────────────────────────────
-
-function AddressFields({ addr1, addr2, city, stateFld, zip, setAddr1, setAddr2, setCity, setStateFld, setZip }: {
-  addr1: string; addr2: string; city: string; stateFld: string; zip: string;
-  setAddr1: (v: string) => void; setAddr2: (v: string) => void;
-  setCity: (v: string) => void; setStateFld: (v: string) => void; setZip: (v: string) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="col-span-2 space-y-1.5">
-        <Label className="text-xs">Street</Label>
-        <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)}
-          placeholder="123 Main St" autoComplete="street-address" />
-      </div>
-      <div className="col-span-2 space-y-1.5">
-        <Label className="text-xs">Apt / Suite</Label>
-        <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)}
-          placeholder="Apt 4B" autoComplete="address-line2" />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">City</Label>
-        <Input className="h-9" value={city} onChange={e => setCity(e.target.value)}
-          placeholder="Miami" autoComplete="address-level2" />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">State</Label>
-        <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)}
-          placeholder="FL" autoComplete="address-level1" />
-      </div>
-      <div className="col-span-2 space-y-1.5">
-        <Label className="text-xs">ZIP</Label>
-        <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)}
-          placeholder="33101" autoComplete="postal-code" inputMode="numeric" />
-      </div>
-    </div>
-  );
-}
-
-// ── Payroll fields block ──────────────────────────────────────────────────────
-
-function PayrollFields({ isSub, ssn, ein, companyName, setSsn, setEin, setCompanyName }: {
-  isSub: boolean; ssn: string; ein: string; companyName: string;
-  setSsn: (v: string) => void; setEin: (v: string) => void; setCompanyName: (v: string) => void;
-}) {
-  return isSub ? (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
-        <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)}
-          placeholder="Acme LLC" autoComplete="organization" />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">EIN (XX-XXXXXXX)</Label>
-        <SensitiveInput value={ein} onChange={v => setEin(fmtEIN(v))} placeholder="12-3456789" />
-      </div>
-    </div>
-  ) : (
-    <div className="space-y-1.5">
-      <Label className="text-xs">Social Security Number (XXX-XX-XXXX)</Label>
-      <SensitiveInput value={ssn} onChange={v => setSsn(fmtSSN(v))} placeholder="123-45-6789" />
-      <p className="text-[10px] text-muted-foreground">Stored securely for payroll purposes only.</p>
-    </div>
-  );
 }
 
 // ── Email modal ───────────────────────────────────────────────────────────────
@@ -422,13 +358,20 @@ function MemberInfoModal({
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1.5"><Label className="text-xs">Name</Label>
-              <Input className="h-9" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" autoComplete="name" /></div>
-            <div className="col-span-2 space-y-1.5"><Label className="text-xs">Phone</Label>
-              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="555-123-4567" inputMode="tel" autoComplete="tel" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Role</Label>
-              <RoleSelect value={role} onChange={setRole} /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Employment type</Label>
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-xs">Name</Label>
+              <Input className="h-9" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" autoComplete="name" />
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-xs">Phone</Label>
+              <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="555-123-4567" inputMode="tel" autoComplete="tel" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Role</Label>
+              <RoleSelect value={role} onChange={setRole} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Employment type</Label>
               <Select value={workerType} onValueChange={v => setWorkerType(v as WorkerType)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -442,14 +385,49 @@ function MemberInfoModal({
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <MapPin className="h-3 w-3" /> Address
           </p>
-          <AddressFields addr1={addr1} addr2={addr2} city={city} stateFld={stateFld} zip={zip}
-            setAddr1={setAddr1} setAddr2={setAddr2} setCity={setCity} setStateFld={setStateFld} setZip={setZip} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-xs">Street</Label>
+              <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)} placeholder="123 Main St" autoComplete="street-address" />
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-xs">Apt / Suite</Label>
+              <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)} placeholder="Apt 4B" autoComplete="address-line2" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">City</Label>
+              <Input className="h-9" value={city} onChange={e => setCity(e.target.value)} placeholder="Miami" autoComplete="address-level2" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">State</Label>
+              <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)} placeholder="FL" autoComplete="address-level1" />
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-xs">ZIP</Label>
+              <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)} placeholder="33101" autoComplete="postal-code" inputMode="numeric" />
+            </div>
+          </div>
           <Separator />
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <Shield className="h-3 w-3" /> {isSub ? "Business Info" : "Payroll Info"}
           </p>
-          <PayrollFields isSub={isSub} ssn={ssn} ein={ein} companyName={companyName}
-            setSsn={setSsn} setEin={setEin} setCompanyName={setCompanyName} />
+          {isSub ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
+                <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme LLC" autoComplete="organization" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">EIN (XX-XXXXXXX)</Label>
+                <SensitiveInput value={ein} onChange={v => setEin(fmtEIN(v))} placeholder="12-3456789" />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs">SSN (XXX-XX-XXXX)</Label>
+              <SensitiveInput value={ssn} onChange={v => setSsn(fmtSSN(v))} placeholder="123-45-6789" />
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
             <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -596,7 +574,7 @@ export function TeamMembersManager({
   );
 }
 
-// ── Add/Invite dialog ─────────────────────────────────────────────────────────
+// ── Add / Invite dialog ───────────────────────────────────────────────────────
 
 function MemberDialog({
   mode, initial, inviteDefault, onSave, trigger,
@@ -627,7 +605,6 @@ function MemberDialog({
   const showRosterToggle  = role === "field_worker";
   const isSub = workerType === "subcontractor";
 
-  // Reset all fields when dialog opens/closes
   useEffect(() => {
     if (open) {
       setName(initial?.name && initial.name !== initial.email ? initial.name : "");
@@ -641,7 +618,7 @@ function MemberDialog({
     }
   }, [open]);
 
-  async function handleSubmit() {
+  const handleSubmit = async () => {
     if (!email.trim()) return;
     const shouldInvite = mode === "add" && (inviteDefault || sendNow) && !rosterOnly;
     const status: TeamMember["status"] = rosterOnly ? "roster" : shouldInvite ? "invited" : initial?.status ?? "active";
@@ -673,7 +650,7 @@ function MemberDialog({
       if (result.success) toast.success(rosterOnly ? `${name || email} added to roster` : `Invitation sent to ${email.trim()}`);
       else toast.error(`Member added but invite failed: ${result.error}`);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -683,24 +660,25 @@ function MemberDialog({
           <DialogTitle>{mode === "add" ? (inviteDefault ? "Invite member" : "Add member") : "Edit member"}</DialogTitle>
         </DialogHeader>
 
+        {/* Wrap in form for browser autoComplete support */}
         <form autoComplete="on" onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
-  {/* Basic info */}
+
           {/* Basic info */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Name</Label>
               <Input className="h-9" value={name} onChange={e => setName(e.target.value)}
-                placeholder="Full name" autoComplete="name" />
+                placeholder="Full name" autoComplete="name" name="name" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Email</Label>
               <Input className="h-9" type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="name@company.com" autoComplete="email" />
+                placeholder="name@company.com" autoComplete="email" name="email" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Phone</Label>
               <Input className="h-9" value={phone} onChange={e => setPhone(fmtPhone(e.target.value))}
-                placeholder="555-123-4567" inputMode="tel" autoComplete="tel" />
+                placeholder="555-123-4567" inputMode="tel" autoComplete="tel" name="tel" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Role</Label>
@@ -723,8 +701,33 @@ function MemberDialog({
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <MapPin className="h-3 w-3" /> Address
             </p>
-            <AddressFields addr1={addr1} addr2={addr2} city={city} stateFld={stateFld} zip={zip}
-              setAddr1={setAddr1} setAddr2={setAddr2} setCity={setCity} setStateFld={setStateFld} setZip={setZip} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-xs">Street</Label>
+                <Input className="h-9" value={addr1} onChange={e => setAddr1(e.target.value)}
+                  placeholder="123 Main St" autoComplete="street-address" name="street-address" />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-xs">Apt / Suite</Label>
+                <Input className="h-9" value={addr2} onChange={e => setAddr2(e.target.value)}
+                  placeholder="Apt 4B" autoComplete="address-line2" name="address-line2" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">City</Label>
+                <Input className="h-9" value={city} onChange={e => setCity(e.target.value)}
+                  placeholder="Miami" autoComplete="address-level2" name="city" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">State</Label>
+                <Input className="h-9" value={stateFld} onChange={e => setStateFld(e.target.value)}
+                  placeholder="FL" autoComplete="address-level1" name="state" />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-xs">ZIP</Label>
+                <Input className="h-9" value={zip} onChange={e => setZip(e.target.value)}
+                  placeholder="33101" autoComplete="postal-code" name="postal-code" inputMode="numeric" />
+              </div>
+            </div>
           </div>
 
           {/* Payroll */}
@@ -732,8 +735,25 @@ function MemberDialog({
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <Shield className="h-3 w-3" /> {isSub ? "Business Info" : "Payroll Info"}
             </p>
-            <PayrollFields isSub={isSub} ssn={ssn} ein={ein} companyName={companyName}
-              setSsn={setSsn} setEin={setEin} setCompanyName={setCompanyName} />
+            {isSub ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Company name</Label>
+                  <Input className="h-9" value={companyName} onChange={e => setCompanyName(e.target.value)}
+                    placeholder="Acme LLC" autoComplete="organization" name="organization" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">EIN (XX-XXXXXXX)</Label>
+                  <SensitiveInput value={ein} onChange={v => setEin(fmtEIN(v))} placeholder="12-3456789" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Social Security Number (XXX-XX-XXXX)</Label>
+                <SensitiveInput value={ssn} onChange={v => setSsn(fmtSSN(v))} placeholder="123-45-6789" />
+                <p className="text-[10px] text-muted-foreground">Stored securely for payroll purposes only.</p>
+              </div>
+            )}
           </div>
 
           {/* Invite options */}
@@ -768,12 +788,12 @@ function MemberDialog({
             </div>
           )}
 
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={!email.trim() || sending}>
-            {sending ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving…</> : mode === "add" ? "Add" : "Save"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" size="sm" disabled={!email.trim() || sending}>
+              {sending ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving…</> : mode === "add" ? "Add" : "Save"}
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
