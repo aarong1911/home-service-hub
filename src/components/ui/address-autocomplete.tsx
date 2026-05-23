@@ -46,13 +46,28 @@ function ensureScript(apiKey: string, onReady: () => void) {
   document.head.appendChild(script);
 }
 
+// Fix pac-container z-index and ensure it is above the dialog overlay
+function fixPacContainer() {
+  const observer = new MutationObserver(() => {
+    const pac = document.querySelector(".pac-container") as HTMLElement | null;
+    if (pac) {
+      pac.style.zIndex = "99999";
+      pac.style.pointerEvents = "auto";
+      // Prevent Radix from treating pac clicks as outside-dialog clicks
+      pac.addEventListener("mousedown", e => e.stopPropagation(), true);
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return observer;
+}
+
 export function AddressAutocomplete({
   value, onChange, onSelect,
   placeholder = "123 Main St", className,
 }: Props) {
   const inputRef    = useRef<HTMLInputElement>(null);
   const acRef       = useRef<unknown>(null);
-  // Keep latest callbacks in refs so the place_changed listener never goes stale
   const onSelectRef = useRef(onSelect);
   const onChangeRef = useRef(onChange);
 
@@ -65,6 +80,8 @@ export function AddressAutocomplete({
       console.warn("[AddressAutocomplete] VITE_GOOGLE_PLACES_API_KEY not set");
       return;
     }
+
+    const observer = fixPacContainer();
 
     ensureScript(apiKey, () => {
       if (!inputRef.current || acRef.current) return;
@@ -91,13 +108,15 @@ export function AddressAutocomplete({
         const state  = getShort("administrative_area_level_1");
         const zip    = get("postal_code");
 
-        // Use refs so we always call the latest version of the callbacks
         onSelectRef.current({ street, city, state, zip });
         onChangeRef.current(street);
       });
     });
 
-    return () => { acRef.current = null; };
+    return () => {
+      observer.disconnect();
+      acRef.current = null;
+    };
   }, []);
 
   return (
