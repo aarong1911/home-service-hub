@@ -58,110 +58,18 @@ export const handler: Handler = async (event) => {
 
   const trimmedName = (name ?? "").trim();
   const nameParts   = trimmedName ? trimmedName.split(" ") : [];
-  const firstName   = nameParts[0]                   || null;
-  const lastName    = nameParts.slice(1).join(" ")   || null;
+  const firstName   = nameParts[0] || null;
+  const lastName    = nameParts.slice(1).join(" ") || null;
   const fullName    = trimmedName || null;
   const invToken    = crypto.randomUUID();
 
-  // ── Roster-only: create ghost auth user + profile + membership ─────────────
-  if (rosterOnly) {
-    console.log(`[invite-member] creating roster member: ${email}`);
-
-    // Clean up any existing unconfirmed user
-    try {
-      const { data: rows } = await supabaseAdmin.rpc("get_user_id_by_email", { user_email: email });
-      const existingId = rows?.[0]?.id;
-      if (existingId) {
-        const { data: existing } = await supabaseAdmin.auth.admin.getUserById(existingId);
-        if (existing?.user && !existing.user.email_confirmed_at) {
-          await supabaseAdmin.auth.admin.deleteUser(existingId);
-        }
-      }
-    } catch {}
-
-    // Create ghost auth user — random password they'll never know
-    const ghostPassword = crypto.randomUUID() + crypto.randomUUID();
-    const { data: ghostUser, error: ghostErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: ghostPassword,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName, last_name: lastName, full_name: fullName,
-        phone: phone || null, org_id: orgId, role, roster_only: true,
-      },
-    });
-
-    if (ghostErr) {
-      console.error("[invite-member] ghost user creation failed:", ghostErr);
-      // Fall back: save invitation only
-    } else {
-      const userId = ghostUser.user.id;
-
-      // Create profile
-      await supabaseAdmin.from("profiles").upsert({
-        id: userId, email,
-        first_name:    firstName,
-        last_name:     lastName,
-        phone:         phone         || null,
-        organization_id: orgId,
-        address_line1: addressLine1  || null,
-        address_line2: addressLine2  || null,
-        city:          city          || null,
-        state:         state         || null,
-        postal_code:   postalCode    || null,
-        worker_type:   workerType,
-        ssn:           ssn           || null,
-        ein:           ein           || null,
-        company_name:  companyName   || null,
-      }, { onConflict: "id" });
-
-      // Add to org_memberships with name
-      await supabaseAdmin.from("org_memberships").insert({
-        member_id:   userId,
-        org_id:      orgId,
-        role,
-        worker_type: workerType,
-        name:        fullName,
-      });
-
-      console.log(`[invite-member] roster member ${email} added — uid: ${userId}`);
-    }
-
-    // Save invitation record
-    await supabaseAdmin.from("invitations").insert({
-      organization_id: orgId,
-      email, role,
-      status:        "roster_only",
-      invited_by:    user.id,
-      token:         invToken,
-      expires_at:    new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      first_name:    firstName,
-      last_name:     lastName,
-      primary_phone: phone        || null,
-      worker_type:   workerType,
-      address_line1: addressLine1 || null,
-      address_line2: addressLine2 || null,
-      city:          city         || null,
-      state:         state        || null,
-      postal_code:   postalCode   || null,
-      ssn:           ssn          || null,
-      ein:           ein          || null,
-      company_name:  companyName  || null,
-    });
-
-    return { statusCode: 200, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, rosterOnly: true }) };
-  }
-
-  // ── Standard invite flow ───────────────────────────────────────────────────
-
-  // Save invitation
+  // ── Save invitation record ─────────────────────────────────────────────────
   const { data: invitation, error: invErr } = await supabaseAdmin
     .from("invitations")
     .insert({
       organization_id: orgId,
       email, role,
-      status:        "pending",
+      status:        rosterOnly ? "roster_only" : "pending",
       invited_by:    user.id,
       token:         invToken,
       expires_at:    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -185,6 +93,85 @@ export const handler: Handler = async (event) => {
     console.error("[invite-member] DB insert failed:", invErr);
     return { statusCode: 500, body: JSON.stringify({ error: "Failed to create invitation" }) };
   }
+
+  // ── Roster-only: create ghost auth user + profile + org_membership ─────────
+  if (rosterOnly) {
+    console.log(`[invite-member] roster-only: ${email}`);
+
+    // Clean up any existing unconfirmed user for this email
+    try {
+      const { data: rows } = await supabaseAdmin.rpc("get_user_id_by_email", { user_email: email });
+      const existingId = rows?.[0]?.id;
+      if (existingId) {
+        const { data: existing } = await supabaseAdmin.auth.admin.getUserById(existingId);
+        if (existing?.user && !existing.user.email_confirmed_at) {
+          await supabaseAdmin.auth.admin.deleteUser(existingId);
+          console.log(`[invite-member] cleaned up existing unconfirmed user`);
+        }
+      }
+    } catch (e) {
+      console.warn("[invite-member] cleanup check failed:", e);
+    }
+
+    // Create ghost auth user — no password, email confirmed, can never sign in
+    const { data: ghostUser, error: ghostErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: {
+        first_name: firstName, last_name: lastName, full_name: fullName,
+        phone: phone || null, org_id: orgId, role, roster_only: true,
+      },
+    });
+
+    if (ghostErr) {
+      console.error("[invite-member] ghost user failed:", ghostErr.message);
+      // Non-fatal — invitation row was saved, member shows as roster
+    } else {
+      const userId = ghostUser.user.id;
+      console.log(`[invite-member] ghost user created: ${userId}`);
+
+      // Create profile
+      const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
+        id: userId, email,
+        first_name:      firstName,
+        last_name:       lastName,
+        phone:           phone         || null,
+        organization_id: orgId,
+        address_line1:   addressLine1  || null,
+        address_line2:   addressLine2  || null,
+        city:            city          || null,
+        state:           state         || null,
+        postal_code:     postalCode    || null,
+        worker_type:     workerType,
+        ssn:             ssn           || null,
+        ein:             ein           || null,
+        company_name:    companyName   || null,
+      }, { onConflict: "id" });
+      if (profileErr) console.error("[invite-member] profile upsert failed:", profileErr.message);
+      else console.log("[invite-member] profile created");
+
+      // Add to org_memberships
+      const { error: memberErr } = await supabaseAdmin.from("org_memberships").insert({
+        member_id:   userId,
+        org_id:      orgId,
+        role,
+        worker_type: workerType,
+        name:        fullName,
+      });
+      if (memberErr) console.error("[invite-member] org_memberships failed:", memberErr.message);
+      else console.log("[invite-member] added to org_memberships");
+
+      // Update invitation with the user id
+      await supabaseAdmin.from("invitations")
+        .update({ status: "roster_only" })
+        .eq("id", invitation.id);
+    }
+
+    return { statusCode: 200, headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: true, invitationId: invitation.id, rosterOnly: true }) };
+  }
+
+  // ── Standard invite flow ───────────────────────────────────────────────────
 
   const baseUrl   = process.env.URL ?? "http://localhost:9999";
   const inviteUrl = getInviteUrl(role, isOffline, invToken, baseUrl);
