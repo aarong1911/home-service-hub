@@ -1,0 +1,113 @@
+/// <reference types="node" />
+// netlify/functions/accept-invite.ts
+import type { Handler } from "@netlify/functions";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
+
+  let body: { token: string; password: string; firstName: string; lastName: string; phone?: string };
+  try { body = JSON.parse(event.body ?? "{}"); }
+  catch { return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON" }) }; }
+
+  const { token, password, firstName, lastName, phone } = body;
+  if (!token || !password) return { statusCode: 400, body: JSON.stringify({ error: "token and password required" }) };
+
+  // Validate invitation token
+  const { data: invitation, error: invErr } = await supabaseAdmin
+    .from("invitations")
+    .select("*")
+    .eq("token", token)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (invErr || !invitation) {
+    console.error("[accept-invite] token lookup failed:", invErr);
+    return { statusCode: 404, body: JSON.stringify({ error: "Invalid or expired invitation" }) };
+  }
+
+  if (new Date(invitation.expires_at) < new Date()) {
+    return { statusCode: 410, body: JSON.stringify({ error: "Invitation has expired" }) };
+  }
+
+  const { email, organization_id: orgId, role } = invitation;
+  console.log(`[accept-invite] processing: ${email} → org ${orgId} as ${role}`);
+
+  // Create auth user
+  const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (createErr) {
+    console.error("[accept-invite] createUser failed:", createErr);
+    return { statusCode: 500, body: JSON.stringify({ error: createErr.message }) };
+  }
+
+  const userId = newUser.user.id;
+  console.log(`[accept-invite] created auth user: ${userId}`);
+
+  // Update user metadata
+  const { error: metaErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      first_name: firstName, last_name: lastName,
+      full_name: `${firstName} ${lastName}`.trim(),
+      phone: phone || null, org_id: orgId, role,
+      invitation_id: invitation.id,
+    },
+  });
+  if (metaErr) console.error("[accept-invite] metadata update failed:", metaErr);
+  else console.log("[accept-invite] metadata set");
+
+  // Upsert profile
+  const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
+    id: userId, email,
+    first_name: firstName, last_name: lastName,
+    phone: phone || null,
+    organization_id: orgId,
+  }, { onConflict: "id" });
+  if (profileErr) console.error("[accept-invite] profiles upsert failed:", JSON.stringify(profileErr));
+  else console.log("[accept-invite] profile upserted");
+
+  // Add to org_memberships
+  const { error: memberErr } = await supabaseAdmin.from("org_memberships").insert({
+    member_id: userId,
+    org_id: orgId,
+    role,
+  });
+  if (memberErr) console.error("[accept-invite] org_memberships insert failed:", JSON.stringify(memberErr));
+  else console.log("[accept-invite] added to org_memberships");
+
+  // Mark invitation accepted
+  const { error: invUpdateErr } = await supabaseAdmin.from("invitations")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("id", invitation.id);
+  if (invUpdateErr) console.error("[accept-invite] invitation update failed:", JSON.stringify(invUpdateErr));
+  else console.log("[accept-invite] invitation marked accepted");
+
+  // Set phone in E.164 on auth row
+  if (phone) {
+    const digits = phone.replace(/\D/g, "");
+    const e164 = digits.length === 10 ? `+1${digits}`
+      : digits.length === 11 && digits.startsWith("1") ? `+${digits}` : null;
+    if (e164) {
+      const { error: phoneErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { phone: e164 });
+      if (phoneErr) console.error("[accept-invite] phone update failed:", phoneErr);
+      else console.log(`[accept-invite] phone set: ${e164}`);
+    }
+  }
+
+  console.log(`[accept-invite] ✓ complete — ${email} joined org ${orgId} as ${role}`);
+  return {
+    statusCode: 200,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ success: true, email }),
+  };
+};

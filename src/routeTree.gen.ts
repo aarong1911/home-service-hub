@@ -32,7 +32,6 @@ import { Route as SettingsNotificationsRouteImport } from './routes/settings.not
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 import { Route as SettingsFavoritesRouteImport } from './routes/settings.favorites'
 import { Route as SettingsCustomFieldsRouteImport } from './routes/settings.custom-fields'
-import { Route as SettingsBrandingRouteImport } from './routes/settings.branding'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
 import { Route as SettingsApiKeysRouteImport } from './routes/settings.api-keys'
 import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
@@ -49,6 +48,7 @@ import { Route as AutomationWorkflowsRouteImport } from './routes/automation.wor
 import { Route as AutomationTriggersRouteImport } from './routes/automation.triggers'
 import { Route as AutomationCallLogsRouteImport } from './routes/automation.call-logs'
 import { Route as AutomationAgentsRouteImport } from './routes/automation.agents'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
 import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
 
@@ -167,11 +167,6 @@ const SettingsCustomFieldsRoute = SettingsCustomFieldsRouteImport.update({
   path: '/custom-fields',
   getParentRoute: () => SettingsRoute,
 } as any)
-const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
-  id: '/branding',
-  path: '/branding',
-  getParentRoute: () => SettingsRoute,
-} as any)
 const SettingsBillingRoute = SettingsBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
@@ -252,6 +247,11 @@ const AutomationAgentsRoute = AutomationAgentsRouteImport.update({
   path: '/automation/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AutomationWorkflowsIndexRoute =
   AutomationWorkflowsIndexRouteImport.update({
     id: '/',
@@ -281,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -297,7 +298,6 @@ export interface FileRoutesByFullPath {
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
-  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
@@ -325,6 +325,7 @@ export interface FileRoutesByTo {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -340,7 +341,6 @@ export interface FileRoutesByTo {
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
-  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
@@ -369,6 +369,7 @@ export interface FileRoutesById {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -385,7 +386,6 @@ export interface FileRoutesById {
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
-  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
@@ -415,6 +415,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tasks'
+    | '/auth/callback'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -431,7 +432,6 @@ export interface FileRouteTypes {
     | '/sales/pipeline'
     | '/settings/api-keys'
     | '/settings/billing'
-    | '/settings/branding'
     | '/settings/custom-fields'
     | '/settings/favorites'
     | '/settings/integrations'
@@ -459,6 +459,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tasks'
+    | '/auth/callback'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -474,7 +475,6 @@ export interface FileRouteTypes {
     | '/sales/pipeline'
     | '/settings/api-keys'
     | '/settings/billing'
-    | '/settings/branding'
     | '/settings/custom-fields'
     | '/settings/favorites'
     | '/settings/integrations'
@@ -502,6 +502,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tasks'
+    | '/auth/callback'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -518,7 +519,6 @@ export interface FileRouteTypes {
     | '/sales/pipeline'
     | '/settings/api-keys'
     | '/settings/billing'
-    | '/settings/branding'
     | '/settings/custom-fields'
     | '/settings/favorites'
     | '/settings/integrations'
@@ -547,6 +547,7 @@ export interface RootRouteChildren {
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationCallLogsRoute: typeof AutomationCallLogsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
@@ -721,13 +722,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsCustomFieldsRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/settings/branding': {
-      id: '/settings/branding'
-      path: '/branding'
-      fullPath: '/settings/branding'
-      preLoaderRoute: typeof SettingsBrandingRouteImport
-      parentRoute: typeof SettingsRoute
-    }
     '/settings/billing': {
       id: '/settings/billing'
       path: '/billing'
@@ -840,6 +834,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomationAgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/automation/workflows/': {
       id: '/automation/workflows/'
       path: '/'
@@ -890,7 +891,6 @@ const InboxRouteWithChildren = InboxRoute._addFileChildren(InboxRouteChildren)
 interface SettingsRouteChildren {
   SettingsApiKeysRoute: typeof SettingsApiKeysRoute
   SettingsBillingRoute: typeof SettingsBillingRoute
-  SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsCustomFieldsRoute: typeof SettingsCustomFieldsRoute
   SettingsFavoritesRoute: typeof SettingsFavoritesRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
@@ -903,7 +903,6 @@ interface SettingsRouteChildren {
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsApiKeysRoute: SettingsApiKeysRoute,
   SettingsBillingRoute: SettingsBillingRoute,
-  SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsCustomFieldsRoute: SettingsCustomFieldsRoute,
   SettingsFavoritesRoute: SettingsFavoritesRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
@@ -946,6 +945,7 @@ const rootRouteChildren: RootRouteChildren = {
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationCallLogsRoute: AutomationCallLogsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
@@ -959,12 +959,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

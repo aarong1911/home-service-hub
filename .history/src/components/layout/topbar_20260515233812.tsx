@@ -1,0 +1,652 @@
+// src/components/layout/topbar.tsx
+
+import {
+  Search,
+  Bell,
+  HelpCircle,
+  Command as CommandIcon,
+  Briefcase,
+  Users,
+  Target,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useOrganization, memberInitials } from "@/lib/organization";
+import { signOut } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import { ROUTES } from "@/lib/routes";
+
+const LOGO_KEY = "rm_org_logo";
+const COMPANY_NAME_KEY = "rm_org_company_name";
+const DEFAULT_COMPANY_NAME = "Your Company";
+
+type SearchResult = {
+  id: string;
+  label: string;
+  sub: string;
+  group: "contacts" | "deals" | "projects";
+  href: string;
+};
+
+type OrganizationHeaderData = {
+  logo_url?: string | null;
+  public_name?: string | null;
+  name?: string | null;
+  legal_name?: string | null;
+};
+
+function isValidLogoUrl(value: string | null | undefined): value is string {
+  return Boolean(
+    value &&
+      !value.startsWith("blob:") &&
+      !value.startsWith("data:")
+  );
+}
+
+function getOrgDisplayName(
+  orgData?: OrganizationHeaderData | null,
+  fallback?: string | null
+): string {
+  return (
+    orgData?.public_name?.trim() ||
+    orgData?.name?.trim() ||
+    orgData?.legal_name?.trim() ||
+    fallback?.trim() ||
+    DEFAULT_COMPANY_NAME
+  );
+}
+
+function getCachedLogoUrl(): string | null {
+  try {
+    const cached = localStorage.getItem(LOGO_KEY);
+    return isValidLogoUrl(cached) ? cached : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedLogoUrl(url: string | null) {
+  try {
+    if (isValidLogoUrl(url)) {
+      localStorage.setItem(LOGO_KEY, url);
+    } else {
+      localStorage.removeItem(LOGO_KEY);
+    }
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
+function getCachedCompanyName(): string {
+  try {
+    return localStorage.getItem(COMPANY_NAME_KEY) || DEFAULT_COMPANY_NAME;
+  } catch {
+    return DEFAULT_COMPANY_NAME;
+  }
+}
+
+function setCachedCompanyName(name: string) {
+  try {
+    localStorage.setItem(COMPANY_NAME_KEY, name || DEFAULT_COMPANY_NAME);
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
+async function getOrgId(): Promise<string | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user) return null;
+
+  const userId = session.user.id;
+
+  // 1. Try profiles.organization_id
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("[topbar] profile lookup failed:", profileError);
+  }
+
+  if (profile?.organization_id) {
+    return profile.organization_id;
+  }
+
+  // 2. Try org_memberships.org_id
+  const { data: membership, error: membershipError } = await supabase
+    .from("org_memberships")
+    .select("org_id")
+    .eq("member_id", userId)
+    .maybeSingle();
+
+  if (membershipError) {
+    console.error("[topbar] membership lookup failed:", membershipError);
+  }
+
+  if (membership?.org_id) {
+    return membership.org_id;
+  }
+
+  // 3. Fallback: organizations.created_by
+  const { data: ownedOrg, error: ownedOrgError } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("created_by", userId)
+    .maybeSingle();
+
+  if (ownedOrgError) {
+    console.error("[topbar] owned organization lookup failed:", ownedOrgError);
+  }
+
+  return ownedOrg?.id ?? null;
+}
+
+async function globalSearch(query: string): Promise<SearchResult[]> {
+  const orgId = await getOrgId();
+
+  if (!orgId || !query.trim()) return [];
+
+  const q = query.trim();
+
+  const [{ data: contacts }, { data: deals }, { data: projects }] =
+    await Promise.all([
+      supabase
+        .from("contacts")
+        .select("id, full_name, email, phone")
+        .eq("org_id", orgId)
+        .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
+        .limit(5),
+
+      supabase
+        .from("deals")
+        .select("id, title, value, status")
+        .eq("org_id", orgId)
+        .ilike("title", `%${q}%`)
+        .limit(5),
+
+      supabase
+        .from("projects")
+        .select("id, name, status, address")
+        .eq("org_id", orgId)
+        .ilike("name", `%${q}%`)
+        .limit(5),
+    ]);
+
+  const out: SearchResult[] = [];
+
+  for (const c of contacts ?? []) {
+    out.push({
+      id: c.id,
+      label: c.full_name,
+      sub: c.email ?? c.phone ?? "",
+      group: "contacts",
+      href: `${ROUTES.CONTACTS}?contactId=${c.id}`,
+    });
+  }
+
+  for (const d of deals ?? []) {
+    out.push({
+      id: d.id,
+      label: d.title,
+      sub: [d.status, d.value ? `$${Number(d.value).toLocaleString()}` : ""]
+        .filter(Boolean)
+        .join(" · "),
+      group: "deals",
+      href: ROUTES.PIPELINE,
+    });
+  }
+
+  for (const p of projects ?? []) {
+    out.push({
+      id: p.id,
+      label: p.name,
+      sub: [p.status, p.address].filter(Boolean).join(" · "),
+      group: "projects",
+      href: ROUTES.PROJECTS,
+    });
+  }
+
+  return out;
+}
+
+const GROUP_ICONS = {
+  contacts: Users,
+  deals: Target,
+  projects: Briefcase,
+};
+
+const GROUP_LABELS = {
+  contacts: "Contacts",
+  deals: "Deals",
+  projects: "Projects",
+};
+
+export function Topbar() {
+  const org = useOrganization();
+  const navigate = useNavigate();
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [user, setUser] = useState<{
+    email: string;
+    firstName: string;
+    lastName: string;
+  } | null>(null);
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(() =>
+    getCachedLogoUrl()
+  );
+
+  const [companyName, setCompanyName] = useState<string>(() =>
+    getCachedCompanyName()
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    function applyOrganizationHeader(
+      raw: OrganizationHeaderData | null | undefined,
+      options?: { fromDB?: boolean }
+    ) {
+      if (cancelled) return;
+
+      const nextCompanyName = getOrgDisplayName(raw, org.companyName);
+      setCompanyName(nextCompanyName);
+      setCachedCompanyName(nextCompanyName);
+
+      const nextLogoUrl = isValidLogoUrl(raw?.logo_url) ? raw.logo_url : null;
+
+      if (nextLogoUrl) {
+        setLogoUrl(nextLogoUrl);
+        setCachedLogoUrl(nextLogoUrl);
+        return;
+      }
+
+      if (options?.fromDB) {
+        const cached = getCachedLogoUrl();
+        setLogoUrl(cached);
+        return;
+      }
+
+      setLogoUrl(null);
+      setCachedLogoUrl(null);
+    }
+
+    async function loadOrganizationHeader() {
+      const orgId = await getOrgId();
+
+      if (!orgId || cancelled) return;
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("logo_url, public_name, name, legal_name")
+        .eq("id", orgId)
+        .maybeSingle();
+
+      if (!cancelled && !error) {
+        applyOrganizationHeader(data, { fromDB: true });
+      }
+
+      if (realtimeChannel || cancelled) return;
+
+      realtimeChannel = supabase
+        .channel(`topbar_org_${orgId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "organizations",
+            filter: `id=eq.${orgId}`,
+          },
+          (payload) => {
+            applyOrganizationHeader(payload.new as OrganizationHeaderData);
+          }
+        )
+        .subscribe();
+    }
+
+    loadOrganizationHeader();
+
+    const onOrgUpdated = () => {
+      const cachedLogo = getCachedLogoUrl();
+
+      if (cachedLogo) {
+        setLogoUrl(cachedLogo);
+      }
+
+      loadOrganizationHeader();
+    };
+
+    window.addEventListener("org-updated", onOrgUpdated);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("org-updated", onOrgUpdated);
+
+      if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+      }
+    };
+  }, [org.companyName]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) return;
+
+      const meta = session.user.user_metadata ?? {};
+
+      setUser({
+        email: session.user.email ?? "",
+        firstName: meta.first_name ?? meta.firstName ?? "",
+        lastName: meta.last_name ?? meta.lastName ?? "",
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
+  }, []);
+
+  const handleSearch = useCallback((q: string) => {
+    setQuery(q);
+
+    if (!q.trim()) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      const nextResults = await globalSearch(q);
+      setResults(nextResults);
+      setSearching(false);
+    }, 250);
+  }, []);
+
+  const handleSelect = (r: SearchResult) => {
+    setOpen(false);
+    setQuery("");
+    setResults([]);
+
+    navigate({ to: r.href });
+  };
+
+  const grouped = results.reduce<Record<string, SearchResult[]>>((acc, r) => {
+    (acc[r.group] ??= []).push(r);
+    return acc;
+  }, {});
+
+  const safeLogoUrl = isValidLogoUrl(logoUrl) ? logoUrl : null;
+  const safeOrgLogoUrl = isValidLogoUrl(org.logoUrl) ? org.logoUrl : null;
+  const displayLogo = safeLogoUrl || safeOrgLogoUrl;
+
+  const displayCompanyName = companyName || org.companyName || DEFAULT_COMPANY_NAME;
+
+  const initials = user
+    ? memberInitials(`${user.firstName} ${user.lastName}`.trim() || user.email)
+    : "?";
+
+  return (
+    <header className="fixed inset-x-0 top-0 z-40 grid h-14 grid-cols-3 items-center border-b border-border bg-background px-4">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-md">
+          {displayLogo ? (
+            <img
+              key={displayLogo}
+              src={displayLogo}
+              alt={`${displayCompanyName} logo`}
+              className="h-full w-full object-contain"
+              onError={() => {
+                console.warn("[topbar] logo failed to load:", displayLogo);
+                setLogoUrl(null);
+                setCachedLogoUrl(null);
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
+              {displayCompanyName[0]?.toUpperCase() ?? "C"}
+            </div>
+          )}
+        </div>
+
+        <span className="max-w-[180px] truncate text-sm font-semibold">
+          {displayCompanyName}
+        </span>
+      </div>
+
+      <div className="flex justify-center">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex h-8 w-full max-w-sm items-center gap-2 rounded-md border border-input bg-secondary/60 px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+        >
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 text-left">Search…</span>
+
+          <kbd className="hidden items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium shadow-sm sm:inline-flex">
+            <CommandIcon className="h-2.5 w-2.5" />K
+          </kbd>
+        </button>
+      </div>
+
+      <div className="flex items-center justify-end gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setShortcutsOpen(true)}
+        >
+          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+        </Button>
+
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Bell className="h-4 w-4 text-muted-foreground" />
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 gap-2 px-2">
+              <Avatar className="h-7 w-7">
+                <AvatarFallback className="bg-primary-soft text-[10px] font-semibold text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+
+              <span className="hidden text-sm sm:inline">
+                {user?.firstName || user?.email?.split("@")[0] || "Account"}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="font-medium">
+                {[user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+                  "My Account"}
+              </div>
+
+              <div className="text-xs font-normal text-muted-foreground">
+                {user?.email}
+              </div>
+            </DropdownMenuLabel>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem onClick={() => navigate({ to: ROUTES.SETTINGS })}>
+              Settings
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem className="text-destructive" onClick={signOut}>
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+
+          if (!nextOpen) {
+            setQuery("");
+            setResults([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Search</DialogTitle>
+          </DialogHeader>
+
+          <Command shouldFilter={false}>
+            <div className="flex items-center gap-2 border-b border-border px-3">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+              <input
+                value={query}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Search contacts, deals, projects…"
+                className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                autoFocus
+              />
+
+              {searching && (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              )}
+            </div>
+
+            <CommandList className="max-h-80 p-1">
+              {!query && (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Start typing to search…
+                </div>
+              )}
+
+              {query && !searching && results.length === 0 && (
+                <CommandEmpty>No results for "{query}"</CommandEmpty>
+              )}
+
+              {(["contacts", "deals", "projects"] as const).map((group) => {
+                const items = grouped[group];
+
+                if (!items?.length) return null;
+
+                const Icon = GROUP_ICONS[group];
+
+                return (
+                  <CommandGroup key={group} heading={GROUP_LABELS[group]}>
+                    {items.map((r) => (
+                      <CommandItem
+                        key={r.id}
+                        onSelect={() => handleSelect(r)}
+                        className="flex cursor-pointer items-center gap-2.5 py-2"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            {r.label}
+                          </div>
+
+                          {r.sub && (
+                            <div className="truncate text-[11px] text-muted-foreground">
+                              {r.sub}
+                            </div>
+                          )}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                );
+              })}
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Keyboard shortcuts</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-2 text-sm">
+            {[
+              ["⌘K", "Global search"],
+              ["⌘/", "Focus sidebar"],
+              ["Esc", "Close dialog"],
+            ].map(([key, label]) => (
+              <div
+                key={key}
+                className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2"
+              >
+                <span className="text-muted-foreground">{label}</span>
+
+                <kbd className="rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium">
+                  {key}
+                </kbd>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </header>
+  );
+}

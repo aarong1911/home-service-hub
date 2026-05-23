@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -24,7 +26,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Check, ChevronDown, ImagePlus, Loader2 } from "lucide-react";
+import { Check, ChevronDown, ImagePlus, Loader2, X } from "lucide-react";
 import {
   CRM_GOALS,
   INDUSTRIES,
@@ -257,6 +259,35 @@ function GoalsMultiSelect({
   );
 }
 
+async function uploadLogoFile(file: File): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  const orgId = profile?.organization_id;
+  if (!orgId) return null;
+
+  const ext = file.name.split(".").pop() ?? "png";
+  const path = `logos/${orgId}/logo.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("org-assets")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) {
+    console.error("[logo] upload error:", error);
+    return null;
+  }
+
+  const { data } = supabase.storage.from("org-assets").getPublicUrl(path);
+  return `${data.publicUrl}?t=${Date.now()}`;
+}
+
 function LogoPicker({
   value,
   onChange,
@@ -264,38 +295,54 @@ function LogoPicker({
   value: string | null;
   onChange: (url: string | null) => void;
 }) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    const url = await uploadLogoFile(file);
+    setUploading(false);
+    if (!url) {
+      toast.error("Logo upload failed — check your Supabase Storage bucket");
+      return;
+    }
+    onChange(url);
+  };
+
+  const displaySrc = value && !value.startsWith("blob:") ? value : null;
+
   return (
     <div className="flex items-center gap-3">
       <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-secondary/40">
-        {value ? (
-          <img src={value} alt="Logo preview" className="h-full w-full object-cover" />
+        {displaySrc ? (
+          <img src={displaySrc} alt="Logo preview" className="h-full w-full object-cover" />
         ) : (
           <ImagePlus className="h-5 w-5 text-muted-foreground" />
         )}
       </div>
-      <label className="cursor-pointer">
+      <label className={uploading ? "pointer-events-none cursor-wait opacity-60" : "cursor-pointer"}>
         <input
           type="file"
           accept="image/*"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (!file) return;
-            onChange(URL.createObjectURL(file));
+            if (file) handleFile(file);
+            e.target.value = "";
           }}
         />
-        <span className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-secondary">
-          {value ? "Replace logo" : "Upload logo"}
+        <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-secondary">
+          {uploading && <Loader2 className="h-3 w-3 animate-spin" />}
+          {displaySrc ? "Replace logo" : "Upload logo"}
         </span>
       </label>
-      {value && (
+      {displaySrc && (
         <Button
           variant="ghost"
           size="sm"
           className="h-8 text-xs text-muted-foreground"
           onClick={() => onChange(null)}
         >
-          Remove
+          <X className="h-3 w-3" />
         </Button>
       )}
     </div>

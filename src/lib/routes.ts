@@ -6,6 +6,12 @@ export const ROUTES = {
   CALL_LOGS: "/automation/call-logs",
   WORKFLOWS: "/automation/workflows",
   TRIGGERS: "/automation/triggers",
+  LEADS: "/leads",
+  PIPELINE: "/sales/pipeline",
+  CONTACTS: "/contacts",
+  PROJECTS: "/projects",
+  CALENDAR: "/calendar",
+  SETTINGS: "/settings",
 } as const;
 
 /** Type-safe search params for the AI Center agent detail view. */

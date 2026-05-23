@@ -1,658 +1,597 @@
-import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+// src/routes/companies.tsx
+import { createFileRoute } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
-  Building2, Plus, Search, Globe, Phone, Mail, MapPin, Star, TrendingUp,
-  Users, Wallet, Hammer, Pencil, ExternalLink, MoreHorizontal,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Plus, Search, Globe, Phone, Mail, MapPin, MoreHorizontal, Loader2, Pencil, Trash2, Building2, Users,
 } from "lucide-react";
-import { mockCompanies, type Company, type CompanyType, type CompanyStatus } from "@/lib/mock-data";
-import { formatMoney, formatDateShort, formatPhone } from "@/lib/format";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { formatDistanceToNow } from "date-fns";
 
-type CompaniesSearch = { companyId?: string };
+export const Route = createFileRoute("/companies")({ component: CompaniesPage });
 
-export const Route = createFileRoute("/companies")({
-  validateSearch: (raw: Record<string, unknown>): CompaniesSearch => ({
-    companyId: typeof raw.companyId === "string" ? raw.companyId : undefined,
-  }),
-  head: () => ({
-    meta: [
-      { title: "Companies — RenoMeta" },
-      { name: "description", content: "Builders, architects, designers, vendors, and subcontractors you work with." },
-    ],
-  }),
-  component: CompaniesPage,
-});
-
-const SEGMENTS: Array<{ key: "All" | CompanyType; label: string }> = [
-  { key: "All", label: "All" },
-  { key: "Builder/GC", label: "Builders / GCs" },
-  { key: "Architect", label: "Architects" },
-  { key: "Designer", label: "Designers" },
-  { key: "Vendor", label: "Vendors" },
-  { key: "Subcontractor", label: "Subcontractors" },
-];
-
-const TYPE_TONE: Record<CompanyType, string> = {
-  "Builder/GC": "bg-primary/10 text-primary",
-  Architect: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  Designer: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
-  Vendor: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  Subcontractor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+type Company = {
+  id: string;
+  org_id: string;
+  name: string;
+  industry: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
-const STATUS_TONE: Record<CompanyStatus, string> = {
-  active: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  prospect: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  inactive: "bg-muted text-muted-foreground",
-};
+// ── Phone formatter ──
+function fmtPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0,3)}-${digits.slice(3)}`;
+  return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+}
+
+async function getOrgId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: p } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+  if (p?.organization_id) return p.organization_id;
+  const { data: m } = await supabase.from("org_memberships").select("org_id").eq("member_id", user.id).maybeSingle();
+  return m?.org_id ?? null;
+}
 
 function CompaniesPage() {
-  const { companyId } = useSearch({ from: "/companies" });
-  const navigate = useNavigate({ from: "/companies" });
-  const [companies, setCompanies] = useState<Company[]>(mockCompanies);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [segment, setSegment] = useState<"All" | CompanyType>("All");
-  const [statusFilter, setStatusFilter] = useState<"All" | CompanyStatus>("All");
   const [selected, setSelected] = useState<Company | null>(null);
-  const [editing, setEditing] = useState<Company | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
-  // Deep-link: open the matching company drawer when ?companyId=... is present.
-  useEffect(() => {
-    if (companyId) {
-      const found = companies.find((c) => c.id === companyId);
-      if (found && found.id !== selected?.id) setSelected(found);
-    } else if (selected) {
-      setSelected(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, companies]);
+  const load = useCallback(async () => {
+    const orgId = await getOrgId();
+    if (!orgId) { setLoading(false); return; }
+    const { data, error } = await supabase
+      .from("companies").select("*").eq("org_id", orgId).order("name");
+    if (error) { console.error("[companies]", error); setLoading(false); return; }
+    setCompanies(data ?? []);
+    setLoading(false);
+  }, []);
 
-  const stats = useMemo(() => {
-    const active = companies.filter((c) => c.status === "active");
-    return {
-      total: companies.length,
-      active: active.length,
-      pipeline: companies.reduce((s, c) => s + c.pipelineValue, 0),
-      ytd: companies.reduce((s, c) => s + c.ytdRevenue, 0),
-      contacts: companies.reduce((s, c) => s + c.contactsCount, 0),
-    };
-  }, [companies]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return companies.filter((c) => {
-      if (segment !== "All" && c.type !== segment) return false;
-      if (statusFilter !== "All" && c.status !== statusFilter) return false;
-      if (!q) return true;
-      return (
-        c.name.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q) ||
-        c.state.toLowerCase().includes(q) ||
-        c.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    });
-  }, [companies, search, segment, statusFilter]);
+    const q = search.toLowerCase();
+    if (!q) return companies;
+    return companies.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      (c.industry ?? "").toLowerCase().includes(q) ||
+      (c.city ?? "").toLowerCase().includes(q)
+    );
+  }, [companies, search]);
 
-  const segmentCounts = useMemo(() => {
-    const counts: Record<string, number> = { All: companies.length };
-    SEGMENTS.forEach((s) => {
-      if (s.key !== "All") counts[s.key] = companies.filter((c) => c.type === s.key).length;
-    });
-    return counts;
-  }, [companies]);
+  const handleDelete = async (id: string, name: string) => {
+    const { error } = await supabase.from("companies").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete"); return; }
+    toast.success(`${name} deleted`);
+    setSelected(null);
+    load();
+  };
 
-  const handleSave = (next: Company, isNew: boolean) => {
-    if (isNew) {
-      setCompanies((prev) => [next, ...prev]);
-      toast.success(`${next.name} added`);
-    } else {
-      setCompanies((prev) => prev.map((c) => (c.id === next.id ? next : c)));
-      toast.success(`${next.name} updated`);
-      if (selected?.id === next.id) setSelected(next);
-    }
-    setEditing(null);
-    setCreating(false);
+  // Refresh selected company after edit
+  const handleEdited = async (updated: Company) => {
+    setSelected(updated);
+    await load();
+    setEditOpen(false);
   };
 
   return (
     <>
       <PageHeader
         title="Companies"
-        subtitle="Builders, architects, designers, and trade partners"
+        subtitle="Manage contractor accounts and client organizations."
+        breadcrumb={["CRM", "Companies"]}
         actions={
-          <>
-            <Button variant="outline" size="sm">
-              Import
-            </Button>
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              New company
-            </Button>
-          </>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> New Company
+          </Button>
         }
       />
 
-      {/* KPI strip */}
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <KpiCard icon={Building2} label="Total companies" value={String(stats.total)} />
-        <KpiCard icon={TrendingUp} label="Active accounts" value={String(stats.active)} tone="up" />
-        <KpiCard icon={Wallet} label="Pipeline value" value={formatMoney(stats.pipeline)} />
-        <KpiCard icon={Hammer} label="YTD revenue" value={formatMoney(stats.ytd)} />
-        <KpiCard icon={Users} label="Linked contacts" value={String(stats.contacts)} />
+      {/* Stats */}
+      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Total companies" value={companies.length} icon={Building2} />
+        <StatCard label="With website" value={companies.filter(c => c.website).length} icon={Globe} />
+        <StatCard label="With email" value={companies.filter(c => c.email).length} icon={Mail} />
+        <StatCard label="With phone" value={companies.filter(c => c.phone).length} icon={Phone} />
       </div>
 
-      {/* Segment chips */}
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        {SEGMENTS.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => setSegment(s.key)}
-            className={
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
-              (segment === s.key
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-background text-muted-foreground hover:bg-secondary")
-            }
-          >
-            {s.label}
-            <span className={"rounded-full px-1.5 text-[10px] " + (segment === s.key ? "bg-primary-foreground/20" : "bg-muted")}>
-              {segmentCounts[s.key] ?? 0}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Toolbar */}
-      <Card className="mb-3 p-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search companies, cities, tags…"
-              className="h-9 pl-8"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "All" | CompanyStatus)}>
-            <SelectTrigger className="h-9 w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="prospect">Prospect</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} of {companies.length}
-          </div>
+      {/* Search */}
+      <Card className="mb-3 p-2.5">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Search companies…" value={search} onChange={e => setSearch(e.target.value)} className="h-8 pl-8 text-sm" />
         </div>
       </Card>
 
       {/* Table */}
-      <Card className="overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[28%]">Company</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead className="text-right">Open deals</TableHead>
-              <TableHead className="text-right">Pipeline</TableHead>
-              <TableHead className="text-right">YTD revenue</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[1%]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((c) => (
-              <TableRow
-                key={c.id}
-                className="cursor-pointer"
-                onClick={() => navigate({ search: { companyId: c.id }, replace: true })}
-              >
-                <TableCell>
+      <Card className="overflow-hidden p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary/60 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <tr className="border-b border-border">
+              <th className="py-2.5 pl-4 pr-3 text-left">Company</th>
+              <th className="py-2.5 pr-4 text-left">Industry</th>
+              <th className="py-2.5 pr-4 text-left">Location</th>
+              <th className="py-2.5 pr-4 text-left">Contact</th>
+              <th className="py-2.5 pr-4 text-left">Added</th>
+              <th className="w-10 py-2.5 pr-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <tr key={i} className="border-b border-border">
+                {Array.from({ length: 5 }).map((_, j) => <td key={j} className="py-3 pr-4"><Skeleton className="h-4 w-28" /></td>)}
+                <td />
+              </tr>
+            ))}
+            {!loading && filtered.length === 0 && (
+              <tr><td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                {search ? "No companies match your search." : "No companies yet — add one to get started."}
+              </td></tr>
+            )}
+            {!loading && filtered.map(c => (
+              <tr key={c.id} onClick={() => setSelected(c)} className="cursor-pointer border-b border-border hover:bg-secondary/30">
+                <td className="py-2.5 pl-4 pr-3">
                   <div className="flex items-center gap-2.5">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-secondary text-[11px] font-semibold">
-                        {initials(c.name)}
-                      </AvatarFallback>
+                      <AvatarFallback className="bg-primary-soft text-[11px] font-semibold text-primary">{c.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{c.name}</div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        {c.rating.toFixed(1)} · {c.contactsCount} contacts
-                      </div>
-                    </div>
+                    <span className="font-medium">{c.name}</span>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary" className={"font-normal " + TYPE_TONE[c.type]}>
-                    {c.type}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {c.city}, {c.state}
-                </TableCell>
-                <TableCell className="text-sm">{c.owner}</TableCell>
-                <TableCell className="text-right tabular-nums">{c.openDeals}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatMoney(c.pipelineValue)}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatMoney(c.ytdRevenue)}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary" className={"font-normal capitalize " + STATUS_TONE[c.status]}>
-                    {c.status}
-                  </Badge>
-                </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(c)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </TableCell>
-              </TableRow>
+                </td>
+                <td className="py-2.5 pr-4 text-muted-foreground">{c.industry || "—"}</td>
+                <td className="py-2.5 pr-4 text-muted-foreground">{[c.city, c.state].filter(Boolean).join(", ") || "—"}</td>
+                <td className="py-2.5 pr-4">
+                  <div className="flex items-center gap-2">
+                    {c.email && <a href={`mailto:${c.email}`} className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()}><Mail className="h-3.5 w-3.5" /></a>}
+                    {c.phone && <a href={`tel:${c.phone}`} className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()}><Phone className="h-3.5 w-3.5" /></a>}
+                    {c.website && <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()}><Globe className="h-3.5 w-3.5" /></a>}
+                    {!c.email && !c.phone && !c.website && <span className="text-[11px] text-muted-foreground">—</span>}
+                  </div>
+                </td>
+                <td className="py-2.5 pr-4 text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</td>
+                <td className="py-2.5 pr-3" onClick={e => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setSelected(c); setEditOpen(true); }}><Pencil className="mr-2 h-3.5 w-3.5" />Edit</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(c.id, c.name)}><Trash2 className="mr-2 h-3.5 w-3.5" />Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+              </tr>
             ))}
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center text-sm text-muted-foreground">
-                  No companies match your filters.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </Card>
 
-      <CompanyDetailSheet
-        company={selected}
-        onOpenChange={(o) => { if (!o) navigate({ search: { companyId: undefined }, replace: true }); }}
-        onEdit={(c) => setEditing(c)}
-      />
+      {/* Detail drawer */}
+      <Sheet open={!!selected} onOpenChange={o => !o && setSelected(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          {selected && (
+            <>
+              <SheetHeader className="border-b border-border pb-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="bg-primary-soft text-sm font-semibold text-primary">{selected.name.slice(0,2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <SheetTitle className="text-base">{selected.name}</SheetTitle>
+                    <SheetDescription className="text-xs">{selected.industry || "No industry set"}</SheetDescription>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" variant="outline" className="flex-1 h-8" onClick={() => setEditOpen(true)}>
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />Edit
+                  </Button>
+                  {selected.email && <a href={`mailto:${selected.email}`} className="flex-1"><Button size="sm" variant="outline" className="w-full h-8"><Mail className="h-3.5 w-3.5 mr-1.5" />Email</Button></a>}
+                  {selected.phone && <a href={`tel:${selected.phone}`} className="flex-1"><Button size="sm" variant="outline" className="w-full h-8"><Phone className="h-3.5 w-3.5 mr-1.5" />Call</Button></a>}
+                </div>
+              </SheetHeader>
+              <div className="mt-4 space-y-4 text-sm">
+                {selected.phone && (
+                  <div><div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Phone</div>
+                    <a href={`tel:${selected.phone}`} className="flex items-center gap-1.5 text-foreground hover:text-primary"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{selected.phone}</a>
+                  </div>
+                )}
+                {selected.email && (
+                  <div><div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Email</div>
+                    <a href={`mailto:${selected.email}`} className="flex items-center gap-1.5 text-foreground hover:text-primary"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{selected.email}</a>
+                  </div>
+                )}
+                {selected.website && (
+                  <div><div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Website</div>
+                    <a href={selected.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-primary hover:underline"><Globe className="h-3.5 w-3.5" />{selected.website}</a>
+                  </div>
+                )}
+                {(selected.address || selected.city) && (
+                  <div><div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Address</div>
+                    <a href={`https://maps.google.com/?q=${encodeURIComponent([selected.address, selected.city, selected.state, selected.zip].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="flex items-start gap-1.5 text-muted-foreground hover:text-foreground">
+                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{[selected.address, selected.city, selected.state, selected.zip].filter(Boolean).join(", ")}</span>
+                    </a>
+                  </div>
+                )}
+                {selected.notes && (
+                  <div><div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Notes</div>
+                    <p className="text-muted-foreground whitespace-pre-wrap">{selected.notes}</p>
+                  </div>
+                )}
+                <Separator />
+                <div className="rounded-md border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+                  Added {formatDistanceToNow(new Date(selected.created_at), { addSuffix: true })} · Updated {formatDistanceToNow(new Date(selected.updated_at), { addSuffix: true })}
+                </div>
+                <Button variant="destructive" size="sm" className="w-full" onClick={() => handleDelete(selected.id, selected.name)}>
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete Company
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
-      <CompanyEditSheet
-        open={creating || editing !== null}
-        company={editing}
-        onOpenChange={(o) => {
-          if (!o) {
-            setCreating(false);
-            setEditing(null);
-          }
-        }}
-        onSave={handleSave}
-      />
+      <AddCompanyDialog open={addOpen} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load(); }} />
+      {selected && (
+        <EditCompanyDialog open={editOpen} company={selected} onClose={() => setEditOpen(false)} onSaved={handleEdited} />
+      )}
     </>
   );
 }
 
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  tone?: "up" | "down";
-}) {
+function StatCard({ label, value, icon: Icon }: { label: string; value: number; icon: React.ComponentType<{className?: string}> }) {
   return (
-    <Card className="p-4">
+    <Card className="p-3">
       <div className="flex items-start justify-between">
-        <div>
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
-          {tone && (
-            <div className={"mt-0.5 text-[11px] font-medium " + (tone === "up" ? "text-emerald-600" : "text-destructive")}>
-              vs last quarter
-            </div>
-          )}
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </div>
+        <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+        <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
+      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
     </Card>
   );
 }
 
-function CompanyDetailSheet({
-  company,
-  onOpenChange,
-  onEdit,
-}: {
-  company: Company | null;
-  onOpenChange: (open: boolean) => void;
-  onEdit: (c: Company) => void;
-}) {
-  return (
-    <Sheet open={!!company} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        {company && (
-          <>
-            <SheetHeader className="space-y-3">
-              <div className="flex items-start gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-secondary text-sm font-semibold">{initials(company.name)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <SheetTitle className="text-lg">{company.name}</SheetTitle>
-                  <SheetDescription className="flex flex-wrap items-center gap-2 pt-1">
-                    <Badge variant="secondary" className={"font-normal " + TYPE_TONE[company.type]}>
-                      {company.type}
-                    </Badge>
-                    <Badge variant="secondary" className={"font-normal capitalize " + STATUS_TONE[company.status]}>
-                      {company.status}
-                    </Badge>
-                    <span className="text-xs">Founded {company.yearFounded} · {company.employees} employees</span>
-                  </SheetDescription>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => onEdit(company)}>
-                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
-                </Button>
-              </div>
-            </SheetHeader>
+// ── Nominatim address autocomplete ───────────────────────────────────────────
 
-            <div className="mt-6 space-y-6">
-              {/* Contact strip */}
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <a href={company.website} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-md border p-2 hover:bg-secondary">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">{company.website.replace(/^https?:\/\//, "")}</span>
-                  <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
-                </a>
-                <div className="flex items-center gap-2 rounded-md border p-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{company.city}, {company.state}</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-md border p-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{company.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-md border p-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">{company.email}</span>
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-2">
-                <StatBlock label="Open deals" value={String(company.openDeals)} />
-                <StatBlock label="Pipeline" value={formatMoney(company.pipelineValue)} />
-                <StatBlock label="Lifetime" value={formatMoney(company.lifetimeRevenue)} />
-              </div>
-
-              <Tabs defaultValue="overview">
-                <TabsList>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="contacts">Contacts</TabsTrigger>
-                  <TabsTrigger value="deals">Deals</TabsTrigger>
-                  <TabsTrigger value="activity">Activity</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview" className="space-y-4 pt-3">
-                  <div>
-                    <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tags</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {company.tags.map((t) => (
-                        <Badge key={t} variant="outline" className="font-normal">{t}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <Separator />
-                  <div>
-                    <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</div>
-                    <p className="text-sm leading-relaxed text-foreground/80">{company.notes}</p>
-                  </div>
-                  <Separator />
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <Field label="Owner" value={company.owner} />
-                    <Field label="Rating" value={`${company.rating.toFixed(1)} ★`} />
-                    <Field label="Created" value={formatDateShort(company.createdAt)} />
-                    <Field label="Last activity" value={formatDateShort(company.lastActivity)} />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="contacts" className="pt-3">
-                  <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
-                    {company.contactsCount} linked contacts.{" "}
-                    <Link to="/contacts" className="text-primary hover:underline">Open Contacts →</Link>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="deals" className="pt-3">
-                  <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
-                    {company.openDeals} open deals worth {formatMoney(company.pipelineValue)}.{" "}
-                    <Link to="/sales/pipeline" className="text-primary hover:underline">Open Pipeline →</Link>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="activity" className="pt-3">
-                  <div className="space-y-2">
-                    {[
-                      { t: "Estimate sent", d: 2 },
-                      { t: "Site visit logged", d: 7 },
-                      { t: "New contact added", d: 14 },
-                      { t: "Account created", d: 90 },
-                    ].map((a, i) => (
-                      <div key={i} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
-                        <span>{a.t}</span>
-                        <span className="text-xs text-muted-foreground">{a.d}d ago</span>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function StatBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-base font-semibold tabular-nums">{value}</div>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-0.5 font-medium">{value}</div>
-    </div>
-  );
-}
-
-function CompanyEditSheet({
-  open,
-  company,
-  onOpenChange,
-  onSave,
-}: {
-  open: boolean;
-  company: Company | null;
-  onOpenChange: (open: boolean) => void;
-  onSave: (c: Company, isNew: boolean) => void;
-}) {
-  const isNew = !company;
-  const [draft, setDraft] = useState<Partial<Company>>({});
-
-  // Reset draft when sheet opens
-  const baseline = company ?? {
-    name: "",
-    type: "Builder/GC" as CompanyType,
-    status: "prospect" as CompanyStatus,
-    owner: "Maria Chen",
-    city: "",
-    state: "",
-    website: "",
-    phone: "",
-    email: "",
-    notes: "",
+type NominatimResult = {
+  place_id: number;
+  display_name: string;
+  address: {
+    house_number?: string;
+    road?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    state?: string;
+    postcode?: string;
   };
+};
 
-  const v = { ...baseline, ...draft } as Company;
+const STATE_ABBR: Record<string, string> = {
+  Alabama: "AL", Alaska: "AK", Arizona: "AZ", Arkansas: "AR", California: "CA",
+  Colorado: "CO", Connecticut: "CT", Delaware: "DE", Florida: "FL", Georgia: "GA",
+  Hawaii: "HI", Idaho: "ID", Illinois: "IL", Indiana: "IN", Iowa: "IA",
+  Kansas: "KS", Kentucky: "KY", Louisiana: "LA", Maine: "ME", Maryland: "MD",
+  Massachusetts: "MA", Michigan: "MI", Minnesota: "MN", Mississippi: "MS",
+  Missouri: "MO", Montana: "MT", Nebraska: "NE", Nevada: "NV",
+  "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+  "North Carolina": "NC", "North Dakota": "ND", Ohio: "OH", Oklahoma: "OK",
+  Oregon: "OR", Pennsylvania: "PA", "Rhode Island": "RI", "South Carolina": "SC",
+  "South Dakota": "SD", Tennessee: "TN", Texas: "TX", Utah: "UT",
+  Vermont: "VT", Virginia: "VA", Washington: "WA", "West Virginia": "WV",
+  Wisconsin: "WI", Wyoming: "WY",
+};
 
-  const set = <K extends keyof Company>(k: K, val: Company[K]) =>
-    setDraft((d) => ({ ...d, [k]: val }));
+type AddressFields = { address: string; city: string; state: string; zip: string };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!v.name?.trim()) {
-      toast.error("Company name is required");
-      return;
+function CompanyAddressInput({
+  value,
+  onChange,
+  onSelect,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (fields: AddressFields) => void;
+}) {
+  const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const search = useCallback(async (q: string) => {
+    if (q.length < 4) { setSuggestions([]); setOpen(false); return; }
+    setFetching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&countrycodes=us&limit=5`,
+        { headers: { "Accept-Language": "en" } },
+      );
+      if (!res.ok) throw new Error("Network error");
+      const data: NominatimResult[] = await res.json();
+      setSuggestions(data);
+      setOpen(data.length > 0);
+    } catch {
+      setSuggestions([]);
+      setOpen(false);
+    } finally {
+      setFetching(false);
     }
-    const slug = (v.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const next: Company = {
-      id: company?.id ?? `comp-${Date.now()}`,
-      slug,
-      name: v.name,
-      type: v.type,
-      status: v.status,
-      owner: v.owner,
-      city: v.city ?? "",
-      state: v.state ?? "",
-      website: v.website ?? "",
-      phone: v.phone ?? "",
-      email: v.email ?? "",
-      employees: company?.employees ?? 1,
-      yearFounded: company?.yearFounded ?? new Date().getFullYear(),
-      rating: company?.rating ?? 0,
-      tags: company?.tags ?? [],
-      contactsCount: company?.contactsCount ?? 0,
-      openDeals: company?.openDeals ?? 0,
-      pipelineValue: company?.pipelineValue ?? 0,
-      ytdRevenue: company?.ytdRevenue ?? 0,
-      lifetimeRevenue: company?.lifetimeRevenue ?? 0,
-      lastActivity: company?.lastActivity ?? new Date().toISOString(),
-      createdAt: company?.createdAt ?? new Date().toISOString(),
-      notes: v.notes ?? "",
-      trades: company?.trades,
-    };
-    setDraft({});
-    onSave(next, isNew);
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    onChange(val);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => search(val), 400);
   };
 
+  const handleSelect = (r: NominatimResult) => {
+    const a = r.address;
+    const street = [a.house_number ?? "", a.road ?? ""].filter(Boolean).join(" ");
+    const city = a.city ?? a.town ?? a.village ?? "";
+    const state = a.state ? (STATE_ABBR[a.state] ?? a.state) : "";
+    const zip = a.postcode ?? "";
+    onSelect({ address: street, city, state, zip });
+    setSuggestions([]);
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) setDraft({});
-        onOpenChange(o);
-      }}
-    >
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{isNew ? "New company" : `Edit ${company?.name}`}</SheetTitle>
-          <SheetDescription>
-            {isNew ? "Add a builder, architect, designer, vendor, or sub." : "Update company details."}
-          </SheetDescription>
-        </SheetHeader>
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="name">Company name</Label>
-            <Input id="name" value={v.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="Acme Builders" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Type</Label>
-              <Select value={v.type} onValueChange={(val) => set("type", val as CompanyType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Builder/GC">Builder / GC</SelectItem>
-                  <SelectItem value="Architect">Architect</SelectItem>
-                  <SelectItem value="Designer">Designer</SelectItem>
-                  <SelectItem value="Vendor">Vendor</SelectItem>
-                  <SelectItem value="Subcontractor">Subcontractor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={v.status} onValueChange={(val) => set("status", val as CompanyStatus)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="prospect">Prospect</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="city">City</Label>
-              <Input id="city" value={v.city ?? ""} onChange={(e) => set("city", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="state">State</Label>
-              <Input id="state" value={v.state ?? ""} onChange={(e) => set("state", e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="website">Website</Label>
-            <Input id="website" value={v.website ?? ""} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={v.phone ?? ""} onChange={(e) => set("phone", formatPhone(e.target.value))} placeholder="(555) 123-4567" inputMode="tel" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={v.email ?? ""} onChange={(e) => set("email", e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Owner</Label>
-            <Select value={v.owner} onValueChange={(val) => set("owner", val)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["Maria Chen", "James Park", "Priya Shah", "David Liu"].map((o) => (
-                  <SelectItem key={o} value={o}>{o}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" rows={3} value={v.notes ?? ""} onChange={(e) => set("notes", e.target.value)} />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">{isNew ? "Create company" : "Save changes"}</Button>
-          </div>
-        </form>
-      </SheetContent>
-    </Sheet>
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <MapPin className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          value={value}
+          onChange={handleChange}
+          placeholder="123 Main St"
+          className="pl-8"
+          autoComplete="off"
+        />
+        {fetching && (
+          <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+        )}
+      </div>
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
+          <ul className="py-1 text-sm">
+            {suggestions.map((r) => (
+              <li
+                key={r.place_id}
+                className="flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-accent hover:text-accent-foreground"
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(r); }}
+              >
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{r.display_name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
-function initials(name: string) {
-  return name.split(" ").slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+// ── Shared form fields ────────────────────────────────────────────────────────
+
+type CompanyForm = {
+  name: string; industry: string; website: string; phone: string; email: string;
+  address: string; city: string; state: string; zip: string; notes: string;
+  contact_name: string; contact_email: string; contact_phone: string;
+};
+
+function blankForm(): CompanyForm {
+  return { name: "", industry: "", website: "", phone: "", email: "", address: "", city: "", state: "", zip: "", notes: "", contact_name: "", contact_email: "", contact_phone: "" };
+}
+
+function formFromCompany(c: Company): CompanyForm {
+  return { name: c.name, industry: c.industry ?? "", website: c.website ?? "", phone: c.phone ?? "", email: c.email ?? "", address: c.address ?? "", city: c.city ?? "", state: c.state ?? "", zip: c.zip ?? "", notes: c.notes ?? "", contact_name: "", contact_email: "", contact_phone: "" };
+}
+
+function CompanyFormFields({ form, setForm }: { form: CompanyForm; setForm: (f: CompanyForm) => void }) {
+  const set = (k: keyof CompanyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm({ ...form, [k]: e.target.value });
+
+  const handlePhone = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, phone: fmtPhone(e.target.value) });
+
+  const handleContactPhone = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, contact_phone: fmtPhone(e.target.value) });
+
+  return (
+    <div className="space-y-4">
+      {/* Company info */}
+      <div>
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Company Info</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 space-y-1"><Label className="text-xs">Company name *</Label><Input value={form.name} onChange={set("name")} placeholder="Acme Contractors" /></div>
+          <div className="space-y-1"><Label className="text-xs">Industry</Label><Input value={form.industry} onChange={set("industry")} placeholder="General Contracting" /></div>
+          <div className="space-y-1"><Label className="text-xs">Website</Label><Input value={form.website} onChange={set("website")} placeholder="https://acme.com" /></div>
+          <div className="space-y-1"><Label className="text-xs">Phone</Label>
+            <Input value={form.phone} onChange={handlePhone} placeholder="555-123-4567" inputMode="tel" />
+          </div>
+          <div className="space-y-1"><Label className="text-xs">Email</Label><Input value={form.email} onChange={set("email")} placeholder="info@acme.com" type="email" /></div>
+        </div>
+      </div>
+
+      {/* Address with native autocomplete */}
+      <div>
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Address</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs">Street address</Label>
+            <CompanyAddressInput
+              value={form.address}
+              onChange={(v) => setForm({ ...form, address: v })}
+              onSelect={(fields) => setForm({ ...form, ...fields })}
+            />
+          </div>
+          <div className="space-y-1"><Label className="text-xs">City</Label><Input value={form.city} onChange={set("city")} placeholder="Miami" autoComplete="address-level2" /></div>
+          <div className="space-y-1"><Label className="text-xs">State</Label><Input value={form.state} onChange={set("state")} placeholder="FL" autoComplete="address-level1" /></div>
+          <div className="space-y-1"><Label className="text-xs">ZIP</Label><Input value={form.zip} onChange={set("zip")} placeholder="33101" autoComplete="postal-code" /></div>
+        </div>
+      </div>
+
+      {/* Primary contact */}
+      <div>
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Primary Contact</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 space-y-1"><Label className="text-xs">Contact name</Label><Input value={form.contact_name} onChange={set("contact_name")} placeholder="John Smith" autoComplete="name" /></div>
+          <div className="space-y-1"><Label className="text-xs">Contact email</Label><Input value={form.contact_email} onChange={set("contact_email")} placeholder="john@acme.com" type="email" /></div>
+          <div className="space-y-1"><Label className="text-xs">Contact phone</Label>
+            <Input value={form.contact_phone} onChange={handleContactPhone} placeholder="555-123-4567" inputMode="tel" />
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="space-y-1"><Label className="text-xs">Notes</Label><Textarea value={form.notes} onChange={set("notes")} rows={2} placeholder="Internal notes…" /></div>
+    </div>
+  );
+}
+
+// ── Add dialog ────────────────────────────────────────────────────────────────
+
+function AddCompanyDialog({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<CompanyForm>(blankForm());
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error("Company name is required"); return; }
+    setSaving(true);
+    const orgId = await getOrgId();
+    if (!orgId) { toast.error("Could not determine organization"); setSaving(false); return; }
+
+    const { data: company, error } = await supabase.from("companies").insert({
+      org_id: orgId,
+      name: form.name.trim(),
+      industry: form.industry || null,
+      website: form.website || null,
+      phone: form.phone || null,
+      email: form.email || null,
+      address: form.address || null,
+      city: form.city || null,
+      state: form.state || null,
+      zip: form.zip || null,
+      notes: form.notes || null,
+    }).select("id").single();
+
+    // If contact name provided, create a contact linked to the company
+    if (!error && company && form.contact_name.trim()) {
+      await supabase.from("contacts").insert({
+        org_id: orgId,
+        full_name: form.contact_name.trim(),
+        email: form.contact_email || null,
+        phone: form.contact_phone || null,
+        labels: ["Company Contact"],
+      });
+    }
+
+    setSaving(false);
+    if (error) { toast.error("Failed to save: " + error.message); return; }
+    toast.success("Company added");
+    setForm(blankForm());
+    onSaved();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>New Company</DialogTitle><DialogDescription>Add a contractor or client company.</DialogDescription></DialogHeader>
+        <CompanyFormFields form={form} setForm={setForm} />
+        <DialogFooter className="pt-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Company"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Edit dialog ───────────────────────────────────────────────────────────────
+
+function EditCompanyDialog({ open, company, onClose, onSaved }: { open: boolean; company: Company; onClose: () => void; onSaved: (c: Company) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<CompanyForm>(() => formFromCompany(company));
+
+  useEffect(() => { if (open) setForm(formFromCompany(company)); }, [open, company]);
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error("Company name is required"); return; }
+    setSaving(true);
+    const { data, error } = await supabase.from("companies").update({
+      name: form.name.trim(),
+      industry: form.industry || null,
+      website: form.website || null,
+      phone: form.phone || null,
+      email: form.email || null,
+      address: form.address || null,
+      city: form.city || null,
+      state: form.state || null,
+      zip: form.zip || null,
+      notes: form.notes || null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", company.id).select().single();
+    setSaving(false);
+    if (error) { toast.error("Failed to save: " + error.message); return; }
+    toast.success("Company updated");
+    onSaved(data as Company);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Edit Company</DialogTitle><DialogDescription>Update company details.</DialogDescription></DialogHeader>
+        <CompanyFormFields form={form} setForm={setForm} />
+        <DialogFooter className="pt-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
