@@ -99,11 +99,50 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: "Failed to create invitation" }) };
   }
 
-  // ── Roster-only: save profile + org_memberships, no email ─────────────────
+  // ── Roster-only: ghost auth user + profile + org_memberships ──────────────
   if (rosterOnly) {
     console.log(`[invite-member] roster-only: ${email}`);
 
-    const rosterId = crypto.randomUUID();
+    // Clean up any existing unconfirmed user with this email
+    try {
+      const { data: rows } = await supabaseAdmin.rpc("get_user_id_by_email", { user_email: email });
+      const existingId = rows?.[0]?.id;
+      if (existingId) {
+        const { data: eu } = await supabaseAdmin.auth.admin.getUserById(existingId);
+        if (eu?.user && !eu.user.email_confirmed_at) {
+          await supabaseAdmin.auth.admin.deleteUser(existingId);
+          console.log("[invite-member] cleaned up existing unconfirmed user");
+        }
+      }
+    } catch (e) { console.warn("[invite-member] cleanup check failed:", e); }
+
+    // email_confirm: false avoids the UPDATE trigger that fires on confirmed users
+    const { data: ghostUser, error: ghostErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: false,
+      user_metadata: {
+        first_name:  firstName,
+        last_name:   lastName,
+        full_name:   fullName,
+        phone:       phone || null,
+        org_id:      orgId,
+        role,
+        roster_only: true,
+      },
+    });
+
+    if (ghostErr) {
+      console.error("[invite-member] ghost user failed:", ghostErr.message);
+      // Non-fatal — member still shows via invitations table
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ success: true, invitationId: invitation.id, rosterOnly: true }),
+      };
+    }
+
+    const rosterId = ghostUser.user.id;
+    console.log(`[invite-member] ghost user created: ${rosterId}`);
 
     const { error: pe } = await supabaseAdmin.from("profiles").upsert({
       id:              rosterId,
@@ -123,7 +162,7 @@ export const handler: Handler = async (event) => {
       company_name:    companyName   || null,
     }, { onConflict: "id" });
     if (pe) console.error("[invite-member] profile failed:", pe.message);
-    else    console.log(`[invite-member] profile created: ${rosterId}`);
+    else    console.log("[invite-member] profile created");
 
     const { error: me } = await supabaseAdmin.from("org_memberships").insert({
       member_id:   rosterId,
@@ -142,11 +181,9 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  // ── Standard invite: build email + send ────────────────────────────────────
-  const inviteUrl  = getInviteUrl(role, isOffline, invToken);
-  const isExternal = (role === "field_worker" && isOffline) || role === "viewer";
-
-  const greeting   = fullName ? ` ${fullName}` : "";
+  // ── Standard invite: send email ────────────────────────────────────────────
+  const inviteUrl = getInviteUrl(role, isOffline, invToken);
+  const greeting  = fullName ? ` ${fullName}` : "";
 
   let emailHtml: string;
   let subject: string;
@@ -157,11 +194,7 @@ export const handler: Handler = async (event) => {
 <h2 style="color:#111">You've been added to the ${orgName} team!</h2>
 <p>Hi${greeting},</p>
 <p>You have been added to the <strong>${orgName}</strong> roster as <strong>Field Crew / Technician</strong>.</p>
-<p style="margin:28px 0">
-  <a href="${inviteUrl}" style="background:#F59E0B;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
-    View Your Team Profile
-  </a>
-</p>
+<p style="margin:28px 0"><a href="${inviteUrl}" style="background:#F59E0B;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">View Your Team Profile</a></p>
 ${orgPhone ? `<p><a href="tel:${orgPhone}" style="color:#3b82f6">Call the office: ${orgPhone}</a></p>` : ""}
 <p style="color:#6b7280;font-size:13px;">No account or password needed.</p>
 </div>`;
@@ -171,11 +204,7 @@ ${orgPhone ? `<p><a href="tel:${orgPhone}" style="color:#3b82f6">Call the office
 <h2 style="color:#111">Your project portal is ready</h2>
 <p>Hi${greeting},</p>
 <p><strong>${orgName}</strong> has set up a project portal for you.</p>
-<p style="margin:28px 0">
-  <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
-    View Your Project Portal
-  </a>
-</p>
+<p style="margin:28px 0"><a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">View Your Project Portal</a></p>
 <p style="color:#6b7280;font-size:13px;">No account or password needed.</p>
 </div>`;
   } else {
@@ -184,11 +213,7 @@ ${orgPhone ? `<p><a href="tel:${orgPhone}" style="color:#3b82f6">Call the office
 <h2 style="color:#111">You've been invited!</h2>
 <p>Hi${greeting},</p>
 <p>You've been invited to join <strong>${orgName}</strong> as <strong>${role.replace(/_/g, " ")}</strong> on RenoMeta Connect.</p>
-<p style="margin:28px 0">
-  <a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">
-    Accept Invitation &amp; Set Password
-  </a>
-</p>
+<p style="margin:28px 0"><a href="${inviteUrl}" style="background:#3b82f6;color:white;padding:13px 28px;border-radius:7px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;">Accept Invitation &amp; Set Password</a></p>
 <p style="color:#6b7280;font-size:13px;">This link expires in 7 days.</p>
 </div>`;
   }
@@ -198,10 +223,7 @@ ${orgPhone ? `<p><a href="tel:${orgPhone}" style="color:#3b82f6">Call the office
       host: "smtp.gmail.com",
       port: 587,
       secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
     });
     await transporter.sendMail({
       from: `"RenoMeta Connect" <${process.env.SMTP_USER}>`,
