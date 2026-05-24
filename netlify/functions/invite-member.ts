@@ -118,18 +118,19 @@ export const handler: Handler = async (event) => {
 
     // email_confirm: false avoids the UPDATE trigger that fires on confirmed users
     const { data: ghostUser, error: ghostErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: false,
-      user_metadata: {
-        first_name:  firstName,
-        last_name:   lastName,
-        full_name:   fullName,
-        phone:       phone || null,
-        org_id:      orgId,
-        role,
-        roster_only: true,
-      },
-    });
+  email,
+  email_confirm: true,
+  phone: phone || undefined,
+  user_metadata: {
+    first_name:  firstName,
+    last_name:   lastName,
+    full_name:   fullName,
+    phone:       phone || null,
+    org_id:      orgId,
+    role,
+    roster_only: true,
+  },
+});
 
     if (ghostErr) {
       console.error("[invite-member] ghost user failed:", ghostErr.message);
@@ -170,6 +171,7 @@ export const handler: Handler = async (event) => {
       role,
       worker_type: workerType,
       name:        fullName,
+      roster_only: true,
     });
     if (me) console.error("[invite-member] org_memberships failed:", me.message);
     else    console.log("[invite-member] added to org_memberships");
