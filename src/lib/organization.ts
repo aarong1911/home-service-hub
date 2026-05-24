@@ -94,8 +94,6 @@ export type TeamMember = {
   invitedAt?: string;
 };
 
-// ── Logo / company cache ──────────────────────────────────────────────────────
-
 const LOGO_KEY    = "rm_org_logo";
 const COMPANY_KEY = "rm_org_name";
 
@@ -114,14 +112,10 @@ function writeCompanyCache(name: string) {
   try { name ? localStorage.setItem(COMPANY_KEY, name) : localStorage.removeItem(COMPANY_KEY); } catch {}
 }
 
-// ── Defaults ──────────────────────────────────────────────────────────────────
-
 const DEFAULT_ORG: Organization = {
   companyName: "", primaryPhone: "", website: "", industry: undefined,
   address: "", logoUrl: null, crmGoals: [], timezone: "America/Los_Angeles",
 };
-
-// ── In-memory store ───────────────────────────────────────────────────────────
 
 let org: Organization = { ...DEFAULT_ORG, logoUrl: readLogoCache(), companyName: readCompanyCache() };
 let team: TeamMember[] = [];
@@ -135,8 +129,6 @@ const teamListeners = new Set<() => void>();
 function emitOrg()  { for (const l of orgListeners)  l(); }
 function emitTeam() { for (const l of teamListeners) l(); }
 
-// ── Team reload ───────────────────────────────────────────────────────────────
-
 export async function reloadTeam(orgId: string) {
   const [{ data: members }, { data: invites }] = await Promise.all([
     supabase.from("org_memberships").select(`
@@ -149,7 +141,6 @@ export async function reloadTeam(orgId: string) {
   ]);
 
   const activeMembers: TeamMember[] = (members ?? []).map((m: any) => {
-    // Name: prefer profiles join, fall back to org_memberships.name column
     const profileName = `${m.profiles?.first_name || ""} ${m.profiles?.last_name || ""}`.trim();
     return {
       id:         m.member_id,
@@ -173,15 +164,11 @@ export async function reloadTeam(orgId: string) {
     invitedAt: inv.created_at,
   }));
 
-  // Active members include roster members who have auth accounts — deduplicate by email
   const activeEmails = new Set(activeMembers.map(m => m.email));
   const filteredInvited = invitedMembers.filter(m => !activeEmails.has(m.email));
-
   team = [...activeMembers, ...filteredInvited];
   emitTeam();
 }
-
-// ── Full load ─────────────────────────────────────────────────────────────────
 
 async function loadOrgFromSupabase() {
   try {
@@ -230,9 +217,8 @@ async function loadOrgFromSupabase() {
         .on("postgres_changes",
           { event: "UPDATE", schema: "public", table: "organizations", filter: `id=eq.${orgId}` },
           (payload) => {
-            const d   = payload.new as any;
-            const raw = d.logo_url || null;
-            const rl  = raw?.startsWith("blob:") ? null : raw;
+            const d  = payload.new as any;
+            const rl = (d.logo_url || null)?.startsWith("blob:") ? null : (d.logo_url || null);
             org = { ...org,
               companyName:  d.name  || d.public_name || org.companyName,
               primaryPhone: d.phone || org.primaryPhone,
@@ -262,13 +248,10 @@ async function loadOrgFromSupabase() {
     }
 
     await reloadTeam(orgId);
-
   } catch (err) {
     console.error("[org] loadOrgFromSupabase failed:", err);
   }
 }
-
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 loadOrgFromSupabase();
 
@@ -276,20 +259,13 @@ supabase.auth.onAuthStateChange((event) => {
   if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
     loadOrgFromSupabase();
   } else if (event === "SIGNED_OUT") {
-    writeLogoCache(null);
-    writeCompanyCache("");
-    org           = { ...DEFAULT_ORG };
-    team          = [];
-    orgLoaded     = false;
-    orgSubscribed = false;
-    currentOrgId  = null;
-    isUpdating    = false;
-    emitOrg();
-    emitTeam();
+    writeLogoCache(null); writeCompanyCache("");
+    org = { ...DEFAULT_ORG }; team = [];
+    orgLoaded = false; orgSubscribed = false;
+    currentOrgId = null; isUpdating = false;
+    emitOrg(); emitTeam();
   }
 });
-
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export function getOrganization(): Organization { return org; }
 
@@ -307,7 +283,6 @@ export function updateOrganization(patch: Partial<Organization>) {
         .select("organization_id").eq("id", session.user.id).maybeSingle();
       const orgId = p?.organization_id;
       if (!orgId) return;
-
       const u: Record<string, any> = {};
       if (patch.companyName  !== undefined) { u.name = patch.companyName; u.public_name = patch.companyName; }
       if (patch.primaryPhone !== undefined) u.phone     = patch.primaryPhone;
@@ -317,14 +292,11 @@ export function updateOrganization(patch: Partial<Organization>) {
       if (patch.logoUrl      !== undefined) u.logo_url  = patch.logoUrl;
       if (patch.crmGoals     !== undefined) u.crm_goals = patch.crmGoals;
       if (patch.timezone     !== undefined) u.timezone  = patch.timezone;
-
       if (Object.keys(u).length > 0) {
         const { error } = await supabase.from("organizations").update(u).eq("id", orgId);
         if (error) console.error("[org] updateOrganization failed:", error);
       }
-    } catch (err) {
-      console.error("[org] updateOrganization sync failed:", err);
-    }
+    } catch (err) { console.error("[org] updateOrganization sync failed:", err); }
   })();
 }
 
@@ -357,15 +329,16 @@ export function updateMember(id: string, patch: Partial<TeamMember>) {
   team = team.map(m => m.id === id ? { ...m, ...patch } : m);
   emitTeam();
 
+  // ── Skip API call for invited/roster members — no real auth UUID ───────────
+  if (id.startsWith("inv-")) return;
+
   (async () => {
     try {
       isUpdating = true;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
       const member = team.find(m => m.id === id);
       const parts  = (patch.name ?? member?.name ?? "").trim().split(" ");
-
       const res = await fetch("/.netlify/functions/update-user-by-id", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
@@ -378,7 +351,6 @@ export function updateMember(id: string, patch: Partial<TeamMember>) {
         }),
       });
       if (!res.ok) console.error("[org] update-user-by-id failed:", await res.text());
-
       await new Promise(r => setTimeout(r, 500));
       if (currentOrgId) await reloadTeam(currentOrgId);
     } catch (err) {
