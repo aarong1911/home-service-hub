@@ -11,12 +11,12 @@ const supabaseAdmin = createClient(
 );
 
 const FIELD_APP_URL  = "https://field.renometa.com";
-
+const PORTAL_APP_URL = "https://portal.renometa.com";
 const CONNECT_URL    = "https://connect.renometa.com";
 
 function getInviteUrl(role: string, isOffline: boolean, token: string): string {
   if (role === "field_worker" && isOffline) return `${FIELD_APP_URL}/welcome?token=${token}`;
-  if (role === "viewer") return `${CONNECT_URL}/portal?token=${token}`;
+  if (role === "viewer") return `${PORTAL_APP_URL}/portal?token=${token}`;
   return `${CONNECT_URL}/auth/callback?token=${token}`;
 }
 
