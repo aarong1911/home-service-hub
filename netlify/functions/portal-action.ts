@@ -2,6 +2,7 @@
 // netlify/functions/portal-action.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL!,
@@ -9,10 +10,16 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+const PORTAL_URL  = "https://portal.renometa.com";
+
 export const handler: Handler = async (event) => {
-  const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
+  const headers = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
-  if (event.httpMethod !== "POST") return { statusCode: 405, headers, body: "Method Not Allowed" };
+  if (event.httpMethod !== "POST")    return { statusCode: 405, headers, body: "Method Not Allowed" };
 
   let body: { token: string; action: string; payload?: any };
   try { body = JSON.parse(event.body ?? "{}"); }
@@ -23,24 +30,21 @@ export const handler: Handler = async (event) => {
 
   // Validate token
   const { data: inv } = await supabaseAdmin
-    .from("invitations")
-    .select("*")
-    .eq("token", token)
-    .in("status", ["pending", "roster_only", "accepted"])
-    .maybeSingle();
+    .from("invitations").select("*").eq("token", token)
+    .in("status", ["pending", "roster_only", "accepted"]).maybeSingle();
 
   if (!inv || inv.role !== "viewer")
     return { statusCode: 403, headers, body: JSON.stringify({ error: "Access denied" }) };
 
-  // ── send_message ──────────────────────────────────────────────────────────
+  const clientName = inv.first_name
+    ? `${inv.first_name} ${inv.last_name || ""}`.trim()
+    : inv.email;
+
+  // ── send_message ────────────────────────────────────────────────────────────
   if (action === "send_message") {
     const { projectId, message } = payload ?? {};
     if (!projectId || !message?.trim())
       return { statusCode: 400, headers, body: JSON.stringify({ error: "projectId and message required" }) };
-
-    const clientName = inv.first_name
-      ? `${inv.first_name} ${inv.last_name || ""}`.trim()
-      : inv.email;
 
     const { error } = await supabaseAdmin.from("project_notes").insert({
       project_id:        projectId,
@@ -49,56 +53,76 @@ export const handler: Handler = async (event) => {
       is_client_message: true,
       client_email:      inv.email,
     });
-
     if (error) return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   }
 
-  // ── approve_estimate ──────────────────────────────────────────────────────
+  // ── approve_estimate ────────────────────────────────────────────────────────
   if (action === "approve_estimate") {
     const { estimateId } = payload ?? {};
     if (!estimateId)
       return { statusCode: 400, headers, body: JSON.stringify({ error: "estimateId required" }) };
 
-    const { error } = await supabaseAdmin
-      .from("estimates")
+    const { error } = await supabaseAdmin.from("estimates")
       .update({ status: "accepted", esign_status: "signed", signed_at: new Date().toISOString() })
       .eq("id", estimateId);
-
     if (error) return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   }
 
-  // ── request_payment (marks invoice as payment requested by client) ─────────
-  if (action === "pay_invoice") {
+  // ── create_payment (Stripe Checkout) ───────────────────────────────────────
+  if (action === "create_payment") {
     const { invoiceId } = payload ?? {};
     if (!invoiceId)
       return { statusCode: 400, headers, body: JSON.stringify({ error: "invoiceId required" }) };
 
-    // We don't process actual payments — mark as client acknowledged and notify
-    // contractor. A Stripe integration can be layered on later.
     const { data: invoice } = await supabaseAdmin
       .from("invoices")
-      .select("project_id, invoice_number, total_amount")
-      .eq("id", invoiceId)
-      .maybeSingle();
+      .select("id, invoice_number, total_amount, amount_paid, status, project_id")
+      .eq("id", invoiceId).maybeSingle();
 
     if (!invoice) return { statusCode: 404, headers, body: JSON.stringify({ error: "Invoice not found" }) };
+    if (invoice.status === "paid") return { statusCode: 400, headers, body: JSON.stringify({ error: "Invoice already paid" }) };
 
-    // Leave a note on the project so contractor is notified
-    const clientName = inv.first_name
-      ? `${inv.first_name} ${inv.last_name || ""}`.trim()
-      : inv.email;
+    const balance = Math.round((invoice.total_amount - invoice.amount_paid) * 100); // cents
+    if (balance <= 0) return { statusCode: 400, headers, body: JSON.stringify({ error: "No balance due" }) };
 
-    await supabaseAdmin.from("project_notes").insert({
-      project_id:        invoice.project_id,
-      body:              `${clientName} has requested to pay invoice #${invoice.invoice_number} ($${Number(invoice.total_amount).toLocaleString()}). Please follow up to process payment.`,
-      author:            "Portal",
-      is_client_message: true,
-      client_email:      inv.email,
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
+      // Stripe not configured — fall back to payment request notification
+      await supabaseAdmin.from("project_notes").insert({
+        project_id:        invoice.project_id,
+        body:              `${clientName} has requested to pay invoice #${invoice.invoice_number} ($${(balance / 100).toLocaleString()}). Please follow up to process payment.`,
+        author:            "Portal",
+        is_client_message: true,
+        client_email:      inv.email,
+      });
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true, message: "Payment request sent to contractor" }) };
+    }
+
+    // Stripe Checkout session
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-04-30.basil" });
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `Invoice #${invoice.invoice_number}`,
+            description: `Payment for project`,
+          },
+          unit_amount: balance,
+        },
+        quantity: 1,
+      }],
+      mode: "payment",
+      success_url: `${PORTAL_URL}/portal?token=${token}&paid=1`,
+      cancel_url:  `${PORTAL_URL}/portal?token=${token}`,
+      metadata: { invoiceId, token, clientEmail: inv.email },
     });
 
-    return { statusCode: 200, headers, body: JSON.stringify({ success: true, message: "Payment request sent to contractor" }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true, checkoutUrl: session.url }) };
   }
 
   return { statusCode: 400, headers, body: JSON.stringify({ error: `Unknown action: ${action}` }) };
