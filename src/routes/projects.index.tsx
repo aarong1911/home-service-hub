@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -328,14 +328,20 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
     if (!files.length) return;
     setUploading(true);
     const { data: { user } } = await supabase.auth.getUser();
+    // Resolve orgId — prefer from project obj, fall back to user profile
+    let uploadOrgId: string | null = (project as any).org_id ?? null;
+    if (!uploadOrgId && user) {
+      const { data: prof } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+      uploadOrgId = prof?.organization_id ?? null;
+    }
     for (const file of files) {
       if (!file.type.startsWith("image/")) continue;
       const ext  = file.name.split(".").pop();
       const path = `${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: upErr } = await supabase.storage.from("project-files").upload(path, file, { contentType: file.type });
       if (upErr) { toast.error(`Failed to upload ${file.name}`); continue; }
-      await supabase.from("project_files").insert({
-        org_id:     (project as any).org_id,
+      const { error: dbErr } = await supabase.from("project_files").insert({
+        org_id:     uploadOrgId,
         project_id: project.id,
         file_name:  file.name,
         file_path:  path,
@@ -344,6 +350,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
         file_size:  file.size,
         uploaded_by: user?.id,
       });
+      if (dbErr) console.error("[photo upload] db insert failed:", dbErr.message);
     }
     const { data } = await supabase.from("project_files").select("*")
       .eq("project_id", project.id)
@@ -385,6 +392,8 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <SheetContent side="right" className="w-full sm:max-w-170 overflow-y-auto p-0 flex flex-col">
 
+        {/* Accessibility: visually hidden title for screen readers */}
+        <SheetTitle className="sr-only">{project.name} — Project Details</SheetTitle>
         {/* Header */}
         <div className="border-b border-border px-6 py-4 shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
