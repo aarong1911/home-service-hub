@@ -67,6 +67,24 @@ export const handler: Handler = async (event) => {
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   }
 
+  // SMS notification via Twilio
+const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
+const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
+const twilioTo = process.env.NOTIFY_PHONE_NUMBER; // your number
+
+if (twilioSid && twilioAuth && twilioFrom && twilioTo) {
+  const body = `New portal message from ${clientName} on project:\n"${message.trim()}"`;
+  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${Buffer.from(`${twilioSid}:${twilioAuth}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ From: twilioFrom, To: twilioTo, Body: body }).toString(),
+  });
+}
+
   // ── approve_estimate ────────────────────────────────────────────────────────
   if (action === "approve_estimate") {
     const { estimateId } = payload ?? {};
