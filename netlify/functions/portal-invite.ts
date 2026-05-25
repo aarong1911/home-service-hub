@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-const CONNECT_URL = "https://connect.renometa.com";
+const PORTAL_URL = "https://portal.renometa.com";
 
 export const handler: Handler = async (event) => {
   const headers = { "Content-Type": "application/json" };
@@ -84,7 +84,7 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to create invitation" }) };
   }
 
-  const portalUrl  = `${CONNECT_URL}/portal?token=${invToken}`;
+  const portalUrl  = ${PORTAL_URL}/portal?token=${invToken}`;
   const greeting   = trimmedName || "there";
   const customNote = message?.trim()
     ? `<p style="background:#f8f9fa;border-left:3px solid #3b82f6;padding:12px 16px;border-radius:0 8px 8px 0;font-style:italic;color:#374151;">${message.trim()}</p>`
