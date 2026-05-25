@@ -21,17 +21,27 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
   if (event.httpMethod !== "POST")    return { statusCode: 405, headers, body: "Method Not Allowed" };
 
-  let body: { token: string; action: string; payload?: any };
+  let body: { token: string; slug?: string; action: string; payload?: any };
   try { body = JSON.parse(event.body ?? "{}"); }
   catch { return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid JSON" }) }; }
 
   const { token, action, payload } = body;
   if (!token || !action) return { statusCode: 400, headers, body: JSON.stringify({ error: "token and action required" }) };
 
-  // Validate token
-  const { data: inv } = await supabaseAdmin
-    .from("invitations").select("*").eq("token", token)
-    .in("status", ["pending", "roster_only", "accepted"]).maybeSingle();
+  // Validate — try token first, then slug fallback (for pretty URLs like /p/michael-chen-abc1)
+  let inv: any = null;
+  if (token) {
+    const { data } = await supabaseAdmin
+      .from("invitations").select("*").eq("token", token)
+      .in("status", ["pending", "roster_only", "accepted"]).maybeSingle();
+    inv = data;
+  }
+  if (!inv && body.slug) {
+    const { data } = await supabaseAdmin
+      .from("invitations").select("*").eq("portal_slug", body.slug)
+      .in("status", ["pending", "roster_only", "accepted"]).maybeSingle();
+    inv = data;
+  }
 
   if (!inv || inv.role !== "viewer")
     return { statusCode: 403, headers, body: JSON.stringify({ error: "Access denied" }) };
