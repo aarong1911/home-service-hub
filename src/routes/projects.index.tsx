@@ -341,7 +341,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
       if (!file.type.startsWith("image/")) continue;
       const ext  = file.name.split(".").pop();
       const path = `${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("project-files").upload(path, file, { contentType: file.type });
+      const { error: upErr } = await supabase.storage.from("project-photos").upload(path, file, { contentType: file.type });
       if (upErr) { toast.error(`Failed to upload ${file.name}`); continue; }
       const { error: dbErr } = await supabase.from("project_files").insert({
         org_id:     uploadOrgId,
@@ -795,7 +795,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {photos.map(photo => {
-                    const url = `${supabaseUrl}/storage/v1/object/public/project-files/${photo.file_path}`;
+                    const url = `${supabaseUrl}/storage/v1/object/public/project-photos/${photo.file_path}`;
                     return (
                       <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-secondary cursor-pointer"
                         onClick={() => setLightboxPhoto({ url, name: photo.file_name })}>
