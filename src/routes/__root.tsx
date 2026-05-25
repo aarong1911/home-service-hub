@@ -14,7 +14,7 @@ interface RouterContext {
 }
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ["/signin", "/signup", "/forgot-password", "/auth/callback"];
+const PUBLIC_ROUTES = ["/signin", "/signup", "/forgot-password", "/auth/callback", "/portal"];
 
 function NotFoundComponent() {
   return (
@@ -53,6 +53,7 @@ function RootComponent() {
   const [checked, setChecked] = useState(false);
 
   const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isPortalRoute = pathname.startsWith("/portal");
 
   // Listen for auth state changes
   useEffect(() => {
@@ -101,13 +102,17 @@ function RootComponent() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider delayDuration={150}>
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider delayDuration={150}>
+      {isPortalRoute ? (
+        <Outlet />
+      ) : (
         <AppShell>
           <Outlet />
         </AppShell>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
+      )}
+      <Toaster />
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 }
