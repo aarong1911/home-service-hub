@@ -35,6 +35,7 @@ import type { Task } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase";
 import { InviteToPortalModal } from "@/components/portal/InviteToPortalModal";
 import { InvoiceModal } from "@/components/projects/InvoiceModal";
+import { InvoiceDetailModal } from "@/components/projects/InvoiceDetailModal";
 
 export const Route = createFileRoute("/projects/")({ component: ProjectsPage });
 
@@ -255,6 +256,8 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
   const [activityNotes,    setActivityNotes]     = useState<Note[]>([]);
   const [portalInviteOpen, setPortalInviteOpen]  = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen]  = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [lightboxPhoto,      setLightboxPhoto]      = useState<{ url: string; name: string } | null>(null);
   const [photos,           setPhotos]            = useState<ProjectFile[]>([]);
   const [photosLoading,    setPhotosLoading]     = useState(false);
   const [uploading,        setUploading]         = useState(false);
@@ -533,7 +536,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
                         <div className="space-y-0">
                           {entries.map((entry, i) => (
                             <div key={entry.id} className="relative flex gap-3 pb-3">
-                              {i < entries.length - 1 && <div className="absolute left-[15px] top-7 h-full w-px bg-border" />}
+                              {i < entries.length - 1 && <div className="absolute left-3.75 top-7 h-full w-px bg-border" />}
                               <div className={cn("relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-4 ring-background", entry.tone)}>{entry.icon}</div>
                               <div className="min-w-0 flex-1 pt-1">
                                 <div className="flex items-baseline justify-between gap-2">
@@ -680,7 +683,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
                       const isPaid    = inv.status === "paid";
                       const isOverdue = !isPaid && inv.due_date && new Date(inv.due_date) < new Date();
                       return (
-                        <div key={inv.id} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 hover:bg-secondary/20 transition cursor-default">
+                        <div key={inv.id} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 hover:bg-secondary/20 transition cursor-pointer" onClick={() => setSelectedInvoiceId(inv.id)}>
                           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium">{inv.invoice_number || `INV-${inv.id.slice(0,6).toUpperCase()}`}</p>
@@ -795,11 +798,11 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
                     const url = `${supabaseUrl}/storage/v1/object/public/project-photos/${photo.file_path}`;
                     return (
                       <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-secondary cursor-pointer"
-                        onClick={() => window.open(url, "_blank")}>
+                        onClick={() => setLightboxPhoto({ url, name: photo.file_name })}>
                         <img src={url} alt={photo.file_name}
                           className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                           onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
+                        <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
                           <p className="text-[10px] text-white truncate">{photo.file_name}</p>
                         </div>
                       </div>
@@ -829,11 +832,27 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
         orgId={(project as any).org_id ?? ""}
         onCreated={() => {
           setInvoiceModalOpen(false);
-          // Reload invoices by re-triggering the effect
           setActiveTab("overview");
           setTimeout(() => setActiveTab("financials"), 50);
         }}
       />
+      <InvoiceDetailModal
+        invoiceId={selectedInvoiceId}
+        open={!!selectedInvoiceId}
+        onClose={() => setSelectedInvoiceId(null)}
+      />
+      {lightboxPhoto && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onClick={() => setLightboxPhoto(null)}>
+          <button className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            onClick={() => setLightboxPhoto(null)}>
+            <X className="h-5 w-5" />
+          </button>
+          <img src={lightboxPhoto.url} alt={lightboxPhoto.name}
+            className="max-h-[90vh] max-w-full rounded-xl object-contain shadow-2xl"
+            onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </Sheet>
   );
 }
