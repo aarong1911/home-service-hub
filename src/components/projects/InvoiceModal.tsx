@@ -1,5 +1,5 @@
 // src/components/projects/InvoiceModal.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  clientId: string;
-  orgId: string;
+  clientId?: string;
+  orgId?: string;
   onCreated: () => void;
 };
 
@@ -33,17 +33,25 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
   const [notes,         setNotes]         = useState("");
   const [items,         setItems]         = useState<LineItem[]>([{ ...EMPTY_ITEM }]);
   const [saving,        setSaving]        = useState(false);
+  const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(orgId ?? null);
 
-  const setItem = (i: number, field: keyof LineItem, val: string) => {
+  // Resolve orgId from user profile if not passed as prop
+  useEffect(() => {
+    if (orgId) { setResolvedOrgId(orgId); return; }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle()
+        .then(({ data }) => { if (data?.organization_id) setResolvedOrgId(data.organization_id); });
+    });
+  }, [orgId, open]);
+
+  const setItem = (i: number, field: keyof LineItem, val: string) =>
     setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
-  };
   const addItem    = () => setItems(prev => [...prev, { ...EMPTY_ITEM }]);
   const removeItem = (i: number) => setItems(prev => prev.filter((_, idx) => idx !== i));
 
   const subtotal = items.reduce((s, item) => {
-    const qty   = parseFloat(item.quantity)   || 0;
-    const price = parseFloat(item.unit_price) || 0;
-    return s + qty * price;
+    return s + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
   }, 0);
 
   const handleClose = () => {
@@ -55,31 +63,41 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
   };
 
   const handleSave = async () => {
-    if (!issueDate) { toast.error("Issue date is required"); return; }
-    if (subtotal <= 0) { toast.error("Add at least one line item with a price"); return; }
+    if (!issueDate)         { toast.error("Issue date is required"); return; }
+    if (subtotal <= 0)      { toast.error("Add at least one line item with a price"); return; }
+    if (!resolvedOrgId)     { toast.error("Organization not found"); return; }
 
     setSaving(true);
-    const { data: inv, error: invErr } = await supabase.from("invoices").insert({
-      project_id:    projectId,
-      client_id:     clientId,
-      org_id:        orgId,
-      invoice_number: invoiceNumber,
-      issue_date:    issueDate,
-      due_date:      dueDate || null,
-      status:        "draft",
-      subtotal,
-      tax_amount:    0,
-      total_amount:  subtotal,
-      amount_paid:   0,
-      notes:         notes || null,
-    }).select("id").single();
 
-    if (invErr) { toast.error("Failed to create invoice"); setSaving(false); return; }
+    const payload: Record<string, any> = {
+      project_id:     projectId,
+      org_id:         resolvedOrgId,
+      invoice_number: invoiceNumber,
+      issue_date:     issueDate,
+      due_date:       dueDate || null,
+      status:         "draft",
+      subtotal,
+      tax_amount:     0,
+      total_amount:   subtotal,
+      amount_paid:    0,
+      notes:          notes || null,
+    };
+    // Only include client_id if it's a valid non-empty UUID
+    if (clientId && clientId.length > 10) payload.client_id = clientId;
+
+    const { data: inv, error: invErr } = await supabase
+      .from("invoices").insert(payload).select("id").single();
+
+    if (invErr) {
+      console.error("[InvoiceModal] insert error:", invErr);
+      toast.error(`Failed to create invoice: ${invErr.message}`);
+      setSaving(false); return;
+    }
 
     // Insert line items
     const lineItems = items
       .filter(i => i.description.trim() && parseFloat(i.unit_price) > 0)
-      .map((i, pos) => ({
+      .map(i => ({
         invoice_id:  inv.id,
         description: i.description.trim(),
         quantity:    parseFloat(i.quantity) || 1,
@@ -100,10 +118,11 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
   return (
     <Dialog open={open} onOpenChange={v => !v && handleClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>New Invoice</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>New Invoice</DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-4">
-          {/* Header fields */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Invoice #</Label>
@@ -128,7 +147,6 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
               </Button>
             </div>
             <div className="space-y-2">
-              {/* Header row */}
               <div className="grid grid-cols-12 gap-2 text-[10px] text-muted-foreground font-medium px-1">
                 <div className="col-span-6">Description</div>
                 <div className="col-span-2 text-center">Qty</div>
@@ -150,7 +168,6 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
                 </div>
               ))}
             </div>
-            {/* Total */}
             <div className="flex justify-between items-center border-t border-border mt-3 pt-3">
               <span className="text-xs font-medium text-muted-foreground">Total</span>
               <span className="text-base font-bold tabular-nums">
@@ -159,7 +176,6 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
             </div>
           </div>
 
-          {/* Notes */}
           <div className="space-y-1.5">
             <Label className="text-xs">Notes</Label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)}
@@ -170,7 +186,7 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={handleClose}>Cancel</Button>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Button size="sm" onClick={handleSave} disabled={saving || !resolvedOrgId}>
             {saving ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Creating…</> : "Create invoice"}
           </Button>
         </DialogFooter>
