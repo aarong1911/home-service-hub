@@ -1,9 +1,7 @@
 // src/routes/projects.index.tsx
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  DragDropContext, Droppable, Draggable, type DropResult,
-} from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +20,8 @@ import {
   Plus, Search, LayoutGrid, List as ListIcon, Download, Loader2, MapPin,
   MoreHorizontal, ChevronsUpDown, Check, Mail, Phone, MessageSquare, X,
   TrendingUp, Clock, PauseCircle, DollarSign, Filter, ChevronRight, Calendar,
-  User, Circle, CheckCircle2, AlertCircle, FileText, Send, Trash2, Flag, ExternalLink,
+  User, Circle, CheckCircle2, AlertCircle, FileText, Send, Trash2, Flag,
+  ExternalLink, ImageIcon, Camera,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -35,6 +34,7 @@ import { useTasks, addTask, updateTask, deleteTask } from "@/lib/tasks-store";
 import type { Task } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase";
 import { InviteToPortalModal } from "@/components/portal/InviteToPortalModal";
+import { InvoiceModal } from "@/components/projects/InvoiceModal";
 
 export const Route = createFileRoute("/projects/")({ component: ProjectsPage });
 
@@ -48,15 +48,28 @@ type StageColumn = {
   label: string; dotColor: string; description: string;
 };
 
+type Invoice = {
+  id: string; invoice_number: string; status: string;
+  issue_date: string | null; due_date: string | null;
+  total_amount: number; amount_paid: number;
+};
+
+type Note = { id: string; body: string; created_at: string; author: string };
+
+type ProjectFile = {
+  id: string; file_name: string; file_path: string; file_type: string | null;
+  mime_type: string | null; description: string | null; created_at: string;
+};
+
 // ─── Stage columns ────────────────────────────────────────────────────────────
 
 const STAGE_COLUMNS: StageColumn[] = [
-  { id: "estimating",      statuses: ["planning"],         dbStatus: "planning",         label: "Estimating",      dotColor: "bg-sky-500",    description: "Proposal / bid in progress" },
-  { id: "contracted",      statuses: ["contracted"],       dbStatus: "contracted",       label: "Contracted",      dotColor: "bg-violet-500", description: "Signed, deposit received" },
-  { id: "pre-construction",statuses: ["pre-construction"], dbStatus: "pre-construction", label: "Pre-Construction",dotColor: "bg-amber-500",  description: "Permits · materials · scheduling" },
-  { id: "in-progress",     statuses: ["active"],           dbStatus: "active",           label: "In Progress",     dotColor: "bg-green-500",  description: "Active on-site work" },
-  { id: "punch-list",      statuses: ["punch-list"],       dbStatus: "punch-list",       label: "Punch List",      dotColor: "bg-orange-500", description: "Final items · walkthrough" },
-  { id: "completed",       statuses: ["completed"],        dbStatus: "completed",        label: "Completed",       dotColor: "bg-gray-400",   description: "Closed out" },
+  { id: "estimating",       statuses: ["planning"],         dbStatus: "planning",         label: "Estimating",       dotColor: "bg-sky-500",    description: "Proposal / bid in progress" },
+  { id: "contracted",       statuses: ["contracted"],       dbStatus: "contracted",       label: "Contracted",       dotColor: "bg-violet-500", description: "Signed, deposit received" },
+  { id: "pre-construction", statuses: ["pre-construction"], dbStatus: "pre-construction", label: "Pre-Construction", dotColor: "bg-amber-500",  description: "Permits · materials · scheduling" },
+  { id: "in-progress",      statuses: ["active"],           dbStatus: "active",           label: "In Progress",      dotColor: "bg-green-500",  description: "Active on-site work" },
+  { id: "punch-list",       statuses: ["punch-list"],       dbStatus: "punch-list",       label: "Punch List",       dotColor: "bg-orange-500", description: "Final items · walkthrough" },
+  { id: "completed",        statuses: ["completed"],        dbStatus: "completed",        label: "Completed",        dotColor: "bg-gray-400",   description: "Closed out" },
 ];
 
 const ACTIVE_STATUSES: ProjectStatus[] = ["planning","contracted","pre-construction","active","punch-list","completed"];
@@ -71,7 +84,7 @@ function formatMoney(n: number) {
 function formatMoneyFull(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
-function daysSince(dateStr: string | null | undefined): number {
+function daysSince(dateStr: string | null | undefined) {
   if (!dateStr) return 0;
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
 }
@@ -86,11 +99,14 @@ function getCityFromAddress(address: string | null): string {
   if (parts.length === 2) return parts[1];
   return "";
 }
-function getInitials(name: string): string {
+function getInitials(name: string) {
   return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
 function getColumnForStatus(status: ProjectStatus): StageColumn {
   return STAGE_COLUMNS.find(col => col.statuses.includes(status)) ?? STAGE_COLUMNS[0];
+}
+function getStepperIndex(status: ProjectStatus) {
+  return STAGE_COLUMNS.findIndex(col => col.statuses.includes(status));
 }
 
 const STEPPER_STAGES = [
@@ -102,9 +118,15 @@ const STEPPER_STAGES = [
   { id: "completed",        label: "Completed" },
 ] as const;
 
-function getStepperIndex(status: ProjectStatus): number {
-  return STAGE_COLUMNS.findIndex(col => col.statuses.includes(status));
-}
+const PRIORITY_COLORS: Record<Task["priority"], string> = {
+  high: "text-red-500", med: "text-amber-500", low: "text-slate-400",
+};
+const STATUS_ICONS: Record<Task["status"], React.ReactNode> = {
+  todo:        <Circle       className="h-4 w-4 text-muted-foreground" />,
+  in_progress: <Clock        className="h-4 w-4 text-blue-500" />,
+  review:      <AlertCircle  className="h-4 w-4 text-amber-500" />,
+  done:        <CheckCircle2 className="h-4 w-4 text-green-500" />,
+};
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
@@ -163,19 +185,19 @@ function AddressInput({ value, onChange, id, placeholder }: {
 }) {
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [open, setOpen]     = useState(false);
-  const [loading, setLoading] = useState(false);
-  const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoad]  = useState(false);
+  const timerRef            = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef        = useRef<HTMLDivElement>(null);
 
   const search = useCallback(async (q: string) => {
     if (q.length < 4) { setSuggestions([]); setOpen(false); return; }
-    setLoading(true);
+    setLoad(true);
     try {
       const res  = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&countrycodes=us&limit=5`, { headers: { "Accept-Language": "en" } });
       const data: NominatimResult[] = await res.json();
       setSuggestions(data); setOpen(data.length > 0);
     } catch { setSuggestions([]); setOpen(false); }
-    finally { setLoading(false); }
+    finally { setLoad(false); }
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,55 +238,61 @@ function AddressInput({ value, onChange, id, placeholder }: {
 
 // ─── Project Detail Sheet ─────────────────────────────────────────────────────
 
-type Invoice = { id: string; invoice_number: string; status: string; issue_date: string | null; due_date: string | null; total_amount: number; amount_paid: number };
-type Note    = { id: string; body: string; created_at: string; author: string };
-
-const PRIORITY_COLORS: Record<Task["priority"], string> = { high: "text-red-500", med: "text-amber-500", low: "text-slate-400" };
-const STATUS_ICONS: Record<Task["status"], React.ReactNode> = {
-  todo:        <Circle      className="h-4 w-4 text-muted-foreground" />,
-  in_progress: <Clock       className="h-4 w-4 text-blue-500" />,
-  review:      <AlertCircle className="h-4 w-4 text-amber-500" />,
-  done:        <CheckCircle2 className="h-4 w-4 text-green-500" />,
-};
-
 function ProjectDetailSheet({ project, open, onClose, onReload }: {
   project: Project | null; open: boolean; onClose: () => void; onReload: () => void;
 }) {
   const contacts = useContacts();
   const allTasks = useTasks();
-  const [activeTab,      setActiveTab]      = useState<"overview" | "financials" | "schedule" | "communications">("overview");
-  const [newTaskTitle,   setNewTaskTitle]   = useState("");
-  const [addingTask,     setAddingTask]     = useState(false);
-  const [invoices,       setInvoices]       = useState<Invoice[]>([]);
-  const [invoicesLoading,setInvoicesLoading]= useState(false);
-  const [notes,          setNotes]          = useState<Note[]>([]);
-  const [noteInput,      setNoteInput]      = useState("");
-  const [savingNote,     setSavingNote]     = useState(false);
-  const [activityNotes,  setActivityNotes]  = useState<Note[]>([]);
-  const [portalInviteOpen, setPortalInviteOpen] = useState(false);
+
+  const [activeTab,        setActiveTab]        = useState<"overview" | "financials" | "schedule" | "communications" | "photos">("overview");
+  const [newTaskTitle,     setNewTaskTitle]      = useState("");
+  const [addingTask,       setAddingTask]        = useState(false);
+  const [invoices,         setInvoices]          = useState<Invoice[]>([]);
+  const [invoicesLoading,  setInvoicesLoading]   = useState(false);
+  const [notes,            setNotes]             = useState<Note[]>([]);
+  const [noteInput,        setNoteInput]         = useState("");
+  const [savingNote,       setSavingNote]        = useState(false);
+  const [activityNotes,    setActivityNotes]     = useState<Note[]>([]);
+  const [portalInviteOpen, setPortalInviteOpen]  = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen]  = useState(false);
+  const [photos,           setPhotos]            = useState<ProjectFile[]>([]);
+  const [photosLoading,    setPhotosLoading]     = useState(false);
+  const [uploading,        setUploading]         = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (open) setActiveTab("overview"); }, [open, project?.id]);
 
   useEffect(() => {
     if (!open || !project) return;
-    supabase.from("project_notes").select("id, body, created_at, author").eq("project_id", project.id)
-      .order("created_at", { ascending: false }).limit(10)
+    supabase.from("project_notes").select("id, body, created_at, author")
+      .eq("project_id", project.id).order("created_at", { ascending: false }).limit(10)
       .then(({ data }) => setActivityNotes((data ?? []) as Note[]));
   }, [open, project?.id]);
 
   useEffect(() => {
     if (activeTab !== "financials" || !project) return;
     setInvoicesLoading(true);
-    supabase.from("invoices").select("id, invoice_number, status, issue_date, due_date, total_amount, amount_paid")
+    supabase.from("invoices")
+      .select("id, invoice_number, status, issue_date, due_date, total_amount, amount_paid")
       .eq("project_id", project.id).order("issue_date", { ascending: false })
       .then(({ data }) => { setInvoices((data ?? []) as Invoice[]); setInvoicesLoading(false); });
-  }, [activeTab, project?.id]);
+  }, [activeTab, project?.id, invoiceModalOpen]);
 
   useEffect(() => {
     if (activeTab !== "communications" || !project) return;
-    supabase.from("project_notes").select("id, body, created_at, author").eq("project_id", project.id)
-      .order("created_at", { ascending: false })
+    supabase.from("project_notes").select("id, body, created_at, author")
+      .eq("project_id", project.id).order("created_at", { ascending: false })
       .then(({ data }) => setNotes((data ?? []) as Note[]));
+  }, [activeTab, project?.id]);
+
+  useEffect(() => {
+    if (activeTab !== "photos" || !project) return;
+    setPhotosLoading(true);
+    supabase.from("project_files").select("*")
+      .eq("project_id", project.id)
+      .or("mime_type.ilike.image/%,file_type.eq.image")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => { setPhotos((data ?? []) as ProjectFile[]); setPhotosLoading(false); });
   }, [activeTab, project?.id]);
 
   if (!project) return null;
@@ -280,7 +308,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
   };
 
   const handleSaveNote = async () => {
-    if (!noteInput.trim() || !project) return;
+    if (!noteInput.trim()) return;
     setSavingNote(true);
     const { data: { user } } = await supabase.auth.getUser();
     const author = user?.user_metadata?.first_name || user?.email?.split("@")[0] || "You";
@@ -295,19 +323,63 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
     setNoteInput(""); setSavingNote(false);
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) continue;
+      const ext  = file.name.split(".").pop();
+      const path = `${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("project-files").upload(path, file, { contentType: file.type });
+      if (upErr) { toast.error(`Failed to upload ${file.name}`); continue; }
+      await supabase.from("project_files").insert({
+        org_id:     (project as any).org_id,
+        project_id: project.id,
+        file_name:  file.name,
+        file_path:  path,
+        file_type:  "image",
+        mime_type:  file.type,
+        file_size:  file.size,
+        uploaded_by: user?.id,
+      });
+    }
+    const { data } = await supabase.from("project_files").select("*")
+      .eq("project_id", project.id)
+      .or("mime_type.ilike.image/%,file_type.eq.image")
+      .order("created_at", { ascending: false });
+    setPhotos((data ?? []) as ProjectFile[]);
+    setUploading(false);
+    toast.success(`${files.length} photo${files.length > 1 ? "s" : ""} uploaded`);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const col        = getColumnForStatus(project.status);
   const stepperIdx = getStepperIndex(project.status);
   const cityLine   = getCityFromAddress(project.address);
   const remaining  = project.budget_total - project.actual_cost;
   const budgetPct  = project.budget_total > 0 ? Math.min(100, Math.round((project.actual_cost / project.budget_total) * 100)) : 0;
   const projId     = `#PRJ-${project.id.slice(0, 6).toUpperCase()}`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
   const SHEET_TABS = [
     { id: "overview",       label: "Overview" },
     { id: "financials",     label: "Financials" },
     { id: "schedule",       label: "Schedule & Tasks" },
     { id: "communications", label: "Communications" },
+    { id: "photos",         label: "Photos" },
   ] as const;
+
+  const badgeCls = cn(
+    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+    col.dotColor === "bg-green-500"  && "bg-green-100 text-green-700 border-green-200",
+    col.dotColor === "bg-sky-500"    && "bg-sky-100 text-sky-700 border-sky-200",
+    col.dotColor === "bg-violet-500" && "bg-violet-100 text-violet-700 border-violet-200",
+    col.dotColor === "bg-amber-500"  && "bg-amber-100 text-amber-700 border-amber-200",
+    col.dotColor === "bg-orange-500" && "bg-orange-100 text-orange-700 border-orange-200",
+    col.dotColor === "bg-gray-400"   && "bg-gray-100 text-gray-600 border-gray-200",
+  );
 
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -316,25 +388,15 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
         {/* Header */}
         <div className="border-b border-border px-6 py-4 shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
-            <span>Projects</span>
-            <ChevronRight className="h-3 w-3" />
+            <span>Projects</span><ChevronRight className="h-3 w-3" />
             <span className="text-foreground font-medium">{project.name}</span>
           </div>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-semibold leading-tight">{project.name}</h2>
-                <Badge className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                  col.dotColor === "bg-green-500"  && "bg-green-100 text-green-700 border-green-200",
-                  col.dotColor === "bg-sky-500"    && "bg-sky-100 text-sky-700 border-sky-200",
-                  col.dotColor === "bg-violet-500" && "bg-violet-100 text-violet-700 border-violet-200",
-                  col.dotColor === "bg-amber-500"  && "bg-amber-100 text-amber-700 border-amber-200",
-                  col.dotColor === "bg-orange-500" && "bg-orange-100 text-orange-700 border-orange-200",
-                  col.dotColor === "bg-gray-400"   && "bg-gray-100 text-gray-600 border-gray-200",
-                )} variant="outline">
-                  <span className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full", col.dotColor)} />
-                  {col.label}
+                <Badge className={badgeCls} variant="outline">
+                  <span className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full", col.dotColor)} />{col.label}
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -359,18 +421,18 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
           </div>
         </div>
 
-        {/* KPI stat cards */}
+        {/* KPI cards */}
         <div className="grid grid-cols-2 gap-3 px-6 py-4 shrink-0 sm:grid-cols-4">
           {[
             { label: "Budget",     main: formatMoney(project.budget_total), sub: `${formatMoney(project.actual_cost)} spent` },
             { label: "Timeline",   main: project.start_date ? new Date(project.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—", sub: project.end_date ? `→ ${new Date(project.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "No end date" },
-            { label: "Completion", main: `${project.completion_percentage}%`, sub: null, progress: true },
+            { label: "Completion", main: `${project.completion_percentage}%`, progress: true },
             { label: "Stage",      main: col.label, sub: col.description },
           ].map(item => (
             <div key={item.label} className="rounded-lg border border-border bg-muted/30 p-3">
               <p className="text-[11px] text-muted-foreground font-medium">{item.label}</p>
               <p className="mt-1 text-base font-bold leading-tight">{item.main}</p>
-              {item.progress ? <Progress value={project.completion_percentage} className="mt-1.5 h-1.5" /> : <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{item.sub}</p>}
+              {item.progress ? <Progress value={project.completion_percentage} className="mt-1.5 h-1.5" /> : <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{(item as any).sub}</p>}
             </div>
           ))}
         </div>
@@ -380,17 +442,14 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
           <div className="relative flex items-center justify-between">
             <div className="absolute inset-x-0 top-3.5 h-0.5 bg-border" />
             {STEPPER_STAGES.map((stage, idx) => {
-              const isDone    = idx < stepperIdx;
-              const isCurrent = idx === stepperIdx;
+              const isDone = idx < stepperIdx; const isCurrent = idx === stepperIdx;
               return (
                 <div key={stage.id} className="relative flex flex-col items-center gap-1.5 z-10">
                   <div className={cn("h-7 w-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold",
                     isDone ? "border-primary bg-primary text-primary-foreground" : isCurrent ? "border-primary bg-background text-primary" : "border-border bg-background text-muted-foreground")}>
                     {isDone ? <Check className="h-3.5 w-3.5" /> : idx + 1}
                   </div>
-                  <span className={cn("text-[10px] font-medium whitespace-nowrap", isCurrent ? "text-primary" : "text-muted-foreground")}>
-                    {stage.label}
-                  </span>
+                  <span className={cn("text-[10px] font-medium whitespace-nowrap", isCurrent ? "text-primary" : "text-muted-foreground")}>{stage.label}</span>
                 </div>
               );
             })}
@@ -398,10 +457,10 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-b border-border px-6 shrink-0">
+        <div className="flex border-b border-border px-6 shrink-0 overflow-x-auto">
           {SHEET_TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={cn("pb-2.5 pt-1 mr-5 text-sm font-medium border-b-2 transition-colors",
+              className={cn("pb-2.5 pt-1 mr-5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeTab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
               {t.label}
             </button>
@@ -411,7 +470,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
 
-          {/* Overview */}
+          {/* ── Overview ── */}
           {activeTab === "overview" && (
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-3 sm:col-span-2 space-y-4">
@@ -456,7 +515,6 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
                           sub: n.body.length > 60 ? `${n.body.slice(0, 60)}…` : n.body,
                         })),
                       ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 6);
-
                       if (entries.length === 0) return (
                         <div className="rounded-md border border-dashed border-border py-8 text-center">
                           <p className="text-sm text-muted-foreground">No activity yet — add tasks or notes to see them here</p>
@@ -539,7 +597,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
             </div>
           )}
 
-          {/* Schedule & Tasks */}
+          {/* ── Schedule & Tasks ── */}
           {activeTab === "schedule" && (
             <div className="space-y-4">
               <div className="flex gap-2">
@@ -577,7 +635,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
             </div>
           )}
 
-          {/* Financials */}
+          {/* ── Financials ── */}
           {activeTab === "financials" && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
@@ -593,13 +651,19 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
                 ))}
               </div>
               <div>
-                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Invoices</p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Invoices</p>
+                  <Button size="sm" className="h-7 text-xs gap-1" onClick={() => setInvoiceModalOpen(true)}>
+                    <Plus className="h-3 w-3" />New Invoice
+                  </Button>
+                </div>
                 {invoicesLoading ? (
                   <div className="space-y-2">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
                 ) : invoices.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border py-8 text-center">
+                  <div className="rounded-lg border border-dashed border-border py-8 text-center cursor-pointer hover:bg-secondary/20 transition" onClick={() => setInvoiceModalOpen(true)}>
                     <FileText className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
                     <p className="text-sm text-muted-foreground">No invoices yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click to create one</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -607,11 +671,14 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
                       const isPaid    = inv.status === "paid";
                       const isOverdue = !isPaid && inv.due_date && new Date(inv.due_date) < new Date();
                       return (
-                        <div key={inv.id} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5">
+                        <div key={inv.id} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 hover:bg-secondary/20 transition cursor-default">
                           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium">{inv.invoice_number || `INV-${inv.id.slice(0,6).toUpperCase()}`}</p>
-                            <p className="text-[11px] text-muted-foreground">{inv.due_date ? `Due ${formatDate(inv.due_date)}` : "No due date"}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {inv.due_date ? `Due ${formatDate(inv.due_date)}` : "No due date"}
+                              {inv.amount_paid > 0 && ` · ${formatMoneyFull(inv.amount_paid)} paid`}
+                            </p>
                           </div>
                           <p className="text-sm font-semibold tabular-nums shrink-0">{formatMoneyFull(inv.total_amount)}</p>
                           <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5",
@@ -647,7 +714,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
             </div>
           )}
 
-          {/* Communications */}
+          {/* ── Communications ── */}
           {activeTab === "communications" && (
             <div className="space-y-4">
               {contact && (
@@ -688,10 +755,55 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
               )}
             </div>
           )}
+
+          {/* ── Photos ── */}
+          {activeTab === "photos" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{photos.length} photo{photos.length !== 1 ? "s" : ""}</p>
+                <div>
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                  <Button size="sm" className="h-8 gap-1.5" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                    {uploading ? "Uploading…" : "Upload photos"}
+                  </Button>
+                </div>
+              </div>
+              {photosLoading ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {[...Array(6)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
+                </div>
+              ) : photos.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border py-14 text-center cursor-pointer hover:bg-secondary/20 transition"
+                  onClick={() => fileInputRef.current?.click()}>
+                  <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No photos yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click to upload site photos</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {photos.map(photo => {
+                    const url = `${supabaseUrl}/storage/v1/object/public/project-files/${photo.file_path}`;
+                    return (
+                      <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-secondary cursor-pointer"
+                        onClick={() => window.open(url, "_blank")}>
+                        <img src={url} alt={photo.file_name}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
+                          <p className="text-[10px] text-white truncate">{photo.file_name}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </SheetContent>
 
-      {/* Portal invite modal */}
+      {/* Modals */}
       <InviteToPortalModal
         open={portalInviteOpen}
         onClose={() => setPortalInviteOpen(false)}
@@ -700,18 +812,30 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
         clientEmail={contact?.email}
         clientName={contact?.name}
       />
+      <InvoiceModal
+        open={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        projectId={project.id}
+        clientId={(project as any).client_id ?? ""}
+        orgId={(project as any).org_id ?? ""}
+        onCreated={() => {
+          setInvoiceModalOpen(false);
+          // Reload invoices by re-triggering the effect
+          setActiveTab("overview");
+          setTimeout(() => setActiveTab("financials"), 50);
+        }}
+      />
     </Sheet>
   );
 }
 
-// ─── Project Card (board) ─────────────────────────────────────────────────────
+// ─── Project Card ─────────────────────────────────────────────────────────────
 
 function ProjectCard({ project: p, onClick, onDelete }: { project: Project; onClick: () => void; onDelete: () => void }) {
-  const col     = getColumnForStatus(p.status);
-  const age     = daysSince((p as any).created_at);
+  const col      = getColumnForStatus(p.status);
+  const age      = daysSince((p as any).created_at);
   const cityLine = getCityFromAddress(p.address);
   const typeTag  = p.name.split(" ")[0] ?? "General";
-
   return (
     <Card className="cursor-pointer p-0 overflow-hidden transition-shadow hover:shadow-md active:shadow-sm select-none" onClick={onClick}>
       <div className="flex items-start justify-between gap-2 px-3 pt-3">
@@ -890,7 +1014,6 @@ function NewProjectDialog({ open, onClose, onCreated }: { open: boolean; onClose
 
   const set = (field: keyof NewProjectForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [field]: e.target.value }));
   const selectedContact = contacts.find(c => c.id === form.client_id);
-
   const handleClose = () => { setForm(EMPTY_FORM); setContactOpen(false); onClose(); };
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -1010,7 +1133,7 @@ function ProjectsPage() {
   }), [projects]);
 
   const kpis = useMemo(() => {
-    const active       = projects.filter(p => ACTIVE_STATUSES.includes(p.status));
+    const active        = projects.filter(p => ACTIVE_STATUSES.includes(p.status));
     const pipelineValue = active.reduce((s, p) => s + p.budget_total, 0);
     const avgValue      = active.length > 0 ? pipelineValue / active.length : 0;
     const completed     = projects.filter(p => p.status === "completed" && p.start_date && p.end_date);
@@ -1112,7 +1235,7 @@ function ProjectsPage() {
           <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Filter className="h-3.5 w-3.5" />Filters</Button>
           <div className="flex items-center rounded-md border border-border p-0.5">
             <Button variant={view === "board" ? "secondary" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setView("board")} title="Board view"><LayoutGrid className="h-3.5 w-3.5" /></Button>
-            <Button variant={view === "list"  ? "secondary" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setView("list")}  title="List view"><ListIcon  className="h-3.5 w-3.5" /></Button>
+            <Button variant={view === "list"  ? "secondary" : "ghost"} size="sm" className="h-7 px-2" onClick={() => setView("list")}  title="List view"><ListIcon   className="h-3.5 w-3.5" /></Button>
           </div>
         </div>
       </div>
