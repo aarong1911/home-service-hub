@@ -341,7 +341,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
       if (!file.type.startsWith("image/")) continue;
       const ext  = file.name.split(".").pop();
       const path = `${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("project-photos").upload(path, file, { contentType: file.type });
+      const { error: upErr } = await supabase.storage.from("project-files").upload(path, file, { contentType: file.type });
       if (upErr) { toast.error(`Failed to upload ${file.name}`); continue; }
       const { error: dbErr } = await supabase.from("project_files").insert({
         org_id:     uploadOrgId,
@@ -795,7 +795,7 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {photos.map(photo => {
-                    const url = `${supabaseUrl}/storage/v1/object/public/project-photos/${photo.file_path}`;
+                    const url = `${supabaseUrl}/storage/v1/object/public/project-files/${photo.file_path}`;
                     return (
                       <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-secondary cursor-pointer"
                         onClick={() => setLightboxPhoto({ url, name: photo.file_name })}>
@@ -805,6 +805,19 @@ function ProjectDetailSheet({ project, open, onClose, onReload }: {
                         <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
                           <p className="text-[10px] text-white truncate">{photo.file_name}</p>
                         </div>
+                        {/* Delete button */}
+                        <button
+                          onClick={async e => {
+                            e.stopPropagation();
+                            if (!confirm("Delete this photo?")) return;
+                            await supabase.storage.from("project-photos").remove([photo.file_path]);
+                            await supabase.from("project_files").delete().eq("id", photo.id);
+                            setPhotos(prev => prev.filter(p => p.id !== photo.id));
+                            toast.success("Photo deleted");
+                          }}
+                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-destructive">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     );
                   })}
