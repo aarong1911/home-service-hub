@@ -138,6 +138,7 @@ export async function reloadTeam(orgId: string) {
     supabase.from("invitations").select("*")
       .eq("organization_id", orgId)
       .in("status", ["pending", "roster_only"]),
+      .is("project_id", null),
   ]);
 
   const activeMembers: TeamMember[] = (members ?? []).map((m: any) => {
