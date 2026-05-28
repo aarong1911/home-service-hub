@@ -137,7 +137,7 @@ export async function reloadTeam(orgId: string) {
     `).eq("org_id", orgId),
     supabase.from("invitations").select("*")
       .eq("organization_id", orgId)
-      .in("status", ["pending", "roster_only"]),
+      .in("status", ["pending", "roster_only"])
       .is("project_id", null),
   ]);
 
