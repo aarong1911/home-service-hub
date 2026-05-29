@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-const PORTAL_URL  = "https://portal.renometa.com";
+const PORTAL_URL = "https://portal.renometa.com";
 
 export const handler: Handler = async (event) => {
   const headers = {
@@ -21,14 +21,15 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
   if (event.httpMethod !== "POST")    return { statusCode: 405, headers, body: "Method Not Allowed" };
 
-  let body: { token: string; slug?: string; action: string; payload?: any };
-  try { body = JSON.parse(event.body ?? "{}"); }
+  let reqBody: { token: string; slug?: string; action: string; payload?: any };
+  try { reqBody = JSON.parse(event.body ?? "{}"); }
   catch { return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid JSON" }) }; }
 
-  const { token, action, payload } = body;
-  if (!token || !action) return { statusCode: 400, headers, body: JSON.stringify({ error: "token and action required" }) };
+  const { token, action, payload } = reqBody;
+  if (!token || !action)
+    return { statusCode: 400, headers, body: JSON.stringify({ error: "token and action required" }) };
 
-  // Validate — try token first, then slug fallback (for pretty URLs like /p/michael-chen-abc1)
+  // Validate — try token first, then slug fallback
   let inv: any = null;
   if (token) {
     const { data } = await supabaseAdmin
@@ -36,9 +37,9 @@ export const handler: Handler = async (event) => {
       .in("status", ["pending", "roster_only", "accepted"]).maybeSingle();
     inv = data;
   }
-  if (!inv && body.slug) {
+  if (!inv && reqBody.slug) {
     const { data } = await supabaseAdmin
-      .from("invitations").select("*").eq("portal_slug", body.slug)
+      .from("invitations").select("*").eq("portal_slug", reqBody.slug)
       .in("status", ["pending", "roster_only", "accepted"]).maybeSingle();
     inv = data;
   }
@@ -52,38 +53,43 @@ export const handler: Handler = async (event) => {
 
   // ── send_message ────────────────────────────────────────────────────────────
   if (action === "send_message") {
-    const { projectId, message } = payload ?? {};
-    if (!projectId || !message?.trim())
+    const { projectId, message: clientMessage } = payload ?? {};
+    if (!projectId || !clientMessage?.trim())
       return { statusCode: 400, headers, body: JSON.stringify({ error: "projectId and message required" }) };
 
     const { error } = await supabaseAdmin.from("project_notes").insert({
       project_id:        projectId,
-      body:              message.trim(),
+      body:              clientMessage.trim(),
       author:            clientName,
       is_client_message: true,
       client_email:      inv.email,
     });
     if (error) return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
+
+    // SMS notification via Twilio
+    const twilioSid  = process.env.TWILIO_ACCOUNT_SID;
+    const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
+    const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
+    const twilioTo   = process.env.NOTIFY_PHONE_NUMBER;
+
+    if (twilioSid && twilioAuth && twilioFrom && twilioTo) {
+      const smsBody = `New portal message from ${clientName}:\n"${clientMessage.trim()}"`;
+      try {
+        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Basic ${Buffer.from(`${twilioSid}:${twilioAuth}`).toString("base64")}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({ From: twilioFrom, To: twilioTo, Body: smsBody }).toString(),
+        });
+      } catch (smsErr) {
+        console.warn("[portal-action] Twilio SMS failed:", smsErr);
+      }
+    }
+
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   }
-
-  // SMS notification via Twilio
-const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
-const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
-const twilioTo = process.env.NOTIFY_PHONE_NUMBER; // your number
-
-if (twilioSid && twilioAuth && twilioFrom && twilioTo) {
-  const body = `New portal message from ${clientName} on project:\n"${message.trim()}"`;
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${Buffer.from(`${twilioSid}:${twilioAuth}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ From: twilioFrom, To: twilioTo, Body: body }).toString(),
-  });
-}
 
   // ── approve_estimate ────────────────────────────────────────────────────────
   if (action === "approve_estimate") {
@@ -109,15 +115,17 @@ if (twilioSid && twilioAuth && twilioFrom && twilioTo) {
       .select("id, invoice_number, total_amount, amount_paid, status, project_id")
       .eq("id", invoiceId).maybeSingle();
 
-    if (!invoice) return { statusCode: 404, headers, body: JSON.stringify({ error: "Invoice not found" }) };
-    if (invoice.status === "paid") return { statusCode: 400, headers, body: JSON.stringify({ error: "Invoice already paid" }) };
+    if (!invoice)
+      return { statusCode: 404, headers, body: JSON.stringify({ error: "Invoice not found" }) };
+    if (invoice.status === "paid")
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "Invoice already paid" }) };
 
-    const balance = Math.round((invoice.total_amount - invoice.amount_paid) * 100); // cents
-    if (balance <= 0) return { statusCode: 400, headers, body: JSON.stringify({ error: "No balance due" }) };
+    const balance = Math.round((invoice.total_amount - invoice.amount_paid) * 100);
+    if (balance <= 0)
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "No balance due" }) };
 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) {
-      // Stripe not configured — fall back to payment request notification
       await supabaseAdmin.from("project_notes").insert({
         project_id:        invoice.project_id,
         body:              `${clientName} has requested to pay invoice #${invoice.invoice_number} ($${(balance / 100).toLocaleString()}). Please follow up to process payment.`,
@@ -128,26 +136,24 @@ if (twilioSid && twilioAuth && twilioFrom && twilioTo) {
       return { statusCode: 200, headers, body: JSON.stringify({ success: true, message: "Payment request sent to contractor" }) };
     }
 
-    // Stripe Checkout session
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-04-30.basil" });
-
+    const stripe  = new Stripe(stripeKey, { apiVersion: "2026-04-22.dahlia" });
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{
         price_data: {
-          currency: "usd",
+          currency:     "usd",
           product_data: {
-            name: `Invoice #${invoice.invoice_number}`,
-            description: `Payment for project`,
+            name:        `Invoice #${invoice.invoice_number}`,
+            description: "Payment for project",
           },
           unit_amount: balance,
         },
         quantity: 1,
       }],
-      mode: "payment",
+      mode:        "payment",
       success_url: `${PORTAL_URL}/portal?token=${token}&paid=1`,
       cancel_url:  `${PORTAL_URL}/portal?token=${token}`,
-      metadata: { invoiceId, token, clientEmail: inv.email },
+      metadata:    { invoiceId, token, clientEmail: inv.email },
     });
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, checkoutUrl: session.url }) };
