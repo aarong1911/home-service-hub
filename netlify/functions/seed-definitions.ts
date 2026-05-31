@@ -8,7 +8,7 @@
  */
 
 import type { Handler } from "@netlify/functions";
-import { seedAiCenter } from "../../supabase/seed-ai-center";
+import { seedAiCenter } from "../../src/lib/seed-ai-center";
 
 const HEADERS = {
   "Content-Type": "application/json",

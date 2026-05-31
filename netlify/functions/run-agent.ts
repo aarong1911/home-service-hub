@@ -8,7 +8,7 @@
 
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
-import { seedAiCenter } from "../../supabase/seed-ai-center";
+import { seedAiCenter } from "../../src/lib/seed-ai-center";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
