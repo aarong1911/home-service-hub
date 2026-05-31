@@ -2119,6 +2119,26 @@ export const handler: Handler = async (event: HandlerEvent) => {
       });
 
       await handleEndOfCallReport(message, mergedCall, mergedArtifact, tenantId, agentId);
+
+      // Fire missed_call workflow trigger when call was not answered
+      if (mergedCall.endedReason === 'voicemail' || mergedCall.endedReason === 'customer-did-not-answer') {
+        const callerNumber = mergedCall.customer?.number ?? null;
+        if (tenantId && callerNumber) {
+          fetch(`${process.env.URL ?? 'http://localhost:8888'}/.netlify/functions/execute-workflow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orgId: tenantId,
+              triggerType: 'missed_call',
+              triggerData: {
+                callerNumber,
+                callerName: mergedCall.customer?.name ?? null,
+                vapiCallId: mergedCall.id,
+              },
+            }),
+          }).catch((err) => log('missed_call trigger', 'failed', err));
+        }
+      }
       break;
     }
 

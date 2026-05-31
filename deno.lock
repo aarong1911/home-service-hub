@@ -76,6 +76,7 @@
         "npm:react@^19.2.0",
         "npm:recharts@^3.8.1",
         "npm:sonner@^2.0.7",
+        "npm:stripe@^22.1.1",
         "npm:tailwind-merge@^3.5.0",
         "npm:tailwindcss@^4.2.1",
         "npm:tw-animate-css@^1.3.4",

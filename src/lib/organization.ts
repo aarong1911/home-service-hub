@@ -187,6 +187,12 @@ async function loadOrgFromSupabase() {
       orgId = membership?.org_id;
     }
     if (!orgId) return;
+
+    // If org changed (different account login), clear stale realtime channels
+    if (currentOrgId && currentOrgId !== orgId) {
+      supabase.removeAllChannels();
+      orgSubscribed = false;
+    }
     currentOrgId = orgId;
 
     const { data: orgData } = await supabase.from("organizations")
@@ -211,6 +217,9 @@ async function loadOrgFromSupabase() {
       emitOrg();
     }
 
+    // Set orgSubscribed = true BEFORE subscribing to prevent the race condition
+    // where two concurrent calls both pass !orgSubscribed and try to add
+    // postgres_changes listeners to an already-subscribed channel.
     if (!orgSubscribed) {
       orgSubscribed = true;
 
@@ -260,6 +269,8 @@ supabase.auth.onAuthStateChange((event) => {
   if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
     loadOrgFromSupabase();
   } else if (event === "SIGNED_OUT") {
+    // Remove all realtime channels before resetting state
+    supabase.removeAllChannels();
     writeLogoCache(null); writeCompanyCache("");
     org = { ...DEFAULT_ORG }; team = [];
     orgLoaded = false; orgSubscribed = false;
@@ -330,7 +341,6 @@ export function updateMember(id: string, patch: Partial<TeamMember>) {
   team = team.map(m => m.id === id ? { ...m, ...patch } : m);
   emitTeam();
 
-  // ── Skip API call for invited/roster members — no real auth UUID ───────────
   if (id.startsWith("inv-")) return;
 
   (async () => {

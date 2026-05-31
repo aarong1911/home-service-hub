@@ -9,7 +9,7 @@ import { ImagePlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
-export const Route = createFileRoute("/settings/branding" as any)({
+export const Route = createFileRoute("/settings/branding")({
   component: BrandingSettings,
 });
 
