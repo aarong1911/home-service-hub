@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { Loader2, CheckCircle2, Clock, AlertCircle, FileText, MessageSquare, CreditCard, Building2, Phone, ChevronRight, Send, X, Download } from "lucide-react";
 
-export const Route = createFileRoute("/portal" as any)({
+export const Route = createFileRoute("/portal")({
   component: ClientPortal,
 });
 
@@ -417,7 +417,7 @@ export function ClientPortal() {
 
               {/* Messages */}
               {activeTab === "messages" && (
-                <div className="flex flex-col h-[480px]">
+                <div className="flex flex-col h-120">
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {projectNotes.length === 0 && (
                       <p className="text-sm text-gray-400 text-center py-6">No messages yet. Send a message below.</p>

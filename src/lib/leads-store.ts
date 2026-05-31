@@ -4,6 +4,7 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Lead, LeadStatus, LeadScore } from "@/lib/mock-data";
+import { triggerWorkflow } from "@/lib/trigger-workflow";
 
 // ── Org helper ──
 async function getOrgId(): Promise<string | null> {
@@ -176,6 +177,7 @@ export async function addLead(lead: Omit<Lead, "id">): Promise<Lead> {
       const mapped: Lead = { ...lead, id: data.id };
       leads = [mapped, ...leads];
       emit();
+      triggerWorkflow("new_lead", { lead: mapped }, contactId ?? undefined);
       return mapped;
     }
   }

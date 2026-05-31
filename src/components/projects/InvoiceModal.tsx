@@ -110,6 +110,9 @@ export function InvoiceModal({ open, onClose, projectId, clientId, orgId, onCrea
     }
 
     toast.success(`Invoice ${invoiceNumber} created`);
+    import("@/lib/trigger-workflow").then(({ triggerWorkflow }) => {
+      triggerWorkflow("invoice_created", { invoice: { id: inv.id, number: invoiceNumber, amount: subtotal }, projectId });
+    });
     setSaving(false);
     onCreated();
     handleClose();

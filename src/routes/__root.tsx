@@ -8,13 +8,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/layout/app-shell";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
+import {
+  useCurrentUserRole, canAccessRoute, ROLE_DEFAULT_ROUTE, ROLE_EXTERNAL_REDIRECT,
+} from "@/lib/permissions";
 
-interface RouterContext {
-  queryClient: QueryClient;
-}
+interface RouterContext { queryClient: QueryClient }
 
-// Routes that don't require authentication
-const PUBLIC_ROUTES = ["/signin", "/signup", "/forgot-password", "/auth/callback"];
+const PUBLIC_ROUTES  = ["/signin", "/signup", "/forgot-password", "/auth/callback"];
+const PORTAL_ROUTES  = ["/portal"];
 
 function NotFoundComponent() {
   return (
@@ -22,14 +23,9 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-6xl font-semibold tracking-tight">404</h1>
         <h2 className="mt-3 text-lg font-medium">Page not found</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">The page you're looking for doesn't exist.</p>
         <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
+          <Link to="/" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
             Back to dashboard
           </Link>
         </div>
@@ -45,48 +41,29 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
   const routerState = useRouterState();
-  const pathname = routerState.location.pathname;
-
-  const [session, setSession] = useState<Session | null | undefined>(undefined); // undefined = loading
+  const pathname  = routerState.location.pathname;
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [checked, setChecked] = useState(false);
 
-  const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isPublicRoute = PUBLIC_ROUTES.some(r => pathname.startsWith(r));
+  const isPortalRoute = PORTAL_ROUTES.some(r => pathname.startsWith(r));
 
-  // Listen for auth state changes
+  // Auth state
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setChecked(true);
-    });
-
-    // Subscribe to changes (login, logout, token refresh)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setChecked(true);
-    });
-
+    supabase.auth.getSession().then(({ data: { session: s } }) => { setSession(s); setChecked(true); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); setChecked(true); });
     return () => subscription.unsubscribe();
   }, []);
 
-  // Auth guard: redirect logic
+  // Redirect unauthenticated users
   useEffect(() => {
-    if (!checked) return; // still loading
+    if (!checked) return;
+    if (!session && !isPublicRoute && !isPortalRoute) navigate({ to: "/signin" });
+    else if (session && pathname === "/signin") navigate({ to: "/" });
+  }, [checked, session, pathname, isPublicRoute, isPortalRoute, navigate]);
 
-    if (!session && !isPublicRoute) {
-      // Not logged in, trying to access protected route → go to signin
-      navigate({ to: "/signin" });
-    } else if (session && pathname === "/signin") {
-      // Already logged in, trying to access auth pages → go to dashboard
-      navigate({ to: "/" });
-    }
-  }, [checked, session, pathname, isPublicRoute, navigate]);
-
-  // Show loading spinner while checking auth
   if (!checked) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
@@ -94,20 +71,60 @@ function RootComponent() {
       </div>
     );
   }
-
-  // Not logged in on a protected route — don't render anything (redirect is happening)
-  if (!session && !isPublicRoute) {
-    return null;
-  }
+  if (!session && !isPublicRoute && !isPortalRoute) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={150}>
-        <AppShell>
+        {isPortalRoute ? (
           <Outlet />
-        </AppShell>
+        ) : (
+          <AppShell>
+            <RoleGuard pathname={pathname} isPublicRoute={isPublicRoute} session={session}>
+              <Outlet />
+            </RoleGuard>
+          </AppShell>
+        )}
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
   );
+}
+
+// ── Role guard — runs inside AppShell so role is available ───────────────────
+
+function RoleGuard({ pathname, isPublicRoute, session, children }: {
+  pathname: string; isPublicRoute: boolean;
+  session: Session | null | undefined; children: React.ReactNode;
+}) {
+  const navigate = useNavigate();
+  const role     = useCurrentUserRole();
+
+  useEffect(() => {
+    if (!session || isPublicRoute || !role) return;
+
+    // Redirect field workers and viewers to their external apps
+    const external = ROLE_EXTERNAL_REDIRECT[role];
+    if (external) { window.location.href = external; return; }
+
+    // Redirect to default route if current page is not allowed
+    if (!canAccessRoute(role, pathname)) {
+      const defaultRoute = ROLE_DEFAULT_ROUTE[role] ?? "/";
+      navigate({ to: defaultRoute });
+    }
+  }, [role, pathname, session, isPublicRoute, navigate]);
+
+  // Show access denied briefly while redirecting
+  if (role && !canAccessRoute(role, pathname) && !isPublicRoute) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">Redirecting…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }

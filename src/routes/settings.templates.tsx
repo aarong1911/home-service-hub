@@ -1964,7 +1964,7 @@ function FormPreview({ t }: { t: FormTemplate }) {
     if (errors[k]) setErrors((prev) => ({ ...prev, [k]: false }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Record<string, boolean> = {};
     for (const f of t.fields) {
@@ -1997,7 +1997,7 @@ function FormPreview({ t }: { t: FormTemplate }) {
     if (values.urgency) noteParts.push(`Urgency: ${values.urgency}`);
 
     const now = new Date().toISOString();
-    const lead = addLead({
+    const lead = await addLead({
       name: fullName,
       email: values.email ?? "",
       phone: values.phone ?? "",

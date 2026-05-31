@@ -138,10 +138,12 @@ export async function updateProjectStatus(
   id: string,
   status: ProjectStatus,
 ): Promise<{ error: any }> {
-  const { error } = await supabase
-    .from("projects")
-    .update({ status })
-    .eq("id", id);
+  const prev = projects.find((p) => p.id === id);
+  const { error } = await supabase.from("projects").update({ status }).eq("id", id);
+  if (!error && prev) {
+    const { triggerWorkflow } = await import("@/lib/trigger-workflow");
+    triggerWorkflow("project_status_changed", { project: { id, name: prev.name }, fromStage: prev.status, toStage: status });
+  }
   return { error };
 }
 

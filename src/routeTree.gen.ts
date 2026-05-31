@@ -13,6 +13,7 @@ import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InboxRouteImport } from './routes/inbox'
@@ -28,10 +29,12 @@ import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as SettingsTemplatesRouteImport } from './routes/settings.templates'
 import { Route as SettingsTeamRouteImport } from './routes/settings.team'
 import { Route as SettingsPipelinesRouteImport } from './routes/settings.pipelines'
+import { Route as SettingsPermissionsRouteImport } from './routes/settings.permissions'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings.integrations'
 import { Route as SettingsFavoritesRouteImport } from './routes/settings.favorites'
 import { Route as SettingsCustomFieldsRouteImport } from './routes/settings.custom-fields'
+import { Route as SettingsBrandingRouteImport } from './routes/settings.branding'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
 import { Route as SettingsApiKeysRouteImport } from './routes/settings.api-keys'
 import { Route as SalesPipelineRouteImport } from './routes/sales.pipeline'
@@ -70,6 +73,11 @@ const SigninRoute = SigninRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -147,6 +155,11 @@ const SettingsPipelinesRoute = SettingsPipelinesRouteImport.update({
   path: '/pipelines',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsPermissionsRoute = SettingsPermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -165,6 +178,11 @@ const SettingsFavoritesRoute = SettingsFavoritesRouteImport.update({
 const SettingsCustomFieldsRoute = SettingsCustomFieldsRouteImport.update({
   id: '/custom-fields',
   path: '/custom-fields',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
+  id: '/branding',
+  path: '/branding',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsBillingRoute = SettingsBillingRouteImport.update({
@@ -277,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/onboarding': typeof OnboardingRoute
+  '/portal': typeof PortalRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -298,10 +317,12 @@ export interface FileRoutesByFullPath {
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/permissions': typeof SettingsPermissionsRoute
   '/settings/pipelines': typeof SettingsPipelinesRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
@@ -321,6 +342,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/onboarding': typeof OnboardingRoute
+  '/portal': typeof PortalRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -341,10 +363,12 @@ export interface FileRoutesByTo {
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/permissions': typeof SettingsPermissionsRoute
   '/settings/pipelines': typeof SettingsPipelinesRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
@@ -365,6 +389,7 @@ export interface FileRoutesById {
   '/inbox': typeof InboxRouteWithChildren
   '/leads': typeof LeadsRoute
   '/onboarding': typeof OnboardingRoute
+  '/portal': typeof PortalRoute
   '/settings': typeof SettingsRouteWithChildren
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -386,10 +411,12 @@ export interface FileRoutesById {
   '/sales/pipeline': typeof SalesPipelineRoute
   '/settings/api-keys': typeof SettingsApiKeysRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/custom-fields': typeof SettingsCustomFieldsRoute
   '/settings/favorites': typeof SettingsFavoritesRoute
   '/settings/integrations': typeof SettingsIntegrationsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/permissions': typeof SettingsPermissionsRoute
   '/settings/pipelines': typeof SettingsPipelinesRoute
   '/settings/team': typeof SettingsTeamRoute
   '/settings/templates': typeof SettingsTemplatesRoute
@@ -411,6 +438,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leads'
     | '/onboarding'
+    | '/portal'
     | '/settings'
     | '/signin'
     | '/signup'
@@ -432,10 +460,12 @@ export interface FileRouteTypes {
     | '/sales/pipeline'
     | '/settings/api-keys'
     | '/settings/billing'
+    | '/settings/branding'
     | '/settings/custom-fields'
     | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
+    | '/settings/permissions'
     | '/settings/pipelines'
     | '/settings/team'
     | '/settings/templates'
@@ -455,6 +485,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leads'
     | '/onboarding'
+    | '/portal'
     | '/settings'
     | '/signin'
     | '/signup'
@@ -475,10 +506,12 @@ export interface FileRouteTypes {
     | '/sales/pipeline'
     | '/settings/api-keys'
     | '/settings/billing'
+    | '/settings/branding'
     | '/settings/custom-fields'
     | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
+    | '/settings/permissions'
     | '/settings/pipelines'
     | '/settings/team'
     | '/settings/templates'
@@ -498,6 +531,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leads'
     | '/onboarding'
+    | '/portal'
     | '/settings'
     | '/signin'
     | '/signup'
@@ -519,10 +553,12 @@ export interface FileRouteTypes {
     | '/sales/pipeline'
     | '/settings/api-keys'
     | '/settings/billing'
+    | '/settings/branding'
     | '/settings/custom-fields'
     | '/settings/favorites'
     | '/settings/integrations'
     | '/settings/notifications'
+    | '/settings/permissions'
     | '/settings/pipelines'
     | '/settings/team'
     | '/settings/templates'
@@ -543,6 +579,7 @@ export interface RootRouteChildren {
   InboxRoute: typeof InboxRouteWithChildren
   LeadsRoute: typeof LeadsRoute
   OnboardingRoute: typeof OnboardingRoute
+  PortalRoute: typeof PortalRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
@@ -587,6 +624,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -694,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPipelinesRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/permissions': {
+      id: '/settings/permissions'
+      path: '/permissions'
+      fullPath: '/settings/permissions'
+      preLoaderRoute: typeof SettingsPermissionsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/notifications': {
       id: '/settings/notifications'
       path: '/notifications'
@@ -720,6 +771,13 @@ declare module '@tanstack/react-router' {
       path: '/custom-fields'
       fullPath: '/settings/custom-fields'
       preLoaderRoute: typeof SettingsCustomFieldsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/branding': {
+      id: '/settings/branding'
+      path: '/branding'
+      fullPath: '/settings/branding'
+      preLoaderRoute: typeof SettingsBrandingRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/billing': {
@@ -891,10 +949,12 @@ const InboxRouteWithChildren = InboxRoute._addFileChildren(InboxRouteChildren)
 interface SettingsRouteChildren {
   SettingsApiKeysRoute: typeof SettingsApiKeysRoute
   SettingsBillingRoute: typeof SettingsBillingRoute
+  SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsCustomFieldsRoute: typeof SettingsCustomFieldsRoute
   SettingsFavoritesRoute: typeof SettingsFavoritesRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsPermissionsRoute: typeof SettingsPermissionsRoute
   SettingsPipelinesRoute: typeof SettingsPipelinesRoute
   SettingsTeamRoute: typeof SettingsTeamRoute
   SettingsTemplatesRoute: typeof SettingsTemplatesRoute
@@ -903,10 +963,12 @@ interface SettingsRouteChildren {
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsApiKeysRoute: SettingsApiKeysRoute,
   SettingsBillingRoute: SettingsBillingRoute,
+  SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsCustomFieldsRoute: SettingsCustomFieldsRoute,
   SettingsFavoritesRoute: SettingsFavoritesRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsPermissionsRoute: SettingsPermissionsRoute,
   SettingsPipelinesRoute: SettingsPipelinesRoute,
   SettingsTeamRoute: SettingsTeamRoute,
   SettingsTemplatesRoute: SettingsTemplatesRoute,
@@ -941,6 +1003,7 @@ const rootRouteChildren: RootRouteChildren = {
   InboxRoute: InboxRouteWithChildren,
   LeadsRoute: LeadsRoute,
   OnboardingRoute: OnboardingRoute,
+  PortalRoute: PortalRoute,
   SettingsRoute: SettingsRouteWithChildren,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
