@@ -1,6 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { PageHeader } from "@/components/layout/app-shell";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -36,7 +35,18 @@ import {
   Circle,
   Pin,
   Archive,
+  Copy,
+  Calendar,
+  Plus,
+  Loader2,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   mockConversations,
   mockMessages,
@@ -69,6 +79,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import { useVoiceConversations } from "@/lib/voice-conversations";
 
 type InboxSearch = { templateId?: string };
@@ -93,6 +104,13 @@ function InboxLayout() {
 type FolderId = "all" | "unread" | "assigned" | "mentions" | "starred" | "unassigned" | "archived";
 type ChannelFilter = "all" | "email" | "sms" | "voice";
 type ComposeChannel = "email" | "sms" | "note";
+
+// Extends Message with note channel + optimistic send metadata
+type LocalMessage = Omit<Message, "channel"> & {
+  channel: "email" | "sms" | "voice" | "note";
+  isScheduled?: boolean;
+  scheduledFor?: string;
+};
 
 const folders: { id: FolderId; label: string; icon: typeof InboxIcon }[] = [
   { id: "all", label: "All", icon: InboxIcon },
@@ -151,27 +169,80 @@ function InboxPage() {
   const [tplOpen, setTplOpen] = useState(false);
   const [tplSearch, setTplSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
+  const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDateTime, setScheduleDateTime] = useState("");
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [newConvOpen, setNewConvOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [supabaseConvs, setSupabaseConvs] = useState<Conversation[]>([]);
+  const [supabaseContactMap, setSupabaseContactMap] = useState<Map<string, { name: string; email: string; phone: string }>>(new Map());
   const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
   const [insertLog, appendInsertLog, clearInsertLog] = usePersistentInsertLog("inbox");
   const [showInsertLog, setShowInsertLog] = useState(false);
   // Voice calls from Supabase — merged into conversations when Voice tab is active
   const { conversations: voiceConvs, messages: voiceMsgs } = useVoiceConversations();
  
-  // Merge voice calls into mock data
+  // Load real contacts from Supabase as conversation entries
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !mounted) return;
+      const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+      const orgId = profile?.organization_id;
+      if (!orgId || !mounted) return;
+
+      const { data } = await supabase
+        .from("contacts")
+        .select("id, full_name, email, phone, updated_at")
+        .eq("org_id", orgId)
+        .order("updated_at", { ascending: false })
+        .limit(200);
+
+      if (!data || !mounted) return;
+
+      const convs: Conversation[] = data.map((c: any) => ({
+        id: `sb-${c.id}`,
+        contactId: c.id,
+        contactName: c.full_name ?? "Unknown",
+        channel: "sms" as const,
+        preview: c.phone ?? c.email ?? "No contact info",
+        lastAt: c.updated_at ?? new Date().toISOString(),
+        unread: false,
+      }));
+      const cmap = new Map(data.map((c: any) => [c.id, { name: c.full_name ?? "Unknown", email: c.email ?? "", phone: c.phone ?? "" }]));
+      if (mounted) { setSupabaseConvs(convs); setSupabaseContactMap(cmap); }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Supabase contacts first, then mock (fallback), then voice + local
   const allConversations = useMemo(
-    () => [...mockConversations, ...voiceConvs],
-    [voiceConvs]
+    () => [
+      ...supabaseConvs,
+      ...mockConversations.filter((m) => !supabaseConvs.some((s) => s.contactId === m.contactId)),
+      ...voiceConvs,
+      ...localConversations,
+    ],
+    [supabaseConvs, voiceConvs, localConversations]
   );
   const allMessages = useMemo(
     () => [...mockMessages, ...voiceMsgs],
     [voiceMsgs]
   );
 
+  const checkStarred = (id: string) => starredIds.has(id) || isStarred(id);
+
   const conversations = useMemo(() => {
     return allConversations.filter((c) => {
       if (channelFilter !== "all" && c.channel !== channelFilter) return false;
       if (folder === "unread" && !c.unread) return false;
-      if (folder === "starred" && !isStarred(c.id)) return false;
+      if (folder === "starred" && !checkStarred(c.id)) return false;
       if (folder === "unassigned" && !isUnassigned(c.id)) return false;
       if (folder === "assigned" && !isAssignedToMe(c.id)) return false;
       if (folder === "mentions" && !hasMention(c.id)) return false;
@@ -180,7 +251,8 @@ function InboxPage() {
       if (search && !c.contactName.toLowerCase().includes(search.toLowerCase()) && !c.preview.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [folder, channelFilter, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folder, channelFilter, search, starredIds, allConversations]);
 
   const folderCounts = useMemo(() => {
     const list = allConversations;
@@ -189,15 +261,26 @@ function InboxPage() {
       unread: list.filter((c) => c.unread && !isArchived(c.id)).length,
       assigned: list.filter((c) => isAssignedToMe(c.id) && !isArchived(c.id)).length,
       mentions: list.filter((c) => hasMention(c.id) && !isArchived(c.id)).length,
-      starred: list.filter((c) => isStarred(c.id) && !isArchived(c.id)).length,
+      starred: list.filter((c) => checkStarred(c.id) && !isArchived(c.id)).length,
       unassigned: list.filter((c) => isUnassigned(c.id) && !isArchived(c.id)).length,
       archived: list.filter((c) => isArchived(c.id)).length,
     } as Record<FolderId, number>;
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allConversations, starredIds]);
 
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0];
-  const thread = active ? allMessages.filter((m) => m.conversationId === active.id) : [];
-  const contact = active ? mockContacts.find((c) => c.id === active.contactId) : undefined;
+  const thread: LocalMessage[] = active
+    ? [
+        ...(allMessages.filter((m) => m.conversationId === active.id) as LocalMessage[]),
+        ...localMessages.filter((m) => m.conversationId === active.id),
+      ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+    : [];
+  const sbContact = active ? supabaseContactMap.get(active.contactId) : undefined;
+  const contact = active
+    ? (sbContact
+        ? { name: sbContact.name, email: sbContact.email, phone: sbContact.phone, tags: [] as string[] }
+        : mockContacts.find((c) => c.id === active.contactId))
+    : undefined;
   const contactProjects = contact ? mockProjects.filter((p) => p.client === contact.name) : [];
 
   const mergeCtx: MergeContext = useMemo(() => {
@@ -222,6 +305,116 @@ function InboxPage() {
         : "next Monday",
     };
   }, [contact, contactProjects]);
+
+  // ── Send handler ──────────────────────────────────────────────────────────
+  const handleSend = async () => {
+    if (!draft.trim()) { toast.error("Message is empty"); return; }
+    if (!active) return;
+
+    const msg: LocalMessage = {
+      id: `local-${Date.now()}`,
+      conversationId: active.id,
+      direction: "out",
+      channel: composeChannel,
+      body: draft.trim(),
+      at: new Date().toISOString(),
+    };
+    setLocalMessages((prev) => [...prev, msg]);
+    setDraft("");
+    setSubject("");
+
+    if (composeChannel === "note") {
+      toast.success("Note added to conversation");
+      return;
+    }
+
+    const to = composeChannel === "sms" ? contact?.phone : contact?.email;
+    if (!to) { toast.error("No contact address found"); return; }
+
+    try {
+      const res = await fetch("/.netlify/functions/send-inbox-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: composeChannel,
+          to,
+          body: draft.trim(),
+          subject: composeChannel === "email" ? subject : undefined,
+          from_name: mergeCtx.company_name,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error ?? "Send failed");
+      } else {
+        toast.success(composeChannel === "sms" ? "SMS sent" : "Email sent");
+      }
+    } catch {
+      toast.error("Network error — message shown locally only");
+    }
+  };
+
+  // ── Schedule handler ───────────────────────────────────────────────────────
+  const handleSchedule = () => {
+    if (!draft.trim()) { toast.error("Message is empty"); return; }
+    if (!active || !scheduleDateTime) { toast.error("Select a date and time"); return; }
+
+    const msg: LocalMessage = {
+      id: `scheduled-${Date.now()}`,
+      conversationId: active.id,
+      direction: "out",
+      channel: composeChannel,
+      body: draft.trim(),
+      at: new Date(scheduleDateTime).toISOString(),
+      isScheduled: true,
+      scheduledFor: new Date(scheduleDateTime).toISOString(),
+    };
+    setLocalMessages((prev) => [...prev, msg]);
+    setDraft("");
+    setSubject("");
+    setScheduleOpen(false);
+    toast.success(`Scheduled for ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(scheduleDateTime))}`);
+  };
+
+  // ── AI Draft handler ───────────────────────────────────────────────────────
+  const handleAiDraft = async () => {
+    if (!active || !contact) return;
+    setAiDrafting(true);
+    try {
+      const channel = composeChannel === "note" ? "sms" : composeChannel;
+      const history = thread.slice(-8).map((m) => ({
+        role: (m.direction === "out" ? "assistant" : "user") as "user" | "assistant",
+        content: m.body,
+      }));
+      const res = await fetch("/.netlify/functions/ai-draft-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel, contactName: contact.name, conversationHistory: history, currentDraft: draft }),
+      });
+      const data = await res.json();
+      if (data.error) { toast.error(data.error); return; }
+      setDraft(data.draft);
+      toast.success("AI draft ready");
+    } catch {
+      toast.error("AI draft failed — check your connection");
+    } finally {
+      setAiDrafting(false);
+    }
+  };
+
+  // ── Copy thread handler ────────────────────────────────────────────────────
+  const handleCopyThread = () => {
+    if (!active) return;
+    const header = `Conversation with ${active.contactName}\n${"─".repeat(40)}`;
+    const lines = thread.map((m) => {
+      const dir = m.direction === "out" ? "You" : active.contactName;
+      const ch = m.channel === "note" ? "[Note]" : `[${m.channel.toUpperCase()}]`;
+      const ts = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(m.at));
+      return `${ts}  ${dir} ${ch}\n${m.body}`;
+    });
+    navigator.clipboard.writeText([header, ...lines].join("\n\n"));
+    toast.success("Conversation copied to clipboard");
+  };
 
   const visibleTemplates = useMemo(() => {
     const channelMatch = (t: SharedMessageTemplate) =>
@@ -323,22 +516,27 @@ function InboxPage() {
 
   return (
     <>
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
-      <PageHeader
-        title="Inbox"
-        subtitle="Unified email, SMS, voice, and internal notes across every contact"
-        breadcrumb={["Workspace", "Inbox"]}
-        actions={
-          <>
-            <Button variant="outline" size="sm" className="h-8">
-              <Filter className="mr-1.5 h-3.5 w-3.5" /> Filters
-            </Button>
-            <Button size="sm" className="h-8">
-              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> New Message
-            </Button>
-          </>
-        }
-      />
+    <div className="-m-6 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
+      {/* Inline header — same text sizes as PageHeader, vertically centered */}
+      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background pl-5 pr-6 py-4">
+        <div>
+          <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>Workspace</span>
+            <span className="text-border-strong">/</span>
+            <span>Inbox</span>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Inbox</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">Unified email, SMS, voice, and internal notes across every contact</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-8">
+            <Filter className="mr-1.5 h-3.5 w-3.5" /> Filters
+          </Button>
+          <Button size="sm" className="h-8" onClick={() => setNewConvOpen(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> New Conversation
+          </Button>
+        </div>
+      </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[210px_340px_1fr_300px] overflow-hidden border-t border-border">
         {/* PANE 1 — Folders */}
@@ -451,6 +649,7 @@ function InboxPage() {
                 key={c.id}
                 conv={c}
                 active={c.id === active?.id}
+                starred={checkStarred(c.id)}
                 onClick={() => setActiveId(c.id)}
               />
             ))}
@@ -490,21 +689,58 @@ function InboxPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="h-7 px-2" title="Call">
+                  <Button variant="ghost" size="sm" className="h-7 px-2" title="Call"
+                    onClick={() => toast.info(`Calling ${contact?.phone ?? ""}…`)}>
                     <PhoneCall className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2" title="Video">
+                  <Button variant="ghost" size="sm" className="h-7 px-2" title="Video"
+                    onClick={() => toast.info("Video calling coming soon")}>
                     <Video className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2" title="Star">
-                    <Star className="h-3.5 w-3.5" />
+                  <Button
+                    variant="ghost" size="sm" className="h-7 px-2" title="Star"
+                    onClick={() => {
+                      setStarredIds((prev) => {
+                        const next = new Set(prev);
+                        next.has(active.id) ? next.delete(active.id) : next.add(active.id);
+                        return next;
+                      });
+                    }}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${checkStarred(active.id) ? "fill-amber-400 text-amber-400" : ""}`} />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2" title="Pin">
-                    <Pin className="h-3.5 w-3.5" />
+                  <Button
+                    variant="ghost" size="sm" className="h-7 px-2" title="Pin"
+                    onClick={() => {
+                      setPinnedIds((prev) => {
+                        const next = new Set(prev);
+                        next.has(active.id) ? next.delete(active.id) : next.add(active.id);
+                        toast.success(next.has(active.id) ? "Conversation pinned" : "Conversation unpinned");
+                        return next;
+                      });
+                    }}
+                  >
+                    <Pin className={`h-3.5 w-3.5 ${pinnedIds.has(active.id) ? "fill-primary text-primary" : ""}`} />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2" title="More">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  <Button variant="ghost" size="sm" className="h-7 px-2" title="Copy conversation" onClick={handleCopyThread}>
+                    <Copy className="h-3.5 w-3.5" />
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 px-2" title="More">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => toast.success("Marked as read")}>Mark as read</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toast.success("Conversation assigned")}>Assign to me</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive focus:text-destructive"
+                        onClick={() => toast.success("Conversation archived")}>
+                        Archive
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -604,13 +840,49 @@ function InboxPage() {
                     >
                       <Sparkles className="mr-1 h-3 w-3" /> Pick template
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-[11px] text-primary hover:text-primary">
-                      <Sparkles className="mr-1 h-3 w-3" /> AI Draft
+                    <Button
+                      variant="ghost" size="sm"
+                      className="h-7 text-[11px] text-primary hover:text-primary"
+                      onClick={handleAiDraft}
+                      disabled={aiDrafting}
+                    >
+                      {aiDrafting
+                        ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        : <Sparkles className="mr-1 h-3 w-3" />}
+                      AI Draft
                     </Button>
                     <span className="mx-1 h-4 w-px bg-border" />
-                    <Button variant="ghost" size="sm" className="h-7 px-2"><Hash className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-2"><Smile className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-2"><Paperclip className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-2" title="Mention"
+                      onClick={() => setDraft((d) => d ? `${d} @` : "@")}>
+                      <Hash className="h-3.5 w-3.5" />
+                    </Button>
+                    <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 px-2" title="Emoji">
+                          <Smile className="h-3.5 w-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-56 p-2">
+                        <div className="grid grid-cols-8 gap-0.5">
+                          {["👍","😊","🙏","✅","👋","🏠","🔨","📋","💰","📅","⚡","🎉","👌","💪","🤝","😄"].map((e) => (
+                            <button key={e} className="flex h-7 w-7 items-center justify-center rounded hover:bg-secondary text-base"
+                              onClick={() => { setDraft((d) => d + e); setEmojiOpen(false); }}>
+                              {e}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <Button variant="ghost" size="sm" className="h-7 px-2" title="Attach file"
+                      onClick={() => fileInputRef.current?.click()}>
+                      <Paperclip className="h-3.5 w-3.5" />
+                    </Button>
+                    <input ref={fileInputRef} type="file" className="hidden" multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        if (files.length) toast.success(`${files.length} file(s) attached: ${files.map(f => f.name).join(", ")}`);
+                        e.target.value = "";
+                      }} />
                   </div>
                 </div>
                 {composeChannel === "email" && (
@@ -638,7 +910,7 @@ function InboxPage() {
                     }
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    className="min-h-[72px] resize-none border-0 bg-transparent text-sm focus-visible:ring-0"
+                    className="min-h-18 resize-none border-0 bg-transparent text-sm focus-visible:ring-0"
                   />
                 </div>
                 <div className="mt-2 flex items-center justify-between">
@@ -648,19 +920,42 @@ function InboxPage() {
                     {composeChannel === "note" && "Internal · @mention to notify"}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-[11px] text-muted-foreground"
-                      onClick={() => setShowInsertLog((v) => !v)}
-                      title="Toggle template-insert debug log"
-                    >
-                      Debug ({insertLog.length})
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-8 text-xs">
-                      <Clock className="mr-1 h-3 w-3" /> Schedule
-                    </Button>
-                    <Button size="sm" className="h-8">
+                    <Popover open={scheduleOpen} onOpenChange={(o) => {
+                      setScheduleOpen(o);
+                      if (o && !scheduleDateTime) {
+                        const d = new Date(Date.now() + 3600_000);
+                        d.setSeconds(0, 0);
+                        setScheduleDateTime(d.toISOString().slice(0, 16));
+                      }
+                    }}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 text-xs">
+                          <Clock className="mr-1 h-3 w-3" /> Schedule
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-72 p-3 space-y-3">
+                        <div className="text-xs font-semibold">Schedule message</div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-muted-foreground">Send at</label>
+                          <input
+                            type="datetime-local"
+                            value={scheduleDateTime}
+                            onChange={(e) => setScheduleDateTime(e.target.value)}
+                            min={new Date().toISOString().slice(0, 16)}
+                            className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" className="flex-1 h-7 text-xs" onClick={() => setScheduleOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleSchedule}>
+                            <Calendar className="mr-1 h-3 w-3" /> Confirm
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <Button size="sm" className="h-8" onClick={handleSend}>
                       <Send className="mr-1.5 h-3.5 w-3.5" /> Send
                     </Button>
                   </div>
@@ -825,6 +1120,31 @@ function InboxPage() {
       </div>
     </div>
 
+    {/* New Conversation Sheet */}
+    <NewConversationSheet
+      open={newConvOpen}
+      onClose={() => setNewConvOpen(false)}
+      onSelect={(c) => {
+        const existing = allConversations.find((conv) => conv.contactId === c.id);
+        if (existing) {
+          setActiveId(existing.id);
+        } else {
+          const newConv: Conversation = {
+            id: `local-conv-${Date.now()}`,
+            contactId: c.id,
+            contactName: c.name,
+            channel: "sms",
+            preview: "New conversation",
+            lastAt: new Date().toISOString(),
+            unread: false,
+          };
+          setLocalConversations((prev) => [newConv, ...prev]);
+          setActiveId(newConv.id);
+        }
+        setNewConvOpen(false);
+      }}
+    />
+
     <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
@@ -918,7 +1238,7 @@ function ContextSection({ title, children }: { title: string; children: React.Re
   );
 }
 
-function ConversationRow({ conv, active, onClick }: { conv: Conversation; active: boolean; onClick: () => void }) {
+function ConversationRow({ conv, active, starred, onClick }: { conv: Conversation; active: boolean; starred: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -943,7 +1263,7 @@ function ConversationRow({ conv, active, onClick }: { conv: Conversation; active
         </div>
         <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{conv.preview}</div>
         <div className="mt-1.5 flex items-center gap-1">
-          {isStarred(conv.id) && <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />}
+          {starred && <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />}
           {hasMention(conv.id) && (
             <Badge variant="outline" className="h-4 border-violet-300 bg-violet-50 px-1 text-[9px] text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
               @mention
@@ -961,12 +1281,26 @@ function ConversationRow({ conv, active, onClick }: { conv: Conversation; active
   );
 }
 
-function MessageBubble({ msg }: { msg: Message }) {
+function MessageBubble({ msg }: { msg: LocalMessage }) {
   const isOut = msg.direction === "out";
+
+  // Internal note
+  if (msg.channel === "note") {
+    return (
+      <div className="flex justify-center">
+        <div className="max-w-[80%] rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          <span className="mr-1.5 font-semibold">Note:</span>{msg.body}
+          <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">{fmtTime(msg.at)} · Internal only</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Voice call
   if (msg.channel === "voice") {
     return (
       <div className={`flex ${isOut ? "justify-end" : "justify-start"}`}>
-        <div className={`flex max-w-[70%] items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 ${isOut ? "" : ""}`}>
+        <div className="flex max-w-[70%] items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
           {isOut ? <ArrowUpRight className="h-4 w-4 text-emerald-500" /> : <ArrowDownLeft className="h-4 w-4 text-sky-500" />}
           <div className="flex-1">
             <div className="text-xs font-medium">{isOut ? "Outbound call" : "Inbound call"} · 4m 12s</div>
@@ -977,14 +1311,18 @@ function MessageBubble({ msg }: { msg: Message }) {
       </div>
     );
   }
+
+  // SMS / Email (+ scheduled variant)
   return (
     <div className={`flex ${isOut ? "justify-end" : "justify-start"}`}>
       <div className={`flex max-w-[72%] flex-col gap-1 ${isOut ? "items-end" : "items-start"}`}>
         <div
           className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-            isOut
-              ? "rounded-br-sm bg-primary text-primary-foreground"
-              : "rounded-bl-sm border border-border bg-card text-foreground"
+            msg.isScheduled
+              ? "rounded-br-sm border border-dashed border-primary/50 bg-primary/10 text-foreground"
+              : isOut
+                ? "rounded-br-sm bg-primary text-primary-foreground"
+                : "rounded-bl-sm border border-border bg-card text-foreground"
           }`}
         >
           {msg.body}
@@ -992,22 +1330,89 @@ function MessageBubble({ msg }: { msg: Message }) {
         <div className="flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
           <ChannelGlyph channel={msg.channel} />
           <span>{fmtTime(msg.at)}</span>
-          {isOut && (
+          {msg.isScheduled ? (
+            <>
+              <span>·</span>
+              <Clock className="h-3 w-3 text-primary/70" />
+              <span className="text-primary/80">Scheduled</span>
+            </>
+          ) : isOut ? (
             <>
               <span>·</span>
               <CheckCheck className="h-3 w-3 text-primary/70" />
               <span>Delivered</span>
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-function ChannelGlyph({ channel }: { channel: "email" | "sms" | "voice" }) {
+// ── New Conversation Sheet ────────────────────────────────────────────────────
+
+function NewConversationSheet({
+  open, onClose, onSelect,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (c: { id: string; name: string }) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const contacts = useMemo(() => {
+    const q = query.toLowerCase();
+    return mockContacts
+      .filter((c) => !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q))
+      .slice(0, 20);
+  }, [query]);
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-sm flex flex-col">
+        <SheetHeader className="border-b border-border pb-4">
+          <SheetTitle>New Conversation</SheetTitle>
+          <SheetDescription>Choose a contact to start a conversation with.</SheetDescription>
+        </SheetHeader>
+        <div className="relative mt-4">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search contacts…"
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
+        <div className="mt-3 flex-1 overflow-y-auto space-y-0.5">
+          {contacts.length === 0 && (
+            <p className="p-6 text-center text-xs text-muted-foreground">No contacts found</p>
+          )}
+          {contacts.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => onSelect({ id: c.id, name: c.name })}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left hover:bg-secondary transition-colors"
+            >
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-primary-soft text-[11px] font-semibold text-primary">
+                  {c.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium">{c.name}</div>
+                <div className="truncate text-[11px] text-muted-foreground">{c.phone || c.email}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ChannelGlyph({ channel }: { channel: LocalMessage["channel"] }) {
   if (channel === "email") return <Mail className="h-3 w-3 text-muted-foreground" />;
-  if (channel === "sms") return <MessageSquare className="h-3 w-3 text-muted-foreground" />;
+  if (channel === "sms" || channel === "note") return <MessageSquare className="h-3 w-3 text-muted-foreground" />;
   return <Phone className="h-3 w-3 text-muted-foreground" />;
 }
 
@@ -1036,8 +1441,8 @@ function fmtDay(iso: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(d);
 }
 
-function groupByDay(messages: Message[]) {
-  const map = new Map<string, Message[]>();
+function groupByDay(messages: LocalMessage[]) {
+  const map = new Map<string, LocalMessage[]>();
   for (const m of messages) {
     const key = fmtDay(m.at);
     if (!map.has(key)) map.set(key, []);
