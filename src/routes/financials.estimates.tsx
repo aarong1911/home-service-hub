@@ -520,8 +520,6 @@ type OrgInfo = {
   email: string | null;
   phone: string | null;
   address: string | null;
-  website: string | null;
-  signature_message?: string | null;
 };
 
 type ContactInfo = {
@@ -558,7 +556,6 @@ async function openPrintWindow(
 
   const coName = org?.name ?? "Your Company";
   const coPhone = fmtPhone(org?.phone);
-  const coWebsite = org?.website ?? "";
   const coAddress = org?.address ?? "";
 
   // ── Company identity block ──
@@ -566,7 +563,7 @@ async function openPrintWindow(
     ? `<img src="${org.logo_url}" alt="${coName}" style="height:52px;max-width:180px;object-fit:contain;margin-right:12px;vertical-align:middle">`
     : ``;
 
-  const coMetaLine = [coAddress, [coPhone, coWebsite].filter(Boolean).join(" · ")].filter(Boolean).join("<br>");
+  const coMetaLine = [coAddress, coPhone].filter(Boolean).join("<br>");
 
   // ── Client block ──
   const clientName = estimate.client_name !== "—" ? estimate.client_name : (contact?.full_name ?? "—");
@@ -606,9 +603,7 @@ async function openPrintWindow(
     : "";
 
   // ── Closing message ──
-  const closingMsg = (org as any)?.signature_message
-    ? (org as any).signature_message
-    : `Thank you for the opportunity to work on your project. We are committed to delivering exceptional quality and craftsmanship. Please don't hesitate to reach out with any questions.`;
+  const closingMsg = `Thank you for the opportunity to work on your project. We are committed to delivering exceptional quality and craftsmanship. Please don't hesitate to reach out with any questions.`;
 
   // ── Footer line ──
   const footerLeft = [coName, coPhone].filter(Boolean).join(" · ");
@@ -707,7 +702,7 @@ ${scopeHtml}
 <div class="closing">
   ${closingMsg}
   <div class="closing-sig">${coName}</div>
-  <div class="closing-sig-meta">${[coPhone, coWebsite].filter(Boolean).join(" · ")}</div>
+  <div class="closing-sig-meta">${coPhone}</div>
 </div>
 
 <div class="footer">
@@ -763,9 +758,9 @@ function EstimateViewDialog({
               )}
               <div>
                 <div className="text-lg font-bold leading-tight">{org?.name ?? "Your Company"}</div>
-                {(org?.phone || org?.address || org?.website) && (
+                {(org?.phone || org?.address) && (
                   <div className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                    {[org?.address, [fmtPhone(org?.phone), org?.website].filter(Boolean).join(" · ")].filter(Boolean).join(" · ")}
+                    {[org?.address, fmtPhone(org?.phone)].filter(Boolean).join(" · ")}
                   </div>
                 )}
               </div>
@@ -1051,7 +1046,7 @@ function EstimatesPage() {
     if (!orgId) return;
     supabase
       .from("organizations")
-      .select("name, logo_url, email, phone, address, website, signature_message")
+      .select("name, logo_url, email, phone, address")
       .eq("id", orgId)
       .maybeSingle()
       .then(({ data }) => { if (data) setOrgInfo(data as OrgInfo); });
