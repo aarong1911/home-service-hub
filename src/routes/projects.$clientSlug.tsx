@@ -1182,10 +1182,6 @@ function CommunicationsTab({ project }: { project: Project }) {
     appendInsertLog(entry);
     // eslint-disable-next-line no-console
     console.debug("[template-insert]", entry);
-    toast.success(
-      mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`,
-      { description: `body: ${bodyAction}${t.channel === "email" ? ` · subject: ${subjectAction}` : ""}` },
-    );
   };
 
   const insertTemplate = (t: SharedMessageTemplate) => {
