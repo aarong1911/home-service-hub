@@ -199,9 +199,9 @@ function InboxPage() {
 
       const { data } = await supabase
         .from("contacts")
-        .select("id, full_name, email, phone, updated_at")
+        .select("id, full_name, email, phone, created_at")
         .eq("org_id", orgId)
-        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(200);
 
       if (!data || !mounted) return;
@@ -212,7 +212,7 @@ function InboxPage() {
         contactName: c.full_name ?? "Unknown",
         channel: "sms" as const,
         preview: c.phone ?? c.email ?? "No contact info",
-        lastAt: c.updated_at ?? new Date().toISOString(),
+        lastAt: c.created_at ?? new Date().toISOString(),
         unread: false,
       }));
       const cmap = new Map(data.map((c: any) => [c.id, { name: c.full_name ?? "Unknown", email: c.email ?? "", phone: c.phone ?? "" }]));
@@ -486,10 +486,6 @@ function InboxPage() {
     appendInsertLog(entry);
     // eslint-disable-next-line no-console
     console.debug("[template-insert]", entry);
-    toast.success(
-      mode === "append" ? `Appended "${t.name}"` : `Inserted "${t.name}"`,
-      { description: `body: ${bodyAction}${t.channel === "email" ? ` · subject: ${subjectAction}` : ""}` },
-    );
   };
 
   const applyTemplate = (t: SharedMessageTemplate) => {
