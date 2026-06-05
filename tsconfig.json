@@ -5,7 +5,7 @@
   "vite.config.ts",
   "eslint.config.js",
   "netlify/functions/**/*.ts"
-  ],
+, "netlify/lib/run-tool.ts", "netlify/lib/run-agent.ts"  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

@@ -1,4 +1,4 @@
-// src/lib/post-call-automation.ts
+// netlify/functions/lib/post-call-automation.ts
 /**
  * post-call-automation.ts
  * Netlify Function helper — NOT a standalone function endpoint.
