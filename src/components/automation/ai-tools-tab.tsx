@@ -266,7 +266,53 @@ function ToolDrawerContent({ tool }: { tool: ToolDefinition }) {
   };
 
   const handleExport = () => {
-    toast.info("PDF export coming soon");
+    if (!output) return;
+    const w = window.open("", "_blank");
+    if (!w) { toast.error("Allow popups to download PDF"); return; }
+
+    const ts = new Date().toLocaleDateString("en-US", {
+      month: "long", day: "numeric", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+    const catLabel = CATEGORY_LABEL[cat] ?? tool.category;
+
+    const sectionsHtml = Object.entries(output).map(([heading, body]) => `
+      <div class="section">
+        <div class="section-title">${heading}</div>
+        <div class="section-body">${body.replace(/\n/g, "<br>")}</div>
+      </div>`).join("");
+
+    w.document.write(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>${tool.name}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:#111;padding:48px;max-width:800px;margin:0 auto}
+.hdr{border-bottom:2px solid #e5e7eb;padding-bottom:20px;margin-bottom:24px}
+.tool-name{font-size:22px;font-weight:800;color:#111;margin-bottom:4px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd}
+.meta{font-size:11px;color:#9ca3af;margin-top:8px}
+.desc{font-size:13px;color:#4b5563;margin-top:8px;line-height:1.6}
+.section{margin-bottom:20px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+.section-title{background:#f9fafb;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;padding:10px 16px;border-bottom:1px solid #e5e7eb}
+.section-body{padding:14px 16px;font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap}
+.footer{margin-top:32px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:11px;color:#9ca3af}
+@media print{body{padding:24px}@page{margin:16mm}}
+</style></head><body>
+<div class="hdr">
+  <div class="tool-name">${tool.name}</div>
+  <span class="badge">${catLabel}</span>
+  <div class="meta">Generated ${ts}</div>
+  <div class="desc">${tool.description}</div>
+</div>
+${sectionsHtml}
+<div class="footer">
+  <span>RenoMeta Connect · AI Tools</span>
+  <span>Page 1 of 1</span>
+</div>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`);
+    w.document.close();
   };
 
   return (
