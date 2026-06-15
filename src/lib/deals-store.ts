@@ -1,7 +1,4 @@
 // src/lib/deals-store.ts
-// Supabase-backed deals store — maintains the same hook interface.
-// Also exports pipeline stages fetched from Supabase.
-
 import { useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Deal, LostReason } from "@/lib/mock-data";
@@ -25,25 +22,24 @@ async function getOrgId(): Promise<string | null> {
 }
 
 // ── Pipeline stages ──
-// Exported for the pipeline page to use as column headers.
 type PipelineStage = { id: string; name: string; supabaseId: string };
 
-// Fallback stages in case Supabase hasn't loaded yet
 const FALLBACK_STAGES: PipelineStage[] = [
-  { id: "new", name: "New", supabaseId: "" },
-  { id: "qualified", name: "Qualified", supabaseId: "" },
-  { id: "site-visit", name: "Site Visit", supabaseId: "" },
-  { id: "proposal", name: "Proposal", supabaseId: "" },
+  { id: "new",         name: "New",         supabaseId: "" },
+  { id: "qualified",   name: "Qualified",   supabaseId: "" },
+  { id: "site-visit",  name: "Site Visit",  supabaseId: "" },
+  { id: "proposal",    name: "Proposal",    supabaseId: "" },
   { id: "negotiation", name: "Negotiation", supabaseId: "" },
-  { id: "won", name: "Won", supabaseId: "" },
-  { id: "lost", name: "Lost", supabaseId: "" },
+  { id: "won",         name: "Won",         supabaseId: "" },
+  { id: "lost",        name: "Lost",        supabaseId: "" },
 ];
 
 let pipelineStagesData: PipelineStage[] = [...FALLBACK_STAGES];
-
-// Map from Supabase UUID → slug (e.g. "site-visit") and vice versa
 let stageUuidToSlug: Record<string, string> = {};
 let stageSlugToUuid: Record<string, string> = {};
+
+const stageListeners = new Set<() => void>();
+function emitStages() { for (const l of stageListeners) l(); }
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/\s+/g, "-");
@@ -83,13 +79,18 @@ async function fetchPipelineStages(): Promise<void> {
     stageUuidToSlug[s.supabaseId] = s.id;
     stageSlugToUuid[s.id] = s.supabaseId;
   }
+  emitStages();
 }
 
 export { pipelineStagesData as pipelineStages };
 
 export function usePipelineStages(): PipelineStage[] {
-  useEffect(() => { fetchPipelineStages(); }, []);
-  return pipelineStagesData;
+  useEffect(() => { if (!stageSlugToUuid || !Object.keys(stageSlugToUuid).length) fetchPipelineStages(); }, []);
+  return useSyncExternalStore(
+    (cb) => { stageListeners.add(cb); return () => stageListeners.delete(cb); },
+    () => pipelineStagesData,
+    () => [...FALLBACK_STAGES],
+  );
 }
 
 // ── Map Supabase row → Deal type ──
@@ -97,7 +98,6 @@ function mapRow(row: any, contactMap: Record<string, any>): Deal {
   const contact = row.contact_id ? contactMap[row.contact_id] : null;
   const stageSlug = stageUuidToSlug[row.stage_id] ?? "new";
   const cf = row.custom_fields ?? {};
-
   const createdAt = new Date(row.created_at ?? Date.now());
   const ageDays = Math.floor((Date.now() - createdAt.getTime()) / 86400000);
 
@@ -111,6 +111,7 @@ function mapRow(row: any, contactMap: Record<string, any>): Deal {
     expectedClose: row.expected_close_date ?? "",
     owner: "—",
     ownerInitials: "—",
+    ownerId: row.assigned_to ?? undefined,
     ageDays,
     lostReason: cf.lost_reason as LostReason | undefined,
     email: contact?.email ?? "",
@@ -129,7 +130,6 @@ async function fetchDeals(): Promise<void> {
   const orgId = await getOrgId();
   if (!orgId) return;
 
-  // Ensure stages are loaded first
   if (!Object.keys(stageUuidToSlug).length) {
     await fetchPipelineStages();
   }
@@ -145,11 +145,7 @@ async function fetchDeals(): Promise<void> {
     return;
   }
 
-  // Batch-fetch contacts
-  const contactIds = (data ?? [])
-    .map((r: any) => r.contact_id)
-    .filter(Boolean) as string[];
-
+  const contactIds = (data ?? []).map((r: any) => r.contact_id).filter(Boolean) as string[];
   let contactMap: Record<string, any> = {};
   if (contactIds.length > 0) {
     const unique = [...new Set(contactIds)];
@@ -157,10 +153,7 @@ async function fetchDeals(): Promise<void> {
       .from("contacts")
       .select("id, full_name, email, phone, address")
       .in("id", unique);
-
-    if (contacts) {
-      contactMap = Object.fromEntries(contacts.map((c: any) => [c.id, c]));
-    }
+    if (contacts) contactMap = Object.fromEntries(contacts.map((c: any) => [c.id, c]));
   }
 
   deals = (data ?? []).map((r: any) => mapRow(r, contactMap));
@@ -168,18 +161,14 @@ async function fetchDeals(): Promise<void> {
   emit();
 }
 
-// Initial fetch
 fetchDeals();
 
 // ── Public API ──
 
-export function getDeals(): Deal[] {
-  return deals;
-}
+export function getDeals(): Deal[] { return deals; }
 
 export function useDeals(): Deal[] {
   useEffect(() => { if (!loaded) fetchDeals(); }, []);
-
   return useSyncExternalStore(
     (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
     () => deals,
@@ -187,54 +176,152 @@ export function useDeals(): Deal[] {
   );
 }
 
-export async function addDeal(deal: Omit<Deal, "id">): Promise<Deal> {
+// ── Add Deal ─────────────────────────────────────────────────────────────────
+// Accepts the full form payload. Upserts the contact first (find by email,
+// then by phone, then create), then inserts the deal row with real UUIDs for
+// contact_id and assigned_to.
+
+export type AddDealInput = {
+  name: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  address: string;
+  value: number;
+  stage: string;       // slug e.g. "new", "qualified"
+  ownerId: string;     // user UUID for assigned_to
+  ownerName: string;   // display name for optimistic UI
+  expectedClose?: string;
+};
+
+export async function addDeal(input: AddDealInput): Promise<Deal> {
   const orgId = await getOrgId();
-  const tempId = `deal-${Date.now()}`;
+  if (!orgId) throw new Error("Not authenticated");
 
-  if (orgId) {
-    const stageUuid = stageSlugToUuid[deal.stage] ?? Object.values(stageSlugToUuid)[0];
+  if (!Object.keys(stageSlugToUuid).length) {
+    await fetchPipelineStages();
+  }
 
-    const { data: pipeline } = await supabase
-      .from("pipelines")
+  // ── 1. Upsert contact ────────────────────────────────────────────────────
+  let contactId: string | null = null;
+
+  if (input.email) {
+    const { data: byEmail } = await supabase
+      .from("contacts")
       .select("id")
       .eq("org_id", orgId)
-      .eq("is_default", true)
-      .eq("is_active", true)
+      .eq("email", input.email)
       .maybeSingle();
+    if (byEmail) contactId = byEmail.id;
+  }
 
-    if (pipeline) {
-      const { data, error } = await supabase
-        .from("deals")
-        .insert({
-          org_id: orgId,
-          pipeline_id: pipeline.id,
-          stage_id: stageUuid,
-          title: deal.name,
-          contact_id: deal.contactId || null,
-          value: deal.value || 0,
-          status: "open",
-          expected_close_date: deal.expectedClose || null,
-          stage_order: 0,
-        })
-        .select()
-        .single();
+  const normalizedPhone = input.phone ? input.phone.replace(/\D/g, "").slice(-10) : null;
 
-      if (!error && data) {
-        const mapped: Deal = { ...deal, id: data.id };
-        deals = [mapped, ...deals];
-        emit();
-        return mapped;
-      }
+  if (!contactId && normalizedPhone) {
+    const { data: byPhone } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("phone", normalizedPhone)
+      .maybeSingle();
+    if (byPhone) contactId = byPhone.id;
+  }
+
+  if (!contactId) {
+    const { data: created, error: contactErr } = await supabase
+      .from("contacts")
+      .insert({
+        org_id: orgId,
+        full_name: input.contactName || "Unknown",
+        email: input.email || null,
+        phone: normalizedPhone,
+        address: input.address || null,
+      })
+      .select("id")
+      .single();
+
+    if (!contactErr && created) {
+      contactId = created.id;
+    } else if (contactErr?.code === "23505" && normalizedPhone) {
+      // Unique constraint on (org_id, phone) — find the existing row
+      const { data: fallback } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq("phone", normalizedPhone)
+        .maybeSingle();
+      if (fallback) contactId = fallback.id;
+    } else if (contactErr) {
+      console.error("[deals-store] contact upsert failed:", contactErr);
     }
   }
 
-  const next: Deal = { ...deal, id: tempId };
-  deals = [next, ...deals];
+  // ── 2. Get default pipeline ──────────────────────────────────────────────
+  const { data: pipeline } = await supabase
+    .from("pipelines")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("is_default", true)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!pipeline) throw new Error("No default pipeline found");
+
+  const stageUuid = stageSlugToUuid[input.stage] ?? Object.values(stageSlugToUuid)[0];
+  const expectedClose =
+    input.expectedClose ?? new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+
+  // ── 3. Insert deal ────────────────────────────────────────────────────────
+  const { data, error } = await supabase
+    .from("deals")
+    .insert({
+      org_id: orgId,
+      pipeline_id: pipeline.id,
+      stage_id: stageUuid,
+      title: input.name,
+      contact_id: contactId,
+      assigned_to: input.ownerId || null,
+      value: input.value || 0,
+      status: "open",
+      expected_close_date: expectedClose,
+      stage_order: 0,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  const ownerInitials = input.ownerName
+    .split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
+
+  const mapped: Deal = {
+    id: data.id,
+    name: input.name,
+    contactId: contactId ?? "",
+    contactName: input.contactName || "Unknown",
+    value: input.value || 0,
+    stage: input.stage,
+    expectedClose,
+    owner: input.ownerName,
+    ownerInitials,
+    ownerId: input.ownerId || undefined,
+    ageDays: 0,
+    email: input.email,
+    phone: input.phone,
+    address: input.address,
+  };
+
+  deals = [mapped, ...deals];
   emit();
-  return next;
+  return mapped;
 }
 
+// ── Update Deal ──────────────────────────────────────────────────────────────
 export async function updateDeal(id: string, patch: Partial<Deal>): Promise<void> {
+  const prev = deals.find((d) => d.id === id);
+  deals = deals.map((d) => (d.id === id ? { ...d, ...patch } : d));
+  emit();
+
   const update: Record<string, any> = { updated_at: new Date().toISOString() };
 
   if (patch.stage !== undefined) {
@@ -244,26 +331,44 @@ export async function updateDeal(id: string, patch: Partial<Deal>): Promise<void
       update.status = "won";
     } else {
       update.status = "open";
-      const uuid = stageSlugToUuid[patch.stage];
+      let uuid = stageSlugToUuid[patch.stage];
+      if (!uuid) {
+        // Maps not populated yet — reload and retry once
+        await fetchPipelineStages();
+        uuid = stageSlugToUuid[patch.stage];
+      }
       if (uuid) update.stage_id = uuid;
+      else console.warn("[deals-store] No UUID for stage slug:", patch.stage, "— stage_id will not change");
     }
   }
-  if (patch.name !== undefined) update.title = patch.name;
-  if (patch.value !== undefined) update.value = patch.value;
+  if (patch.name          !== undefined) update.title               = patch.name;
+  if (patch.value         !== undefined) update.value               = patch.value;
   if (patch.expectedClose !== undefined) update.expected_close_date = patch.expectedClose;
-  if (patch.lostReason !== undefined) {
-    update.custom_fields = { lost_reason: patch.lostReason };
+  if (patch.lostReason    !== undefined) update.custom_fields       = { lost_reason: patch.lostReason };
+
+  const { error } = await supabase.from("deals").update(update).eq("id", id);
+
+  if (error) {
+    console.error("[deals-store] update failed:", error);
+    if (prev) {
+      deals = deals.map((d) => (d.id === id ? prev : d));
+      emit();
+    }
+    throw error;
   }
+}
 
-  const { error } = await supabase
-    .from("deals")
-    .update(update)
-    .eq("id", id);
-
-  if (error) console.error("[deals-store] update failed:", error);
-
-  deals = deals.map((d) => (d.id === id ? { ...d, ...patch } : d));
+export async function deleteDeal(id: string): Promise<void> {
+  const prev = deals;
+  deals = deals.filter((d) => d.id !== id);
   emit();
+
+  const { error } = await supabase.from("deals").delete().eq("id", id);
+  if (error) {
+    deals = prev;
+    emit();
+    throw error;
+  }
 }
 
 export function setDealsState(next: Deal[]): void {

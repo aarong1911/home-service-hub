@@ -11,7 +11,7 @@ import {
 import {
   Mail, Phone, MessageSquare, FileText, CheckCircle2, XCircle, StickyNote,
   TrendingUp, Calendar, User, Building2, AlertCircle, MapPin, Pencil,
-  CalendarClock, UserPlus, Loader2,
+  CalendarClock, UserPlus, Loader2, Trash2,
 } from "lucide-react";
 import { type Deal, type LostReason } from "@/lib/mock-data";
 import { useContacts, updateContact } from "@/lib/contacts-store";
@@ -66,6 +66,7 @@ export function DealDetailDrawer({
   onStageChange,
   onMarkLost,
   onDealUpdate,
+  onDelete,
   stages,
   teamMembers,
 }: {
@@ -74,6 +75,7 @@ export function DealDetailDrawer({
   onStageChange?: (dealId: string, newStage: string) => void;
   onMarkLost?: (dealId: string, reason: LostReason, notes: string) => void;
   onDealUpdate?: (dealId: string, patch: Partial<Deal>) => void;
+  onDelete?: (dealId: string) => void;
   stages?: { id: string; name: string }[];
   teamMembers?: { id: string; name: string }[];
 }) {
@@ -91,6 +93,7 @@ export function DealDetailDrawer({
   const [lostNotes, setLostNotes] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ email: "", phone: "", address: "", stage: "", owner: "" });
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [contactEditMode, setContactEditMode] = useState(false);
   const [contactForm, setContactForm] = useState({ email: "", phone: "", address: "" });
 
@@ -184,6 +187,9 @@ export function DealDetailDrawer({
                 <Button size="sm" variant="outline" className="h-8 w-8 shrink-0 p-0" onClick={openEdit} aria-label="Edit deal">
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
+                <Button size="sm" variant="outline" className="h-8 w-8 shrink-0 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteOpen(true)} aria-label="Delete deal">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
                 <Button size="sm" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleWon}>
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark as Won
                 </Button>
@@ -246,10 +252,16 @@ export function DealDetailDrawer({
                       <Input value={contactForm.address} onChange={(e) => setContactForm((p) => ({ ...p, address: e.target.value }))} placeholder="123 Main St" className="h-8 text-sm" />
                     </div>
                     <div className="flex gap-2 pt-1">
-                      <Button size="sm" className="h-7 flex-1 text-xs" onClick={() => {
+                      <Button size="sm" className="h-7 flex-1 text-xs" onClick={async () => {
                         onDealUpdate?.(deal.id, { email: contactForm.email || undefined, phone: contactForm.phone || undefined, address: contactForm.address || undefined });
                         if (contact) {
-                          try { updateContact(contact.id, { email: contactForm.email || contact.email, phone: contactForm.phone || contact.phone }); } catch { toast.error("Failed to save contact"); return; }
+                          try {
+                            await updateContact(contact.id, {
+                              email: contactForm.email || contact.email,
+                              phone: contactForm.phone || contact.phone,
+                              address: contactForm.address || contact.address || "",
+                            });
+                          } catch { toast.error("Failed to save contact"); return; }
                         }
                         toast.success("Contact info updated");
                         setContactEditMode(false);
@@ -350,6 +362,28 @@ export function DealDetailDrawer({
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => setLostOpen(false)}>Cancel</Button>
           <Button variant="destructive" disabled={!lostReason} onClick={confirmLost}>Mark as Lost</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Delete deal?</DialogTitle>
+          <DialogDescription>
+            <strong>{deal?.name}</strong> will be permanently removed. This cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+          <Button variant="destructive" onClick={() => {
+            if (!deal) return;
+            onDelete?.(deal.id);
+            setDeleteOpen(false);
+            onOpenChange(false);
+          }}>
+            Delete
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

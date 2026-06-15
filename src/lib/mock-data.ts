@@ -4,6 +4,7 @@ export type Contact = {
   name: string;
   email: string;
   phone: string;
+  address?: string;
   company: string;
   tags: string[];
   owner: string;
@@ -23,6 +24,7 @@ export type Deal = {
   expectedClose: string;
   owner: string;
   ownerInitials: string;
+  ownerId?: string;
   ageDays: number;
   lostReason?: LostReason;
   lostAt?: string;
@@ -213,6 +215,8 @@ export type Conversation = {
   preview: string;
   unread: boolean;
   lastAt: string;
+  /** Caller's raw phone number — set for voice conversations so SMS/call targets the right number */
+  callerPhone?: string;
 };
 
 export type Message = {

@@ -46,17 +46,26 @@ function ensureScript(apiKey: string, onReady: () => void) {
   document.head.appendChild(script);
 }
 
-// Fix pac-container z-index and ensure it is above the dialog overlay
+function applyPacFix(pac: HTMLElement) {
+  if (pac.dataset.pacFixed) return;
+  pac.dataset.pacFixed = "1";
+  pac.style.zIndex = "99999";
+  pac.style.pointerEvents = "auto";
+  // Stop pointerdown from bubbling to Radix's document-level dismiss listener.
+  // Do NOT preventDefault — that would cancel the click event and break Google's selection.
+  pac.addEventListener("pointerdown", e => e.stopPropagation());
+}
+
 function fixPacContainer() {
+  // Fix all existing unfixed pac-containers immediately.
+  // Google creates a NEW pac-container for each Autocomplete instance, so
+  // querySelector(".pac-container") would find the OLD (already-fixed) one
+  // and skip the new one — :not([data-pac-fixed]) ensures we target only new ones.
+  document.querySelectorAll<HTMLElement>(".pac-container:not([data-pac-fixed])").forEach(applyPacFix);
+
+  // Watch continuously for new pac-containers created by subsequent Autocomplete instances.
   const observer = new MutationObserver(() => {
-    const pac = document.querySelector(".pac-container") as HTMLElement | null;
-    if (pac) {
-      pac.style.zIndex = "99999";
-      pac.style.pointerEvents = "auto";
-      // Prevent Radix from treating pac clicks as outside-dialog clicks
-      pac.addEventListener("mousedown", e => e.stopPropagation(), true);
-      observer.disconnect();
-    }
+    document.querySelectorAll<HTMLElement>(".pac-container:not([data-pac-fixed])").forEach(applyPacFix);
   });
   observer.observe(document.body, { childList: true, subtree: true });
   return observer;
@@ -98,10 +107,10 @@ export function AddressAutocomplete({
 
       ac.addListener("place_changed", () => {
         const place = ac.getPlace();
-        if (!place?.address_components) return;
+        if (!place) return;
 
-        const get      = (type: string) => (place.address_components as GACComponent[]).find(c => c.types.includes(type))?.long_name  ?? "";
-        const getShort = (type: string) => (place.address_components as GACComponent[]).find(c => c.types.includes(type))?.short_name ?? "";
+        const get      = (type: string) => (place.address_components as GACComponent[] | undefined)?.find(c => c.types.includes(type))?.long_name  ?? "";
+        const getShort = (type: string) => (place.address_components as GACComponent[] | undefined)?.find(c => c.types.includes(type))?.short_name ?? "";
 
         const street = [get("street_number"), get("route")].filter(Boolean).join(" ");
         const city   = get("locality") || get("sublocality") || get("neighborhood");
@@ -109,7 +118,7 @@ export function AddressAutocomplete({
         const zip    = get("postal_code");
 
         onSelectRef.current({ street, city, state, zip });
-        onChangeRef.current(street);
+        onChangeRef.current(place.formatted_address || street || "");
       });
     });
 
