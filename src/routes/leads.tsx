@@ -171,18 +171,16 @@ function LeadsPage() {
     storeConvertLead(lead.id);
     storeAddDeal({
       name: lead.name,
-      contactId: lead.id,
       contactName: lead.name,
+      email: lead.email ?? "",
+      phone: lead.phone ?? "",
+      address: lead.address ?? "",
       value: lead.estimatedBudget ?? 0,
-      stage: "new-lead",
-      ...(activePipeline?.stages[0]?.id ? { stage: activePipeline.stages[0].id } : {}),
-      expectedClose: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
-      owner: lead.owner,
-      ownerInitials: lead.owner.split(" ").map((p) => p[0]).join(""),
-      ageDays: 0,
-      email: lead.email,
-      phone: lead.phone,
-      address: lead.address,
+      stage: activePipeline?.stages[0]?.id ?? "new",
+      ownerId: "",
+      ownerName: lead.owner ?? "Unassigned",
+    }).catch(() => {
+      toast.error("Failed to create deal from lead.");
     });
     toast.success(`${lead.name} converted to deal`, { description: "A new deal has been created in the pipeline." });
     navigate({ search: { leadId: undefined }, replace: true });

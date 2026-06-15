@@ -23,6 +23,18 @@ async function getOrgId(): Promise<string | null> {
   return membership?.org_id ?? null;
 }
 
+function formatCallerNumber(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11 && digits[0] === "1") {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return raw;
+}
+
 function formatTranscriptPreview(transcript: any): string {
   if (!transcript) return "Voice call — no transcript";
   if (typeof transcript === "string") return transcript.slice(0, 80) + "…";
@@ -92,16 +104,16 @@ export function useVoiceConversations(): {
       .map((r: any) => r.contact_id)
       .filter(Boolean) as string[];
 
-    let contactMap: Record<string, string> = {};
+    let contactMap: Record<string, { name: string; phone: string }> = {};
     if (contactIds.length > 0) {
       const { data: contacts } = await supabase
         .from("contacts")
-        .select("id, full_name")
+        .select("id, full_name, phone")
         .in("id", [...new Set(contactIds)]);
 
       if (contacts) {
         contactMap = Object.fromEntries(
-          contacts.map((c: any) => [c.id, c.full_name])
+          contacts.map((c: any) => [c.id, { name: c.full_name ?? "", phone: c.phone ?? "" }])
         );
       }
     }
@@ -111,9 +123,8 @@ export function useVoiceConversations(): {
 
     for (const row of data as any[]) {
       const convId = `voice-${row.id}`;
-      const contactName = row.contact_id
-        ? contactMap[row.contact_id] ?? row.caller_number ?? "Unknown Caller"
-        : row.caller_number ?? "Unknown Caller";
+      const contactEntry = row.contact_id ? contactMap[row.contact_id] : undefined;
+      const contactName = contactEntry?.name || formatCallerNumber(row.caller_number) || "Unknown Caller";
 
       // Conversation entry
       convs.push({
@@ -124,6 +135,7 @@ export function useVoiceConversations(): {
         preview: formatTranscriptPreview(row.transcript),
         unread: false,
         lastAt: row.started_at ?? new Date().toISOString(),
+        callerPhone: row.caller_number ?? undefined,
       });
 
       // Map transcript messages

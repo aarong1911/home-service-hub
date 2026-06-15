@@ -64,6 +64,9 @@ import {
   usePersistentInsertLog,
 } from "@/lib/message-templates";
 import { recordTemplateUse } from "@/lib/recent-templates";
+import { useOrganization } from "@/lib/organization";
+import { useContacts } from "@/lib/contacts-store";
+import { useContactActivity } from "@/lib/contact-activity";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TemplatePicker } from "@/components/inbox/template-picker";
@@ -129,7 +132,7 @@ const channelTabs: { id: ChannelFilter; label: string; icon: typeof Mail }[] = [
   { id: "voice", label: "Voice", icon: Phone },
 ];
 
-const NOW = Date.UTC(2026, 3, 18);
+const NOW = Date.now();
 
 function bodyToneClass(action: TemplateInsertLog["bodyAction"] | TemplateInsertLog["subjectAction"]): string {
   switch (action) {
@@ -161,7 +164,7 @@ function InboxPage() {
   const navigate = useNavigate({ from: "/inbox" });
   const [folder, setFolder] = useState<FolderId>("all");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
-  const [activeId, setActiveId] = useState<string | undefined>(mockConversations[0]?.id);
+  const [activeId, setActiveId] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState("");
   const [subject, setSubject] = useState("");
   const [composeChannel, setComposeChannel] = useState<ComposeChannel>("sms");
@@ -169,8 +172,19 @@ function InboxPage() {
   const [tplOpen, setTplOpen] = useState(false);
   const [tplSearch, setTplSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
-  const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
+  const [localMessages, setLocalMessages] = useState<LocalMessage[]>(() => {
+    try { return JSON.parse(localStorage.getItem("inbox-messages") ?? "[]"); } catch { return []; }
+  });
+  const [localConversations, setLocalConversations] = useState<Conversation[]>(() => {
+    try { return JSON.parse(localStorage.getItem("inbox-conversations") ?? "[]"); } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("inbox-messages", JSON.stringify(localMessages.slice(-1000))); } catch {}
+  }, [localMessages]);
+  useEffect(() => {
+    try { localStorage.setItem("inbox-conversations", JSON.stringify(localConversations)); } catch {}
+  }, [localConversations]);
+
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDateTime, setScheduleDateTime] = useState("");
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
@@ -179,56 +193,54 @@ function InboxPage() {
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [supabaseConvs, setSupabaseConvs] = useState<Conversation[]>([]);
-  const [supabaseContactMap, setSupabaseContactMap] = useState<Map<string, { name: string; email: string; phone: string }>>(new Map());
   const [pendingTemplate, setPendingTemplate] = useState<SharedMessageTemplate | null>(null);
   const [insertLog, appendInsertLog, clearInsertLog] = usePersistentInsertLog("inbox");
   const [showInsertLog, setShowInsertLog] = useState(false);
   // Voice calls from Supabase — merged into conversations when Voice tab is active
   const { conversations: voiceConvs, messages: voiceMsgs } = useVoiceConversations();
- 
-  // Load real contacts from Supabase as conversation entries
+  // Contacts from the store — uses correct org via getOrgId() + memberships fallback
+  const allStoreContacts = useContacts();
+  const storeContactMap = useMemo(
+    () => new Map(allStoreContacts.map((c) => [c.id, c])),
+    [allStoreContacts]
+  );
+  // Build conversation entries from contacts-store (eliminates the duplicate fetch that was hitting the wrong org_id)
+  const supabaseConvs = useMemo<Conversation[]>(
+    () => allStoreContacts.map((c) => ({
+      id: `sb-${c.id}`,
+      contactId: c.id,
+      contactName: c.name,
+      channel: "sms" as const,
+      preview: c.phone || c.email || "No contact info",
+      lastAt: c.lastActivity ?? c.createdAt ?? new Date().toISOString(),
+      unread: false,
+    })),
+    [allStoreContacts]
+  );
+  const org = useOrganization();
+  const [currentUserName, setCurrentUserName] = useState("");
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !mounted) return;
-      const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
-      const orgId = profile?.organization_id;
-      if (!orgId || !mounted) return;
-
-      const { data } = await supabase
-        .from("contacts")
-        .select("id, full_name, email, phone, created_at")
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(200);
-
-      if (!data || !mounted) return;
-
-      const convs: Conversation[] = data.map((c: any) => ({
-        id: `sb-${c.id}`,
-        contactId: c.id,
-        contactName: c.full_name ?? "Unknown",
-        channel: "sms" as const,
-        preview: c.phone ?? c.email ?? "No contact info",
-        lastAt: c.created_at ?? new Date().toISOString(),
-        unread: false,
-      }));
-      const cmap = new Map(data.map((c: any) => [c.id, { name: c.full_name ?? "Unknown", email: c.email ?? "", phone: c.phone ?? "" }]));
-      if (mounted) { setSupabaseConvs(convs); setSupabaseContactMap(cmap); }
-    })();
-    return () => { mounted = false; };
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("profiles").select("first_name, last_name").eq("id", user.id).maybeSingle()
+        .then(({ data }) => {
+          if (data) setCurrentUserName(`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim());
+        });
+    });
   }, []);
+ 
 
-  // Supabase contacts first, then mock (fallback), then voice + local
   const allConversations = useMemo(
-    () => [
-      ...supabaseConvs,
-      ...mockConversations.filter((m) => !supabaseConvs.some((s) => s.contactId === m.contactId)),
-      ...voiceConvs,
-      ...localConversations,
-    ],
+    () => {
+      // Only show mock conversations when no real data has loaded yet (avoid fake phone numbers reaching Twilio)
+      const hasRealData = supabaseConvs.length > 0 || voiceConvs.length > 0;
+      return [
+        ...supabaseConvs,
+        ...(hasRealData ? [] : mockConversations.map((m) => ({ ...m, lastAt: "2020-01-01T00:00:00Z" }))),
+        ...voiceConvs,
+        ...localConversations,
+      ];
+    },
     [supabaseConvs, voiceConvs, localConversations]
   );
   const allMessages = useMemo(
@@ -239,18 +251,26 @@ function InboxPage() {
   const checkStarred = (id: string) => starredIds.has(id) || isStarred(id);
 
   const conversations = useMemo(() => {
-    return allConversations.filter((c) => {
-      if (channelFilter !== "all" && c.channel !== channelFilter) return false;
-      if (folder === "unread" && !c.unread) return false;
-      if (folder === "starred" && !checkStarred(c.id)) return false;
-      if (folder === "unassigned" && !isUnassigned(c.id)) return false;
-      if (folder === "assigned" && !isAssignedToMe(c.id)) return false;
-      if (folder === "mentions" && !hasMention(c.id)) return false;
-      if (folder === "archived" && !isArchived(c.id)) return false;
-      if (folder !== "archived" && isArchived(c.id)) return false;
-      if (search && !c.contactName.toLowerCase().includes(search.toLowerCase()) && !c.preview.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
+    return allConversations
+      .filter((c) => {
+        if (channelFilter !== "all" && c.channel !== channelFilter) return false;
+        if (folder === "unread" && !c.unread) return false;
+        if (folder === "starred" && !checkStarred(c.id)) return false;
+        if (folder === "unassigned" && !isUnassigned(c.id)) return false;
+        if (folder === "assigned" && !isAssignedToMe(c.id)) return false;
+        if (folder === "mentions" && !hasMention(c.id)) return false;
+        if (folder === "archived" && !isArchived(c.id)) return false;
+        if (folder !== "archived" && isArchived(c.id)) return false;
+        if (search && !c.contactName.toLowerCase().includes(search.toLowerCase()) && !c.preview.toLowerCase().includes(search.toLowerCase())) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        // Contacts (sb-) first, voice calls second, local last — then by recency within each group
+        const tier = (id: string) => id.startsWith("sb-") ? 0 : id.startsWith("voice-") ? 1 : 2;
+        const td = tier(a.id) - tier(b.id);
+        if (td !== 0) return td;
+        return new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime();
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folder, channelFilter, search, starredIds, allConversations]);
 
@@ -268,20 +288,62 @@ function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allConversations, starredIds]);
 
-  const active = conversations.find((c) => c.id === activeId) ?? conversations[0];
+  // Prefer a non-voice conversation as the auto-selected default so email/SMS always has a contact with an address
+  const active = conversations.find((c) => c.id === activeId)
+    ?? conversations.find((c) => !c.id.startsWith("voice-"))
+    ?? conversations[0];
   const thread: LocalMessage[] = active
     ? [
         ...(allMessages.filter((m) => m.conversationId === active.id) as LocalMessage[]),
         ...localMessages.filter((m) => m.conversationId === active.id),
       ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
     : [];
-  const sbContact = active ? supabaseContactMap.get(active.contactId) : undefined;
+  const resolvedStoreContact = active ? (storeContactMap.get(active.contactId) ?? null) : null;
   const contact = active
-    ? (sbContact
-        ? { name: sbContact.name, email: sbContact.email, phone: sbContact.phone, tags: [] as string[] }
-        : mockContacts.find((c) => c.id === active.contactId))
+    ? (resolvedStoreContact
+        ? { name: resolvedStoreContact.name, email: resolvedStoreContact.email, phone: resolvedStoreContact.phone, tags: resolvedStoreContact.tags, owner: resolvedStoreContact.owner }
+        : mockContacts.find((c) => c.id === active.contactId)
+          ?? { name: active.contactName, email: "", phone: active.callerPhone ?? "", tags: [], owner: "" })
     : undefined;
   const contactProjects = contact ? mockProjects.filter((p) => p.client === contact.name) : [];
+
+  // Real activity timeline for the selected contact
+  const { items: contactActivity } = useContactActivity(active?.contactId ?? null);
+
+  // Real projects + lifetime value from Supabase for sidebar
+  const [sbProjects, setSbProjects] = useState<{ id: string; name: string; status: string; budget_total: number; completion_percentage: number }[]>([]);
+  const [sbInvoiceTotal, setSbInvoiceTotal] = useState(0);
+  const [sbInvoiceCount, setSbInvoiceCount] = useState(0);
+  useEffect(() => {
+    const contactId = active?.contactId;
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!contactId || !UUID_RE.test(contactId)) { setSbProjects([]); setSbInvoiceTotal(0); setSbInvoiceCount(0); return; }
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+      const orgId = profile?.organization_id;
+      if (!orgId || cancelled) return;
+
+      const { data: projs } = await supabase
+        .from("projects")
+        .select("id, name, status, budget_total, completion_percentage")
+        .eq("client_id", contactId).eq("org_id", orgId)
+        .order("created_at", { ascending: false });
+
+      const projectIds = ((projs as any[]) ?? []).map((p: any) => p.id);
+      const { data: invs } = projectIds.length > 0
+        ? await supabase.from("invoices").select("total_amount, status").in("project_id", projectIds)
+        : { data: [] as any[] };
+      if (cancelled) return;
+      setSbProjects((projs ?? []) as any);
+      const paid = (invs ?? []).filter((i: any) => i.status === "paid");
+      setSbInvoiceTotal(paid.reduce((s: number, i: any) => s + (i.total_amount ?? 0), 0));
+      setSbInvoiceCount((invs ?? []).length);
+    })();
+    return () => { cancelled = true; };
+  }, [active?.contactId]);
 
   const mergeCtx: MergeContext = useMemo(() => {
     const firstProject = contactProjects[0];
@@ -295,8 +357,8 @@ function InboxPage() {
       last_name,
       project_address: firstProject?.address ?? "your project address",
       project_type: firstProject?.type ?? "renovation",
-      owner_name: "Alex Rivera",
-      company_name: "Rivera Construction",
+      owner_name: currentUserName || "Your Name",
+      company_name: org.companyName || "Your Company",
       estimate_total: total ? fmtMoney(total) : "$—",
       deposit_amount: total ? fmtMoney(Math.round(total * 0.5)) : "$—",
       deposit_due: "Friday",
@@ -304,7 +366,7 @@ function InboxPage() {
         ? new Date(firstProject.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
         : "next Monday",
     };
-  }, [contact, contactProjects]);
+  }, [contact, contactProjects, currentUserName, org.companyName]);
 
   // ── Send handler ──────────────────────────────────────────────────────────
   const handleSend = async () => {
@@ -329,12 +391,20 @@ function InboxPage() {
     }
 
     const to = composeChannel === "sms" ? contact?.phone : contact?.email;
-    if (!to) { toast.error("No contact address found"); return; }
+    if (!to) {
+      const missing = composeChannel === "sms" ? "phone number" : "email address";
+      toast.error(`${active.contactName} has no ${missing} on file`);
+      return;
+    }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/.netlify/functions/send-inbox-message", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           channel: composeChannel,
           to,
@@ -1027,47 +1097,44 @@ function InboxPage() {
                 </div>
               </div>
 
-              <ContextSection title="Assignment">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback className="bg-emerald-100 text-[9px] font-semibold text-emerald-700">AR</AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs font-medium">Alex Rivera</span>
+              {contact.owner && contact.owner !== "—" && (
+                <ContextSection title="Assignment">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="bg-primary-soft text-[9px] font-semibold text-primary">
+                          {initials(contact.owner)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium">{contact.owner}</span>
+                    </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]">Reassign</Button>
-                </div>
-              </ContextSection>
+                </ContextSection>
+              )}
 
-              <ContextSection title="Tags">
-                <div className="flex flex-wrap gap-1">
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">VIP</Badge>
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">Kitchen</Badge>
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">Repeat</Badge>
-                  <Button variant="ghost" size="sm" className="h-5 px-1 text-[10px] text-muted-foreground">
-                    <Tag className="mr-0.5 h-2.5 w-2.5" /> Add
-                  </Button>
-                </div>
-              </ContextSection>
+              {contact.tags && contact.tags.length > 0 && (
+                <ContextSection title="Tags">
+                  <div className="flex flex-wrap gap-1">
+                    {contact.tags.map((t) => (
+                      <Badge key={t} variant="outline" className="h-5 px-1.5 text-[10px]">{t}</Badge>
+                    ))}
+                  </div>
+                </ContextSection>
+              )}
 
-              <ContextSection title={`Active Projects (${contactProjects.length})`}>
-                {contactProjects.length === 0 ? (
+              <ContextSection title={`Active Projects (${sbProjects.length})`}>
+                {sbProjects.length === 0 ? (
                   <div className="text-[11px] text-muted-foreground">No active projects</div>
                 ) : (
                   <div className="space-y-1.5">
-                    {contactProjects.slice(0, 3).map((p) => (
-                      <Link
-                        key={p.id}
-                        to="/projects/$clientSlug"
-                        params={{ clientSlug: p.slug }}
-                        className="flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5 hover:border-primary/40"
-                      >
+                    {sbProjects.slice(0, 3).map((p) => (
+                      <div key={p.id} className="flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5">
                         <div className="min-w-0">
                           <div className="truncate text-[11px] font-medium">{p.name}</div>
-                          <div className="text-[10px] text-muted-foreground capitalize">{p.stage.replace("-", " ")}</div>
+                          <div className="text-[10px] text-muted-foreground capitalize">{p.status.replace(/_/g, " ")}</div>
                         </div>
-                        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      </Link>
+                        <div className="text-[10px] text-muted-foreground tabular-nums">{p.completion_percentage}%</div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -1075,36 +1142,33 @@ function InboxPage() {
 
               <ContextSection title="Lifetime Value">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-semibold tabular-nums">${contactProjects.reduce((s, p) => s + (p.contractValue || 0), 0).toLocaleString()}</span>
-                  <span className="text-[10px] text-emerald-600">+12% YoY</span>
+                  <span className="text-lg font-semibold tabular-nums">
+                    ${sbInvoiceTotal.toLocaleString()}
+                  </span>
                 </div>
-                <div className="mt-1 text-[10px] text-muted-foreground">{contactProjects.length} projects · 3 invoices</div>
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  {sbProjects.length} project{sbProjects.length !== 1 ? "s" : ""} · {sbInvoiceCount} invoice{sbInvoiceCount !== 1 ? "s" : ""}
+                </div>
               </ContextSection>
 
               <ContextSection title="Recent Activity">
-                <ul className="space-y-2 text-[11px]">
-                  <li className="flex gap-2">
-                    <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />
-                    <div>
-                      <div className="font-medium">Invoice INV-7842 paid</div>
-                      <div className="text-muted-foreground">2d ago · $12,400</div>
-                    </div>
-                  </li>
-                  <li className="flex gap-2">
-                    <Mail className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-                    <div>
-                      <div className="font-medium">Estimate EST-4218 sent</div>
-                      <div className="text-muted-foreground">5d ago</div>
-                    </div>
-                  </li>
-                  <li className="flex gap-2">
-                    <PhoneCall className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-                    <div>
-                      <div className="font-medium">Outbound call · 8m 12s</div>
-                      <div className="text-muted-foreground">1w ago</div>
-                    </div>
-                  </li>
-                </ul>
+                {contactActivity.length === 0 ? (
+                  <div className="text-[11px] text-muted-foreground">No activity yet</div>
+                ) : (
+                  <ul className="space-y-2 text-[11px]">
+                    {contactActivity.slice(0, 5).map((item) => (
+                      <li key={item.id} className="flex gap-2">
+                        <div className="mt-0.5 h-3 w-3 shrink-0 rounded-full bg-muted-foreground/30" />
+                        <div>
+                          <div className="font-medium">{item.title}</div>
+                          <div className="text-muted-foreground">
+                            {new Date(item.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </ContextSection>
             </div>
           ) : (
@@ -1272,7 +1336,7 @@ function ConversationRow({ conv, active, starred, onClick }: { conv: Conversatio
           )}
         </div>
       </div>
-      {conv.unread && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+      {active && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />}
     </button>
   );
 }
@@ -1355,12 +1419,43 @@ function NewConversationSheet({
   onSelect: (c: { id: string; name: string }) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [sbList, setSbList] = useState<{ id: string; name: string; email: string; phone: string }[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+      const orgId = profile?.organization_id;
+      if (!orgId || cancelled) return;
+      const { data } = await supabase
+        .from("contacts")
+        .select("id, full_name, email, phone")
+        .eq("org_id", orgId)
+        .order("full_name", { ascending: true })
+        .limit(500);
+      if (!data || cancelled) return;
+      setSbList(data.map((c: any) => ({
+        id: c.id,
+        name: c.full_name ?? "Unknown",
+        email: c.email ?? "",
+        phone: c.phone ?? "",
+      })));
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
   const contacts = useMemo(() => {
     const q = query.toLowerCase();
-    return mockContacts
+    const source = sbList.length > 0
+      ? sbList
+      : mockContacts.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone }));
+    return source
       .filter((c) => !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q))
-      .slice(0, 20);
-  }, [query]);
+      .slice(0, 100);
+  }, [query, sbList]);
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>

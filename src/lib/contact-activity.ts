@@ -39,6 +39,8 @@ function formatDuration(sec: number | null): string {
   return ` · ${m} min`;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useContactActivity(contactId: string | null): {
   items: ActivityItem[];
   loading: boolean;
@@ -47,7 +49,7 @@ export function useContactActivity(contactId: string | null): {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!contactId) {
+    if (!contactId || !UUID_RE.test(contactId)) {
       setItems([]);
       setLoading(false);
       return;
@@ -160,6 +162,29 @@ export function useContactActivity(contactId: string | null): {
             body: `${a.service || "Consultation"} — ${dateStr}`,
             at: a.created_at,
             by: a.source || "—",
+          });
+        }
+      }
+
+      // ── Estimates (client_id is the FK to contacts) ──
+      const { data: estimates } = await supabase
+        .from("estimates")
+        .select("id, title, number, status, total, created_at")
+        .eq("client_id", contactId)
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (estimates) {
+        for (const e of estimates as any[]) {
+          const amount = e.total ? ` · $${Number(e.total).toLocaleString()}` : "";
+          activity.push({
+            id: `est-${e.id}`,
+            kind: "invoice" as ActivityKind,
+            title: `Estimate ${e.status || "created"}`,
+            body: `${e.title || e.number || "Estimate"}${amount}`,
+            at: e.created_at,
+            by: "System",
           });
         }
       }

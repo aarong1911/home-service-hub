@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/settings/integrations")({
   component: IntegrationsSettings,
@@ -31,6 +32,26 @@ function IntegrationsSettings() {
   const [selected, setSelected] = useState<Integration | null>(null);
   const [integrations, setIntegrations] = useState<Integration[]>(INTEGRATIONS);
   const [disconnectTarget, setDisconnectTarget] = useState<Integration | null>(null);
+
+  // Load real connection status from org's integration_settings
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+      const orgId = profile?.organization_id;
+      if (!orgId) return;
+      const { data: org } = await supabase.from("organizations").select("integration_settings").eq("id", orgId).maybeSingle();
+      const settings: Record<string, any> = org?.integration_settings ?? {};
+      setIntegrations((prev) =>
+        prev.map((i) => {
+          const key = i.id.replace(/-/g, "_");
+          const saved = settings[key];
+          return { ...i, connected: !!saved && typeof saved === "object" && Object.keys(saved).length > 0 };
+        })
+      );
+    })();
+  }, []);
 
   const filtered = useMemo(() => {
     return integrations.filter((i) => {
@@ -215,6 +236,10 @@ function IntegrationsSettings() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onConnect={handleConnect}
+        onDisconnect={(integration) => {
+          updateConnectionStatus(integration.id, false);
+          setDrawerOpen(false);
+        }}
       />
 
       <AlertDialog open={!!disconnectTarget} onOpenChange={(open) => !open && setDisconnectTarget(null)}>

@@ -1240,7 +1240,7 @@ function ProjectsPage() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
+    <div className="-mb-6 flex h-[calc(100vh-5rem)] flex-col overflow-hidden">
       <PageHeader title="Projects" subtitle={`${counts.active} active · ${formatMoney(kpis.pipelineValue)} pipeline`}
         breadcrumb={["Workspace", "Projects"]}
         actions={<>

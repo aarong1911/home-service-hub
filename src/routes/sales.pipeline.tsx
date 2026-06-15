@@ -11,10 +11,11 @@ import {
   Plus, Search, ChevronDown, LayoutGrid, List as ListIcon, AlertTriangle,
   DollarSign, TrendingUp, Target, Clock, SlidersHorizontal, Trophy, XCircle,
 } from "lucide-react";
-import { pipelineStages, type Deal, type LostReason } from "@/lib/mock-data";
-import { useDeals, updateDeal, addDeal as storeAddDeal, setDealsState } from "@/lib/deals-store";
+import { type Deal, type LostReason } from "@/lib/mock-data";
+import { useDeals, updateDeal, addDeal as storeAddDeal, deleteDeal, usePipelineStages, type AddDealInput } from "@/lib/deals-store";
 const LOST_REASONS_ALL: LostReason[] = ["Budget", "Timing", "Scope", "Competitor", "No response"];
-import { formatMoney, formatDateShort } from "@/lib/format";
+import { formatMoney, formatDateShort, formatPhone } from "@/lib/format";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { DealDetailDrawer } from "@/components/sales/deal-detail-drawer";
 import { STAGE_COLOR_CLASS, useActivePipelineId, usePipelines, setActivePipeline } from "@/lib/pipelines";
 import {
@@ -30,45 +31,87 @@ import { useTeam } from "@/lib/organization";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 
-type PipelineSearch = { dealId?: string };
+type PipelineSearch = {
+  dealId?: string;
+  addDeal?: string;
+  pName?: string;
+  pEmail?: string;
+  pPhone?: string;
+  pAddress?: string;
+};
 
 export const Route = createFileRoute("/sales/pipeline")({
   validateSearch: (raw: Record<string, unknown>): PipelineSearch => ({
-    dealId: typeof raw.dealId === "string" ? raw.dealId : undefined,
+    dealId:   typeof raw.dealId   === "string" ? raw.dealId   : undefined,
+    addDeal:  typeof raw.addDeal  === "string" ? raw.addDeal  : undefined,
+    pName:    typeof raw.pName    === "string" ? raw.pName    : undefined,
+    pEmail:   typeof raw.pEmail   === "string" ? raw.pEmail   : undefined,
+    pPhone:   typeof raw.pPhone   === "string" ? raw.pPhone   : undefined,
+    pAddress: typeof raw.pAddress === "string" ? raw.pAddress : undefined,
   }),
   component: PipelinePage,
 });
 
-const OWNER_FILTERS = ["All owners", "Alex Romero", "Priya Shah", "Jamal Burke", "Mei Lin", "Sara Holt"] as const;
-type OwnerFilter = (typeof OWNER_FILTERS)[number];
-
 const VALUE_FILTERS = ["Any value", "< $25k", "$25k–$75k", "> $75k"] as const;
 type ValueFilter = (typeof VALUE_FILTERS)[number];
 
+const CLOSE_FILTERS = ["Any date", "Overdue", "Next 30 days", "Next 60 days", "Next 90 days"] as const;
+type CloseFilter = (typeof CLOSE_FILTERS)[number];
+
 function PipelinePage() {
-  const { dealId } = useSearch({ from: "/sales/pipeline" });
+  const { dealId, addDeal: addDealParam, pName, pEmail, pPhone, pAddress } = useSearch({ from: "/sales/pipeline" });
   const navigate = useNavigate({ from: "/sales/pipeline" });
   const deals = useDeals();
   const [search, setSearch] = useState("");
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All owners");
+  const [ownerFilter, setOwnerFilter] = useState("all");
   const [valueFilter, setValueFilter] = useState<ValueFilter>("Any value");
+  const [stageFilter, setStageFilter] = useState("all");
+  const [closeFilter, setCloseFilter] = useState<CloseFilter>("Any date");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<Deal | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const teamMembers = useTeam();
-  const [newDeal, setNewDeal] = useState({ name: "", contactName: "", value: "", owner: "", stage: "", address: "", phone: "", email: "" });
+  const [newDeal, setNewDeal] = useState({ name: "", contactName: "", value: "", ownerId: "", stage: "", address: "", phone: "", email: "" });
+
+  // Open add-deal modal pre-filled when redirected from Contact drawer
+  useEffect(() => {
+    if (!addDealParam) return;
+    setNewDeal((d) => ({
+      ...d,
+      contactName: pName ?? "",
+      email: pEmail ?? "",
+      phone: pPhone ?? "",
+      address: pAddress ?? "",
+    }));
+    setAddOpen(true);
+    navigate({ search: (s) => ({ ...s, addDeal: undefined, pName: undefined, pEmail: undefined, pPhone: undefined, pAddress: undefined }), replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pipelines = usePipelines();
   const activeId = useActivePipelineId();
+  const dbStages = usePipelineStages();
   const activePipeline = useMemo(
     () => pipelines.find((p) => p.id === activeId) ?? null,
     [pipelines, activeId],
   );
   // Stages displayed on the board: active pipeline stages + terminal Won/Lost.
+  // When no custom pipeline is active, use the Supabase-loaded stages so the
+  // stage IDs (slugs) always match stageSlugToUuid in deals-store.
   const boardStages = useMemo(() => {
     if (!activePipeline) {
-      return pipelineStages.map((s) => ({ id: s.id, name: s.name, colorClass: stageColor(s.id) }));
+      const base = dbStages.filter((s) => s.id !== "won" && s.id !== "lost");
+      return [
+        ...base.map((s) => ({ id: s.id, name: s.name, colorClass: stageColor(s.id) })),
+        { id: "won",  name: "Won",  colorClass: "bg-success" },
+        { id: "lost", name: "Lost", colorClass: "bg-destructive" },
+      ];
     }
     const custom = activePipeline.stages.map((s) => ({
       id: s.id,
@@ -80,13 +123,13 @@ function PipelinePage() {
       { id: "won", name: "Won", colorClass: "bg-success" },
       { id: "lost", name: "Lost", colorClass: "bg-destructive" },
     ];
-  }, [activePipeline]);
+  }, [activePipeline, dbStages]);
   const stageNameById = useMemo(() => {
     const map: Record<string, string> = {};
     boardStages.forEach((s) => { map[s.id] = s.name; });
-    pipelineStages.forEach((s) => { if (!map[s.id]) map[s.id] = s.name; });
+    dbStages.forEach((s) => { if (!map[s.id]) map[s.id] = s.name; });
     return map;
-  }, [boardStages]);
+  }, [boardStages, dbStages]);
 
   // Deep-link: open the matching deal drawer when ?dealId=... is present.
   useEffect(() => {
@@ -100,39 +143,61 @@ function PipelinePage() {
   }, [dealId, deals]);
 
   const handleStageChange = (id: string, newStage: string) => {
-    updateDeal(id, { stage: newStage, lostReason: undefined, lostAt: undefined });
+    updateDeal(id, { stage: newStage, lostReason: undefined, lostAt: undefined }).catch(() => {
+      toast.error("Failed to update deal stage. Please try again.");
+    });
   };
 
   const handleMarkLost = (id: string, reason: LostReason, _notes: string) => {
-    updateDeal(id, { stage: "lost", lostReason: reason, lostAt: new Date().toISOString() });
+    updateDeal(id, { stage: "lost", lostReason: reason, lostAt: new Date().toISOString() }).catch(() => {
+      toast.error("Failed to mark deal as lost. Please try again.");
+    });
   };
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-    updateDeal(draggableId, { stage: destination.droppableId });
+    updateDeal(draggableId, { stage: destination.droppableId }).catch(() => {
+      toast.error("Failed to move deal. Please try again.");
+    });
   };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     const knownStageIds = new Set(boardStages.map((s) => s.id));
     const firstStageId = boardStages[0]?.id;
+    const now = Date.now();
     return deals.map((d) => {
-      // Normalize deals whose stage doesn't match any board column into the first stage
       if (d.stage !== "won" && d.stage !== "lost" && !knownStageIds.has(d.stage) && firstStageId) {
         return { ...d, stage: firstStageId };
       }
       return d;
     }).filter((d) => {
-      if (ownerFilter !== "All owners" && d.owner !== ownerFilter) return false;
+      // Owner filter — match by ownerId (UUID) when available, fall back to name string
+      if (ownerFilter !== "all") {
+        const matchById = d.ownerId === ownerFilter;
+        const matchByName = d.owner === ownerFilter;
+        if (!matchById && !matchByName) return false;
+      }
+      // Value filter
       if (valueFilter === "< $25k" && d.value >= 25000) return false;
       if (valueFilter === "$25k–$75k" && (d.value < 25000 || d.value > 75000)) return false;
       if (valueFilter === "> $75k" && d.value <= 75000) return false;
+      // Stage filter (More popover)
+      if (stageFilter !== "all" && d.stage !== stageFilter) return false;
+      // Close date filter (More popover)
+      if (closeFilter !== "Any date" && d.expectedClose) {
+        const closeMs = new Date(d.expectedClose).getTime();
+        if (closeFilter === "Overdue" && closeMs >= now) return false;
+        if (closeFilter === "Next 30 days" && (closeMs < now || closeMs > now + 30 * 86400000)) return false;
+        if (closeFilter === "Next 60 days" && (closeMs < now || closeMs > now + 60 * 86400000)) return false;
+        if (closeFilter === "Next 90 days" && (closeMs < now || closeMs > now + 90 * 86400000)) return false;
+      }
       if (!q) return true;
       return d.name.toLowerCase().includes(q) || d.contactName.toLowerCase().includes(q);
     });
-  }, [deals, search, ownerFilter, valueFilter, boardStages]);
+  }, [deals, search, ownerFilter, valueFilter, stageFilter, closeFilter, boardStages]);
 
   const stats = useMemo(() => {
     const open = filtered.filter((d) => d.stage !== "won" && d.stage !== "lost");
@@ -150,17 +215,28 @@ function PipelinePage() {
   }, [filtered]);
 
   const lostBreakdown = useMemo(() => {
-    const lost = filtered.filter((d) => d.stage === "lost" && d.lostReason);
+    const allLost = filtered.filter((d) => d.stage === "lost");
+    const withReason = allLost.filter((d) => d.lostReason);
     const totals = LOST_REASONS_ALL.map((reason) => {
-      const items = lost.filter((d) => d.lostReason === reason);
+      const items = withReason.filter((d) => d.lostReason === reason);
       return { reason, count: items.length, value: items.reduce((s, d) => s + d.value, 0) };
     });
     const max = Math.max(1, ...totals.map((t) => t.count));
-    return { totals, max, totalLost: lost.length };
+    return { totals, max, totalLost: withReason.length, totalLostAny: allLost.length };
   }, [filtered]);
 
+  const activeOwnerName = useMemo(() => {
+    if (ownerFilter === "all") return null;
+    return teamMembers.find((m) => m.id === ownerFilter)?.name ?? null;
+  }, [ownerFilter, teamMembers]);
+
+  const activeFilterCount = [
+    stageFilter !== "all",
+    closeFilter !== "Any date",
+  ].filter(Boolean).length;
+
   return (
-    <>
+    <div className="-mb-6 flex h-[calc(100vh-5rem)] flex-col overflow-hidden">
       <PageHeader
         title="Sales Pipeline"
         subtitle="Track deals from first touch to won."
@@ -228,14 +304,18 @@ function PipelinePage() {
             <div>
               <div className="text-sm font-semibold">Lost reasons</div>
               <div className="text-[11px] text-muted-foreground">
-                {lostBreakdown.totalLost === 0
+                {lostBreakdown.totalLostAny === 0
                   ? "No lost deals yet"
-                  : `${lostBreakdown.totalLost} lost · ${formatMoney(stats.lostValue)} in value`}
+                  : `${lostBreakdown.totalLostAny} lost · ${formatMoney(stats.lostValue)} in value`}
               </div>
             </div>
           </div>
         </div>
-        {lostBreakdown.totalLost === 0 ? (
+        {lostBreakdown.totalLostAny === 0 ? (
+          <div className="py-4 text-center text-[11px] text-muted-foreground">
+            No lost deals yet.
+          </div>
+        ) : lostBreakdown.totalLost === 0 ? (
           <div className="py-4 text-center text-[11px] text-muted-foreground">
             Mark a deal as lost with a reason to see breakdown insights here.
           </div>
@@ -265,9 +345,9 @@ function PipelinePage() {
       </Card>
 
       {/* Filters */}
-      <Card className="mb-3 p-2.5">
+      <Card className="mb-3 shrink-0 p-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[260px] flex-1">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search deals or contacts…"
@@ -276,39 +356,82 @@ function PipelinePage() {
               className="h-8 pl-8 text-sm"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {OWNER_FILTERS.map((o) => (
-              <FilterChip key={o} active={ownerFilter === o} onClick={() => setOwnerFilter(o)}>
-                {o}
-              </FilterChip>
-            ))}
-          </div>
-          <div className="mx-1 h-5 w-px bg-border" />
-          <div className="flex flex-wrap items-center gap-1.5">
+          {/* Owner — real team members */}
+          <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+            <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs">
+              <SelectValue placeholder="All owners">
+                {ownerFilter === "all" ? "All owners" : (activeOwnerName ?? "Owner")}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All owners</SelectItem>
+              {teamMembers.filter((m) => m.status === "active").map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="mx-0.5 h-5 w-px bg-border" />
+          {/* Value chips */}
+          <div className="flex items-center gap-1">
             {VALUE_FILTERS.map((v) => (
               <FilterChip key={v} active={valueFilter === v} onClick={() => setValueFilter(v)}>
                 {v}
               </FilterChip>
             ))}
           </div>
-          <Button variant="outline" size="sm" className="h-8">
-            <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" /> More
-          </Button>
+          {/* More filters popover */}
+          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                More
+                {activeFilterCount > 0 && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 space-y-4 p-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Stage</Label>
+                <Select value={stageFilter} onValueChange={setStageFilter}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All stages</SelectItem>
+                    {boardStages.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Expected close</Label>
+                <Select value={closeFilter} onValueChange={(v) => setCloseFilter(v as CloseFilter)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CLOSE_FILTERS.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-7 w-full text-xs text-muted-foreground" onClick={() => {
+                  setStageFilter("all");
+                  setCloseFilter("Any date");
+                  setMoreOpen(false);
+                }}>
+                  Clear filters
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
           <div className="ml-auto flex h-8 items-center rounded-md border border-border bg-card p-0.5">
-            <Button
-              size="sm"
-              variant={view === "board" ? "secondary" : "ghost"}
-              className="h-7 px-2"
-              onClick={() => setView("board")}
-            >
+            <Button size="sm" variant={view === "board" ? "secondary" : "ghost"} className="h-7 px-2" onClick={() => setView("board")}>
               <LayoutGrid className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              size="sm"
-              variant={view === "list" ? "secondary" : "ghost"}
-              className="h-7 px-2"
-              onClick={() => setView("list")}
-            >
+            <Button size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 px-2" onClick={() => setView("list")}>
               <ListIcon className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -317,13 +440,13 @@ function PipelinePage() {
 
       {view === "board" ? (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="-mx-6 h-[calc(100vh-22rem)] overflow-x-auto overflow-y-hidden px-6 pb-3">
+          <div className="-mx-6 flex-1 min-h-0 overflow-auto px-6 pb-6">
             <div className="flex h-full min-w-max gap-3">
               {boardStages.map((stage) => {
                 const stageDeals = filtered.filter((d) => d.stage === stage.id);
                 const stageTotal = stageDeals.reduce((s, d) => s + d.value, 0);
                 return (
-                  <div key={stage.id} className="flex h-full w-[300px] shrink-0 flex-col">
+                  <div key={stage.id} className="flex w-[300px] shrink-0 flex-col">
                     <div className="mb-2 flex items-center justify-between px-1">
                       <div className="flex items-center gap-2">
                         <div className={`h-1.5 w-1.5 rounded-full ${stage.colorClass}`} />
@@ -340,7 +463,7 @@ function PipelinePage() {
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border border-dashed p-2 transition-colors ${
+                          className={`flex min-h-24 flex-col gap-2 rounded-lg border border-dashed p-2 transition-colors ${
                             snapshot.isDraggingOver ? "border-primary/40 bg-primary-soft/40" : "border-border bg-secondary/30"
                           }`}
                         >
@@ -419,8 +542,8 @@ function PipelinePage() {
           </div>
         </DragDropContext>
       ) : (
-        <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
+        <Card className="flex-1 min-h-0 overflow-hidden p-0">
+          <div className="h-full overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-secondary/60 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 <tr className="border-b border-border">
@@ -465,14 +588,26 @@ function PipelinePage() {
         onStageChange={handleStageChange}
         onMarkLost={handleMarkLost}
         onDealUpdate={(dealId, patch) => {
-          updateDeal(dealId, patch);
+          updateDeal(dealId, patch).catch(() => {
+            toast.error("Failed to save changes. Please try again.");
+          });
+        }}
+        onDelete={(dealId) => {
+          deleteDeal(dealId).catch(() => {
+            toast.error("Failed to delete deal. Please try again.");
+          });
+          navigate({ search: { dealId: undefined }, replace: true });
+          toast.success("Deal deleted");
         }}
         stages={boardStages}
         teamMembers={teamMembers.map((m) => ({ id: m.id, name: m.name }))}
       />
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+        <DialogContent onInteractOutside={(e) => {
+          const target = ((e as CustomEvent).detail?.originalEvent?.target ?? e.target) as HTMLElement | null;
+          if (target?.closest?.(".pac-container")) e.preventDefault();
+        }}>
           <DialogHeader>
             <DialogTitle>Add Deal</DialogTitle>
           </DialogHeader>
@@ -492,12 +627,22 @@ function PipelinePage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Phone</Label>
-                <Input type="tel" value={newDeal.phone} onChange={(e) => setNewDeal((d) => ({ ...d, phone: e.target.value }))} placeholder="(555) 123-4567" />
+                <Input type="tel" value={newDeal.phone} onChange={(e) => setNewDeal((d) => ({ ...d, phone: formatPhone(e.target.value) }))} placeholder="(555) 123-4567" inputMode="tel" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Address</Label>
-              <Input value={newDeal.address} onChange={(e) => setNewDeal((d) => ({ ...d, address: e.target.value }))} placeholder="123 Main St, City, ST" />
+              <AddressAutocomplete
+                value={newDeal.address}
+                onChange={(v) => setNewDeal((d) => ({ ...d, address: v }))}
+                onSelect={(parts) =>
+                  setNewDeal((d) => ({
+                    ...d,
+                    address: [parts.street, parts.city, `${parts.state} ${parts.zip}`].filter(Boolean).join(", "),
+                  }))
+                }
+                placeholder="123 Main St, City, ST"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Value ($)</Label>
@@ -518,50 +663,55 @@ function PipelinePage() {
             </div>
             <div className="space-y-1.5">
               <Label>Owner</Label>
-              <Select value={newDeal.owner} onValueChange={(v) => setNewDeal((d) => ({ ...d, owner: v }))}>
+              <Select value={newDeal.ownerId} onValueChange={(v) => setNewDeal((d) => ({ ...d, ownerId: v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teamMembers.map((m) => (
-                    <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                  {teamMembers.filter((m) => m.status === "active").map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={creating}>Cancel</Button>
             <Button
-              disabled={!newDeal.name.trim()}
-              onClick={() => {
-                const selectedStage = newDeal.stage || boardStages[0]?.id || "new";
-                const ownerName = newDeal.owner || teamMembers[0]?.name || "Unassigned";
-                const initials = ownerName.split(" ").map((w) => w[0]).join("");
-                const deal: Deal = {
-                  id: Math.random().toString(36).slice(2, 10),
+              disabled={!newDeal.name.trim() || creating}
+              onClick={async () => {
+                const ownerMember = teamMembers.find((m) => m.id === newDeal.ownerId)
+                  ?? teamMembers.find((m) => m.status === "active");
+                const input: AddDealInput = {
                   name: newDeal.name.trim(),
-                  contactId: Math.random().toString(36).slice(2, 10),
-                  contactName: newDeal.contactName.trim() || "Unknown",
+                  contactName: newDeal.contactName.trim(),
+                  email: newDeal.email.trim(),
+                  phone: newDeal.phone.trim(),
+                  address: newDeal.address.trim(),
                   value: Number(newDeal.value) || 0,
-                  stage: selectedStage,
-                  expectedClose: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
-                  owner: ownerName,
-                  ownerInitials: initials,
-                  ageDays: 0,
+                  stage: newDeal.stage || boardStages[0]?.id || "new",
+                  ownerId: ownerMember?.id ?? "",
+                  ownerName: ownerMember?.name ?? "Unassigned",
                 };
-                storeAddDeal(deal);
-                setNewDeal({ name: "", contactName: "", value: "", owner: "", stage: "", address: "", phone: "", email: "" });
-                setAddOpen(false);
-                toast.success(`Deal "${deal.name}" created`);
+                setCreating(true);
+                try {
+                  await storeAddDeal(input);
+                  setNewDeal({ name: "", contactName: "", value: "", ownerId: "", stage: "", address: "", phone: "", email: "" });
+                  setAddOpen(false);
+                  toast.success(`Deal "${input.name}" created`);
+                } catch {
+                  toast.error("Failed to create deal. Please try again.");
+                } finally {
+                  setCreating(false);
+                }
               }}
             >
-              Create Deal
+              {creating ? "Creating…" : "Create Deal"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
 
