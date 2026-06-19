@@ -67,6 +67,7 @@ function IntegrationsSettings() {
         "fb-messenger": "messenger",
         "instagram-direct": "instagram",
         "meta-lead-ads": "lead_ads",
+        "meta-ads": "ads",
       };
 
       setIntegrations((prev) =>
