@@ -179,13 +179,15 @@ useEffect(() => {
 }, []);
 ```
 
-### `state` param — CSRF protection + org binding
+### `state` param — CSRF protection + org binding + user binding
 
-`meta-oauth-start.ts` must sign `orgId` + a random nonce into `state`
-(HMAC with `ENCRYPTION_KEY` or a dedicated secret) so `meta-oauth-callback.ts`
-can verify the callback wasn't forged and knows which org to attach the
-connection to (the callback has no other session context — it's a top-level
-navigation inside a popup, not an authenticated fetch from the app).
+`meta-oauth-start.ts` must sign `orgId`, `userId`, and a random nonce into
+`state` (HMAC with `ENCRYPTION_KEY` or a dedicated secret) so
+`meta-oauth-callback.ts` can verify the callback wasn't forged and knows
+which org/user to attach the connection to (the callback has no other
+session context — it's a top-level navigation inside a popup, not an
+authenticated fetch from the app). `userId` is required, not optional —
+`meta_connections.user_id` is `NOT NULL` in the real table.
 
 ### Calling the Graph API after token exchange
 
@@ -280,6 +282,7 @@ META_OAUTH_STATE_SECRET    # or reuse ENCRYPTION_KEY for HMAC signing of `state`
 | `meta-webhook.ts` org lookup | Migrate from `integration_settings` JSONB to `meta_connections.waba_id` |
 | RLS on `meta_connections` | Must explicitly `ENABLE ROW LEVEL SECURITY` — writing policies isn't enough |
 | **Assuming a clean schema** | `meta_connections` already existed from an earlier Meta Ads build with real columns `meta_user_id`/`ad_account_id`/plaintext `access_token` (text) — **always re-run the `information_schema.columns` query before writing migrations or code against this table**, don't trust this doc's column list without verifying |
+| **`user_id` is `NOT NULL`** | The real table has a `user_id` column (the Supabase auth user who connected it, separate from `meta_user_id` which is the Facebook profile id) that is `NOT NULL` with no default. The OAuth callback has no Authorization header (it's a top-level browser redirect, not a fetch), so `userId` must be passed as a query param to `meta-oauth-start.ts` and signed into `state` alongside `orgId`, then read back out in `meta-oauth-callback.ts` and included in the upsert. Forgetting this causes the upsert to fail with a NOT NULL violation, surfaced to the user as a generic "Could not save the connection" toast. |
 | Token storage | `text` column, `"enc:"`-prefixed base64 for new writes, legacy plaintext rows have no prefix — handle both on read |
 | Deleting on disconnect | Never blind-delete the row on full disconnect — check `ad_account_id` first; an unrelated Ads connection can live on the same row |
 | Popup blocked by browser | Must call `window.open` synchronously inside the click handler, not after an awaited fetch |
