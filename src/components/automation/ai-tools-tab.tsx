@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import type { LucideIcon } from "lucide-react";
 import {
   useAICenterTools,
@@ -84,6 +85,47 @@ const CATEGORY_ACCENT: Record<ToolCategory, string> = {
 };
 
 type CategoryFilter = "all" | ToolCategory;
+
+// ── Create Ad Campaign — dedicated call, bypasses run-tool.mjs entirely ───────
+// This tool creates a real PAUSED campaign via the Meta Marketing API rather
+// than generating text with Claude, so it needs its own request shape and
+// its own Netlify function (meta-create-ad-campaign.ts) instead of the
+// generic Claude-prompt pipeline every other AI Tool goes through.
+
+async function runCreateAdCampaign(
+  values: Record<string, string>,
+): Promise<{ sections: Record<string, string>; error?: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { sections: {}, error: "Not authenticated" };
+
+  const dailyBudgetDollars = Number(values.daily_budget);
+  if (!values.name?.trim()) return { sections: {}, error: "Campaign name is required" };
+  if (!Number.isFinite(dailyBudgetDollars) || dailyBudgetDollars < 1) {
+    return { sections: {}, error: "Daily budget must be at least $1" };
+  }
+
+  const res = await fetch("/.netlify/functions/meta-create-ad-campaign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({
+      name: values.name.trim(),
+      dailyBudgetCents: Math.round(dailyBudgetDollars * 100),
+      objective: values.objective || "OUTCOME_TRAFFIC",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) return { sections: {}, error: data.error ?? "Campaign creation failed" };
+
+  return {
+    sections: {
+      Result: `Campaign created successfully in PAUSED status — no spend will occur until you activate it.`,
+      "Campaign ID": data.campaignId,
+      "Ad Set ID": data.adSetId ?? "Not created (campaign-only)",
+      "Ad Account": data.adAccountName ?? "—",
+      "Next step": "Open Meta Ads Manager to add creative and activate when ready.",
+    },
+  };
+}
 
 // ── Tab ───────────────────────────────────────────────────────────────────────
 
@@ -243,6 +285,16 @@ function ToolDrawerContent({ tool }: { tool: ToolDefinition }) {
     setRunning(true);
     setOutput(null);
     try {
+      if (tool.name === "Create Ad Campaign") {
+        const result = await runCreateAdCampaign(values);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        setOutput(result.sections);
+        return;
+      }
+
       const result = await runTool(tool.id, values);
       if (result.error) {
         toast.error(result.error);
