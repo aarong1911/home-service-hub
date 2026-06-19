@@ -1,4 +1,4 @@
-/// <reference types="node" />
+// netlify/functions/meta-webhook.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
@@ -91,18 +91,37 @@ async function processPayload(rawBody: string): Promise<void> {
         const receivedAt: string = new Date(parseInt(msg.timestamp, 10) * 1000).toISOString();
         const senderName: string = value.contacts?.[0]?.profile?.name ?? fromPhone;
 
-        // Find the org whose WhatsApp integration matches this WABA ID
-        const { data: orgs, error: orgErr } = await supabaseAdmin
-          .from("organizations")
-          .select("id")
-          .filter("integration_settings->whatsapp->>waba_id", "eq", wabaId);
+        // Find the org whose WhatsApp connection matches this WABA ID.
+        // Primary path: meta_connections (real OAuth flow, see
+        // .claude/skills/meta-integrations/SKILL.md). Falls back to the
+        // legacy organizations.integration_settings JSONB path so any
+        // connections made before the meta_connections migration still
+        // route correctly — remove the fallback once confirmed unused.
+        let orgId: string | undefined;
 
-        if (orgErr) {
-          console.error("[meta-webhook] org lookup error:", orgErr.message);
-          continue;
+        const { data: connRow, error: connErr } = await supabaseAdmin
+          .from("meta_connections")
+          .select("org_id")
+          .eq("waba_id", wabaId)
+          .maybeSingle();
+
+        if (connErr) {
+          console.error("[meta-webhook] meta_connections lookup error:", connErr.message);
+        }
+        orgId = connRow?.org_id;
+
+        if (!orgId) {
+          const { data: orgs, error: orgErr } = await supabaseAdmin
+            .from("organizations")
+            .select("id")
+            .filter("integration_settings->whatsapp->>waba_id", "eq", wabaId);
+
+          if (orgErr) {
+            console.error("[meta-webhook] legacy org lookup error:", orgErr.message);
+          }
+          orgId = orgs?.[0]?.id;
         }
 
-        const orgId: string | undefined = orgs?.[0]?.id;
         if (!orgId) {
           console.warn("[meta-webhook] no org found for waba_id:", wabaId);
           continue;
