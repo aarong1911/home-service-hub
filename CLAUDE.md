@@ -47,7 +47,9 @@ home-service-hub/
 ├── skills/
 │   ├── renometa-stack.skill
 │   ├── netlify-supabase-functions.skill
-│   └── tanstack-router-guards.skill
+│   ├── tanstack-router-guards.skill
+│   ├── ai-center.skill
+│   └── meta-integrations.skill
 ├── src/
 │   ├── routes/
 │   │   ├── __root.tsx              # Auth guard + RoleGuard + AppShell
@@ -109,15 +111,22 @@ home-service-hub/
 │   ├── vapi-webhook.ts             # Vapi Voice AI webhook (main)
 │   ├── vapi-proxy.ts               # Vapi API proxy + Supabase sync
 │   ├── assign-voice-number.ts      # Patch Vapi phone to serverUrl mode
-│   ├── gcal-sync.ts                # Google Calendar sync
-│   ├── gmail-sync.ts               # Gmail sync
-│   ├── ai-tool-run.mjs             # AI Tools runner (Claude API)
-│   ├── meta-oauth-start.ts         # Meta Ads OAuth
-│   ├── meta-oauth-callback.ts
-│   ├── generate-ad-variations.ts   # AI ad generation
-│   ├── trigger-create-draft.ts     # Make.com trigger
-│   └── trigger-publish-ad.ts
-└── public/
+│   ├── gcal-sync.ts                # Google Calendar sync (token decrypt pattern below)
+│   ├── gmail-sync.ts               # Gmail sync (same decrypt pattern)
+│   ├── run-tool.mjs                # AI Tools runner (Claude API)
+│   ├── run-agent.ts                # AI Agents runner
+│   ├── seed-definitions.ts         # Seeds agent/tool_definitions on first load
+│   ├── meta-webhook.ts             # WhatsApp inbound (Graph API webhook)
+│   ├── meta-oauth-start.ts         # Meta Login for Business — popup entry, signs state
+│   ├── meta-oauth-callback.ts      # Token exchange, profile/asset discovery, saves meta_connections
+│   ├── meta-connection-status.ts   # Read-only connection info for Settings UI
+│   ├── meta-disconnect.ts          # Removes a product (or whole row) from meta_connections
+│   ├── meta-send-whatsapp.ts       # Outbound WhatsApp send (pairs with meta-webhook.ts)
+│   └── meta-create-ad-campaign.ts  # Creates a real PAUSED campaign/ad set via Marketing API
+├── public/
+└── supabase/migrations/
+    ├── 002_meta_connections_extend.sql
+    └── 003_seed_create_ad_campaign_tool.sql
 ```
 
 ## Environment Variables
@@ -148,7 +157,12 @@ VITE_VAPI_PUBLIC_KEY        # Client-side for browser test calls
 
 # Integrations
 VITE_GOOGLE_PLACES_API_KEY
-ENCRYPTION_KEY              # AES-256-GCM key for OAuth token decryption
+ENCRYPTION_KEY              # AES-256-GCM key for OAuth token decryption (also used for Meta state-signing fallback)
+
+# Meta (Facebook/Instagram/WhatsApp) — see skills/meta-integrations.skill for full detail
+META_APP_ID
+META_APP_SECRET
+META_OAUTH_STATE_SECRET     # HMAC secret for OAuth state param — falls back to ENCRYPTION_KEY if unset
 ```
 
 ## Database — Key Tables
@@ -172,9 +186,19 @@ tasks
 voice_agents          — Vapi assistants (tenant_id = org_id)
 voice_calls           — call records (cost_usd raw, $0.35/min ceiling for display)
 voice_call_tools      — tool call records per call
-meta_connections      — Meta Ads OAuth tokens
+meta_connections      — Meta OAuth connections (predates this session — real columns are
+                        meta_user_id/meta_user_name/ad_account_id, NOT fb_user_id/business_id.
+                        access_token is `text`, historically PLAINTEXT; new writes are
+                        "enc:"-prefixed base64. user_id is NOT NULL. ALWAYS re-check
+                        information_schema.columns before assuming the schema — see
+                        skills/meta-integrations.skill)
 ad_drafts             — Ad campaign drafts
 member_permissions    — per-member action-level overrides (owner only)
+agent_definitions     — AI Center agent templates (seeded once, empty-table-only — see gotchas)
+agent_instances       — per-org enable/config state for each agent_definition
+agent_runs            — execution history per agent_instance
+tool_definitions      — AI Center one-off tools (seeded once, empty-table-only — see gotchas)
+tool_runs             — execution history per tool_definition
 ```
 
 ## Storage Buckets
@@ -250,6 +274,29 @@ function parseToken(raw: string): Buffer {
 // Then: hex → UTF-8 → base64-decode → raw Buffer → AES-256-GCM decrypt
 ```
 
+## Meta Integrations (WhatsApp/Messenger/Instagram/Lead Ads) — Quick Pointer
+
+Full detail in `skills/meta-integrations.skill` — read it before touching any
+`meta-*` function or `meta_connections`. Short version:
+
+```typescript
+// OAuth is a POPUP, not a full-page redirect — opened via window.open from
+// settings.integrations.tsx, closes itself via postMessage after
+// meta-oauth-callback.ts saves the connection.
+
+// meta_connections access_token is `text`, NOT bytea. New writes are
+// "enc:" + base64(iv||authTag||ciphertext). Old rows may be bare plaintext
+// with no prefix — always check for the prefix before decrypting:
+if (!stored.startsWith("enc:")) return stored; // legacy plaintext
+
+// user_id (NOT NULL) must be signed into the OAuth `state` param alongside
+// orgId — the callback has no Authorization header to read it from.
+```
+
+Marketing API Access Tier has a minimal real demo (`meta-create-ad-campaign.ts`,
+AI Center → AI Tools → "Create Ad Campaign") that creates a genuine PAUSED
+campaign/ad set — no spend, but real Marketing API usage for App Review.
+
 ## TanStack Router — Key Rules
 
 ```typescript
@@ -281,6 +328,10 @@ Select-String -Path "src/routes/*.tsx" -Pattern "createFileRoute.*as any"
 | `ENCRYPTION_KEY` env var | Required for gcal-sync and gmail-sync |
 | GCP Calendar API | Must be enabled in project `549459729443` |
 | pnpm only | Never npm install or yarn add |
+| `meta_connections` schema assumptions | Table pre-existed with real columns `meta_user_id`/`ad_account_id`, NOT a clean fb_user_id/business_id design — always verify via `information_schema.columns`, never trust a doc's column list blindly |
+| `meta_connections.user_id` NOT NULL | OAuth callback has no auth header — userId must be signed into the `state` param at start, or every connection save fails silently with a generic toast |
+| `meta_connections.access_token` format | `text` column, NOT bytea — new writes are `"enc:"`-prefixed base64; legacy rows may be bare plaintext with no prefix |
+| `tool_definitions`/`agent_definitions` seeding | `seedAiCenter()` only inserts on a COMPLETELY EMPTY table — adding a new tool/agent definition after initial seed needs a manual one-off SQL insert, it will NOT auto-appear |
 
 ## Related Projects
 
