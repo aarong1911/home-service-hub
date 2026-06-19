@@ -160,7 +160,44 @@ export const handler: Handler = async (event) => {
       console.warn("[meta-oauth-callback] permissions fetch failed:", e);
     }
 
-    // 5. Discover business + product-specific assets (best-effort)
+    // 5. Discover business + product-specific assets (best-effort).
+    //
+    // IMPORTANT: each OAuth run only re-discovers the fields relevant to the
+    // product being connected (e.g. connecting "meta-ads" doesn't touch
+    // WhatsApp's waba_id). Fetch the existing row FIRST and fall back to its
+    // values for every field below — otherwise connecting a second product
+    // would null out everything the first product already discovered, since
+    // this function upserts the whole row every time.
+    // Explicitly typed here because supabaseAdmin is created via createClient()
+    // with no <Database> generic anywhere in this codebase, so the Supabase
+    // client can't infer a row shape for .select() and TypeScript falls back
+    // to GenericStringError, which breaks property access below (e.g.
+    // existingRow.business_id). This cast is the fix, not a workaround —
+    // it'll keep being needed unless/until the project adopts a typed
+    // `createClient<Database>(...)` with real generated Supabase types.
+    interface ExistingMetaConnectionRow {
+      connected_products: string[] | null;
+      business_id: string | null;
+      business_name: string | null;
+      page_id: string | null;
+      page_name: string | null;
+      ig_actor_id: string | null;
+      ig_username: string | null;
+      waba_id: string | null;
+      waba_phone_number_id: string | null;
+      waba_display_phone: string | null;
+      ad_account_id: string | null;
+      ad_account_name: string | null;
+    }
+
+    const { data: existingRow } = (await supabaseAdmin
+      .from("meta_connections")
+      .select(
+        "business_id, business_name, page_id, page_name, ig_actor_id, ig_username, waba_id, waba_phone_number_id, waba_display_phone, ad_account_id, ad_account_name, connected_products",
+      )
+      .eq("org_id", orgId)
+      .maybeSingle()) as unknown as { data: ExistingMetaConnectionRow | null };
+
     let businessId: string | null = null;
     let businessName: string | null = null;
     let pageId: string | null = null;
@@ -170,6 +207,8 @@ export const handler: Handler = async (event) => {
     let wabaId: string | null = null;
     let wabaPhoneNumberId: string | null = null;
     let wabaDisplayPhone: string | null = null;
+    let adAccountId: string | null = null;
+    let adAccountName: string | null = null;
 
     try {
       const bizRes = await fetch(
@@ -238,6 +277,30 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    if (product === "meta-ads") {
+      try {
+        // /me/adaccounts returns ad accounts directly owned by/granted to this
+        // user — broader and simpler than going through the business node,
+        // and works for both personal and business-owned ad accounts.
+        const adAccountsRes = await fetch(
+          `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&access_token=${encodeURIComponent(accessToken)}`,
+        );
+        const adAccounts = await adAccountsRes.json();
+        // account_status === 1 means ACTIVE — prefer an active account if
+        // multiple come back, otherwise fall back to the first one
+        const accounts: any[] = adAccounts?.data ?? [];
+        const firstActive = accounts.find((a) => a.account_status === 1) ?? accounts[0];
+        if (firstActive) {
+          // Graph API returns ids prefixed "act_" — store the bare numeric id
+          // and let callers (meta-create-ad-campaign.ts) add the prefix back
+          adAccountId = firstActive.id.startsWith("act_") ? firstActive.id.slice(4) : firstActive.id;
+          adAccountName = firstActive.name;
+        }
+      } catch (e) {
+        console.warn("[meta-oauth-callback] ad account discovery failed:", e);
+      }
+    }
+
     // 6. Encrypt token — written as "enc:<base64>" into the existing text column
     const encryptedToken = encryptToken(accessToken);
     const expiresAt = expiresInSec
@@ -245,22 +308,18 @@ export const handler: Handler = async (event) => {
       : null;
 
     // 7. Upsert — merge connected_products rather than overwrite, since a
-    //    contractor may run this flow once per product card. Reuses
-    //    meta_user_id/meta_user_name/ad_account_id naming already in the table.
-    const { data: existing } = await supabaseAdmin
-      .from("meta_connections")
-      .select("connected_products")
-      .eq("org_id", orgId)
-      .maybeSingle();
-
+    //    contractor may run this flow once per product card. existingRow
+    //    (fetched in step 5) already has connected_products, so no second
+    //    lookup is needed here.
     const productKey =
       product === "whatsapp" ? "whatsapp" :
       product === "fb-messenger" ? "messenger" :
       product === "instagram-direct" ? "instagram" :
+      product === "meta-ads" ? "ads" :
       "lead_ads";
 
     const mergedProducts = Array.from(
-      new Set([...(existing?.connected_products ?? []), productKey]),
+      new Set([...(existingRow?.connected_products ?? []), productKey]),
     );
 
     const { error: upsertErr } = await supabaseAdmin
@@ -272,15 +331,17 @@ export const handler: Handler = async (event) => {
           meta_user_id: me.id,
           meta_user_name: me.name ?? null,
           meta_user_picture_url: me.picture?.data?.url ?? null,
-          business_id: businessId,
-          business_name: businessName,
-          page_id: pageId,
-          page_name: pageName,
-          ig_actor_id: igActorId,
-          ig_username: igUsername,
-          waba_id: wabaId,
-          waba_phone_number_id: wabaPhoneNumberId,
-          waba_display_phone: wabaDisplayPhone,
+          business_id: businessId ?? existingRow?.business_id ?? null,
+          business_name: businessName ?? existingRow?.business_name ?? null,
+          page_id: pageId ?? existingRow?.page_id ?? null,
+          page_name: pageName ?? existingRow?.page_name ?? null,
+          ig_actor_id: igActorId ?? existingRow?.ig_actor_id ?? null,
+          ig_username: igUsername ?? existingRow?.ig_username ?? null,
+          waba_id: wabaId ?? existingRow?.waba_id ?? null,
+          waba_phone_number_id: wabaPhoneNumberId ?? existingRow?.waba_phone_number_id ?? null,
+          waba_display_phone: wabaDisplayPhone ?? existingRow?.waba_display_phone ?? null,
+          ad_account_id: adAccountId ?? existingRow?.ad_account_id ?? null,
+          ad_account_name: adAccountName ?? existingRow?.ad_account_name ?? null,
           connected_products: mergedProducts,
           access_token: encryptedToken,
           token_type: tokenType,

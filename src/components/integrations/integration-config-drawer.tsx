@@ -32,10 +32,11 @@ function metaProductKey(id: string): string | null {
   if (id === "fb-messenger") return "messenger";
   if (id === "instagram-direct") return "instagram";
   if (id === "meta-lead-ads") return "lead_ads";
+  if (id === "meta-ads") return "ads";
   return null;
 }
 
-const META_IDS = new Set(["whatsapp", "fb-messenger", "instagram-direct", "meta-lead-ads"]);
+const META_IDS = new Set(["whatsapp", "fb-messenger", "instagram-direct", "meta-lead-ads", "meta-ads"]);
 
 interface MetaConnection {
   meta_user_id: string;
@@ -413,13 +414,21 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
                       Instagram: <span className="font-medium text-foreground">@{metaConnection.ig_username}</span>
                     </p>
                   )}
-                  {int.id === "meta-lead-ads" && (metaConnection.ad_account_name || metaConnection.page_name) && (
+                  {int.id === "meta-lead-ads" && metaConnection.page_name && (
                     <p className="text-xs text-muted-foreground">
-                      {metaConnection.ad_account_name ? "Ad account: " : "Page: "}
-                      <span className="font-medium text-foreground">{metaConnection.ad_account_name ?? metaConnection.page_name}</span>
+                      Page: <span className="font-medium text-foreground">{metaConnection.page_name}</span>
                     </p>
                   )}
-                  {int.id !== "whatsapp" && (
+                  {int.id === "meta-ads" && metaConnection.ad_account_name && (
+                    <p className="text-xs text-muted-foreground">
+                      Ad account: <span className="font-medium text-foreground">{metaConnection.ad_account_name}</span>
+                    </p>
+                  )}
+                  {int.id === "meta-ads" ? (
+                    <p className="text-xs text-muted-foreground">
+                      Ready to use — try "Create Ad Campaign" in AI Center → AI Tools.
+                    </p>
+                  ) : int.id !== "whatsapp" && (
                     <p className="text-xs text-muted-foreground">Message sync for this product is coming soon — the connection is active and ready.</p>
                   )}
 

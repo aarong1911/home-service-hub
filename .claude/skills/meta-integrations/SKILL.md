@@ -308,6 +308,46 @@ Uses `meta_connections.ad_account_id` (the pre-existing Ads column,
 untouched by the WhatsApp-focused extension migration) and the same
 `decryptOrPlaintext()` token-read pattern as `meta-send-whatsapp.ts`.
 
+## Five products now, not four
+
+A 5th card exists: **Meta Ads Manager** (`meta-ads` id), added specifically
+to populate `meta_connections.ad_account_id`/`ad_account_name` for the
+Marketing API demo — see the section above. Scopes: `ads_management`,
+`ads_read`, `business_management`. Discovery: `/me/adaccounts?fields=id,name,account_status`,
+preferring an account with `account_status === 1` (ACTIVE) if multiple come
+back, falling back to the first one otherwise. The bare numeric id is
+stored (the `act_` prefix is stripped on save and re-added by callers like
+`meta-create-ad-campaign.ts`).
+
+### `leads_retrieval` is NOT a valid OAuth scope string
+
+It's a real **App Review permission name** (shows up in the permissions
+list, gets approved there), but passing it in the `scope=` query param of
+the OAuth dialog throws `"Invalid Scopes: leads_retrieval"` — Facebook
+rejects it outright before the user even sees an auth screen. Lead Ads
+access at OAuth time is requested via `pages_show_list` + `pages_manage_ads`
++ `pages_read_engagement` + `business_management` instead; `leads_retrieval`
+itself gets associated with the token once the app is approved for it and
+the underlying page scopes are granted — it's not something you ask for in
+the login dialog. If a new product/scope addition throws a similar "Invalid
+Scopes" error, suspect the same mismatch: check whether the name is a
+review-permission name vs. an actual OAuth scope string (they're sometimes
+identical, sometimes not).
+
+### Cross-product overwrite bug (fixed) — fetch existing row before discovery
+
+`meta-oauth-callback.ts` upserts the **entire** `meta_connections` row on
+every OAuth run, but each run only re-discovers fields relevant to the
+product being connected (connecting `meta-ads` doesn't touch `waba_id`,
+connecting `whatsapp` doesn't touch `ad_account_id`). Without care, a second
+product's connect flow would null out everything the first product's
+connect flow already discovered. Fixed by fetching the existing row early in
+`meta-oauth-callback.ts` (as `existingRow`) and falling back to its values
+for every discovered field in the upsert (`businessId ?? existingRow?.business_id ?? null`,
+etc.) — newly-discovered values win, but nothing gets clobbered to null by a
+run that didn't look for it. Any future field added to discovery must follow
+this same fallback pattern or risk reintroducing the bug.
+
 ## Gotchas specific to Meta integrations
 
 | Issue | Fix |

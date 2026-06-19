@@ -18,6 +18,7 @@ const PRODUCT_SCOPES: Record<string, string[]> = {
   "fb-messenger": ["pages_messaging", "pages_show_list", "business_management"],
   "instagram-direct": ["instagram_basic", "instagram_manage_messages", "pages_show_list", "business_management"],
   "meta-lead-ads": ["pages_show_list", "pages_manage_ads", "pages_read_engagement", "business_management"],
+  "meta-ads": ["ads_management", "ads_read", "business_management"],
 };
 
 function signState(payload: string, secret: string): string {

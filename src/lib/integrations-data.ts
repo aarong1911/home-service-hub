@@ -62,6 +62,7 @@ export const INTEGRATIONS: Integration[] = [
   // Files
   { id: "google-drive", name: "Google Drive", vendor: "Google", description: "Project folders, photos & proposal PDFs.", connectMethod: "oauth", category: "files", syncBadges: ["Files", "Folders"], connected: false },
   // Ads/Leads
+  { id: "meta-ads", name: "Meta Ads Manager", vendor: "Meta", description: "Connect your ad account to create and manage campaigns from RenoMeta Connect.", connectMethod: "oauth", category: "ads-leads", syncBadges: ["Campaigns", "Ad Sets"], automations: ["Create Ad Campaign (AI Tools)"], connected: false },
   { id: "meta-lead-ads", name: "Meta Lead Ads", vendor: "Meta", description: "Pipe Facebook/Instagram ad leads into the New Lead stage with attribution.", connectMethod: "oauth", category: "ads-leads", syncBadges: ["Leads", "Source", "Campaign"], automations: ["Instant SMS to new leads", "Auto-assign to salesperson"], connected: false },
   { id: "google-ads", name: "Google Ads Lead Forms", vendor: "Google", description: "Capture Google Ads Lead Form submissions with campaign attribution.", connectMethod: "oauth", category: "ads-leads", syncBadges: ["Leads", "Source", "Campaign"], automations: ["Instant SMS to new leads", "Send booking link automatically"], connected: false },
   { id: "angi", name: "Angi", vendor: "Angi", description: "Ingest Angi leads with source attribution.", connectMethod: "link", category: "ads-leads", syncBadges: ["Leads", "Source"], automations: ["Instant SMS to new leads"], connected: false },
