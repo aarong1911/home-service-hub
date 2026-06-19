@@ -28,10 +28,14 @@ function signState(payload: string, secret: string): string {
 export const handler: Handler = async (event) => {
   const params = event.queryStringParameters ?? {};
   const orgId = params.orgId;
+  const userId = params.userId;
   const product = params.product ?? "whatsapp";
 
   if (!orgId) {
     return { statusCode: 400, body: "Missing orgId" };
+  }
+  if (!userId) {
+    return { statusCode: 400, body: "Missing userId" };
   }
 
   const stateSecret = process.env.META_OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY;
@@ -41,7 +45,7 @@ export const handler: Handler = async (event) => {
   }
 
   const nonce = crypto.randomBytes(16).toString("hex");
-  const statePayload = JSON.stringify({ orgId, product, nonce, ts: Date.now() });
+  const statePayload = JSON.stringify({ orgId, userId, product, nonce, ts: Date.now() });
   const state = signState(statePayload, stateSecret);
 
   const siteUrl = process.env.URL || "https://connect.renometa.com";

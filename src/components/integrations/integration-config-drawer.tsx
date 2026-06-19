@@ -65,6 +65,15 @@ async function getOrgId(): Promise<string | null> {
   return data?.organization_id ?? null;
 }
 
+async function getOrgAndUserId(): Promise<{ orgId: string; userId: string } | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+  const orgId = data?.organization_id;
+  if (!orgId) return null;
+  return { orgId, userId: user.id };
+}
+
 async function fetchMetaConnection(): Promise<MetaConnection | null> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
@@ -169,13 +178,13 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
 
   function handleMetaConnect() {
     (async () => {
-      const orgId = await getOrgId();
-      if (!orgId) {
+      const ids = await getOrgAndUserId();
+      if (!ids) {
         toast.error("Could not determine your organization");
         return;
       }
       setMetaConnecting(true);
-      const url = `/.netlify/functions/meta-oauth-start?orgId=${encodeURIComponent(orgId)}&product=${encodeURIComponent(int.id)}`;
+      const url = `/.netlify/functions/meta-oauth-start?orgId=${encodeURIComponent(ids.orgId)}&userId=${encodeURIComponent(ids.userId)}&product=${encodeURIComponent(int.id)}`;
       const popup = window.open(url, "meta-oauth", "width=600,height=720");
       if (!popup) {
         setMetaConnecting(false);

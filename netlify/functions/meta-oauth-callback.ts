@@ -34,7 +34,7 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
-function verifyState(state: string, secret: string): { orgId: string; product: string } | null {
+function verifyState(state: string, secret: string): { orgId: string; userId: string; product: string } | null {
   try {
     const [payloadB64, sig] = state.split(".");
     const payload = Buffer.from(payloadB64, "base64url").toString("utf8");
@@ -42,7 +42,8 @@ function verifyState(state: string, secret: string): { orgId: string; product: s
     if (sig !== expectedSig) return null;
     const parsed = JSON.parse(payload);
     if (Date.now() - parsed.ts > 10 * 60 * 1000) return null;
-    return { orgId: parsed.orgId, product: parsed.product };
+    if (!parsed.userId) return null;
+    return { orgId: parsed.orgId, userId: parsed.userId, product: parsed.product };
   } catch {
     return null;
   }
@@ -101,7 +102,7 @@ export const handler: Handler = async (event) => {
   if (!verified) {
     return popupResponse(false, "Invalid or expired connection request — please try again");
   }
-  const { orgId, product } = verified;
+  const { orgId, userId, product } = verified;
 
   const siteUrl = process.env.URL || "https://connect.renometa.com";
   const redirectUri = `${siteUrl}/.netlify/functions/meta-oauth-callback`;
@@ -267,6 +268,7 @@ export const handler: Handler = async (event) => {
       .upsert(
         {
           org_id: orgId,
+          user_id: userId,
           meta_user_id: me.id,
           meta_user_name: me.name ?? null,
           meta_user_picture_url: me.picture?.data?.url ?? null,
