@@ -137,6 +137,12 @@ export const handler: Handler = async (event) => {
           // without deliberately deciding the org wants live spend.
           status: "PAUSED",
           special_ad_categories: [],
+          // Required when budget is set at the AD SET level (which this
+          // flow does — see the ad set creation below) rather than at the
+          // campaign level. false = no Advantage Campaign Budget sharing.
+          // Without this, Meta rejects the request with error_subcode
+          // 4834011: "Must specify True or False in is_adset_budget_sharing_enabled".
+          is_adset_budget_sharing_enabled: false,
         }),
       },
     );
