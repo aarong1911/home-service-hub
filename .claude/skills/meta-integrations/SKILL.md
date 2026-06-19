@@ -179,13 +179,15 @@ useEffect(() => {
 }, []);
 ```
 
-### `state` param — CSRF protection + org binding
+### `state` param — CSRF protection + org binding + user binding
 
-`meta-oauth-start.ts` must sign `orgId` + a random nonce into `state`
-(HMAC with `ENCRYPTION_KEY` or a dedicated secret) so `meta-oauth-callback.ts`
-can verify the callback wasn't forged and knows which org to attach the
-connection to (the callback has no other session context — it's a top-level
-navigation inside a popup, not an authenticated fetch from the app).
+`meta-oauth-start.ts` must sign `orgId`, `userId`, and a random nonce into
+`state` (HMAC with `ENCRYPTION_KEY` or a dedicated secret) so
+`meta-oauth-callback.ts` can verify the callback wasn't forged and knows
+which org/user to attach the connection to (the callback has no other
+session context — it's a top-level navigation inside a popup, not an
+authenticated fetch from the app). `userId` is required, not optional —
+`meta_connections.user_id` is `NOT NULL` in the real table.
 
 ### Calling the Graph API after token exchange
 
@@ -269,6 +271,43 @@ META_VERIFY_TOKEN          # already exists, used by meta-webhook.ts GET verific
 META_OAUTH_STATE_SECRET    # or reuse ENCRYPTION_KEY for HMAC signing of `state`
 ```
 
+## Marketing API Access Tier — minimal real demo
+
+Meta App Review requires actually demonstrating any requested permission's
+usage, not just requesting it. `ads_management`/`ads_read` were already
+"Ready for testing" from earlier work (a Make.com daily-social-posting
+scenario — Facebook/LinkedIn/Instagram organic posts, Claude-generated
+content/images), but that scenario never calls the Marketing API at all;
+it's plain Graph API posting, not ad campaign management. **Marketing API
+Access Tier specifically had no real usage anywhere** before this section
+was added.
+
+To make that submission honest, `meta-create-ad-campaign.ts` creates a real
+**PAUSED** campaign + matching PAUSED ad set in the org's connected Meta Ads
+account via the live Marketing API — no creative attached, so it never
+spends money, but it's a genuine create call exercising real Marketing API
+fields (objective, daily_budget, billing_event, optimization_goal,
+targeting). Surfaced in AI Center → AI Tools as "Create Ad Campaign."
+
+This tool intentionally bypasses `run-tool.mjs` (the generic Claude-prompt
+pipeline every other AI Tool uses) — see `ai-tools-tab.tsx`
+`ToolDrawerContent.handleRun`, which special-cases
+`tool.name === "Create Ad Campaign"` to call `meta-create-ad-campaign.ts`
+directly instead. The `tool_definitions` row for it has an empty
+`system_prompt` and a placeholder `model` value ("n/a — calls the Meta
+Marketing API directly, not Claude") since neither field is used.
+
+**Seeding note:** `seed-ai-center.ts`'s `seedAiCenter()` only inserts
+`TOOL_DEFINITIONS` when the table is completely empty — it will NOT pick up
+this new row automatically in an existing deployment. Run
+`supabase/migrations/003_seed_create_ad_campaign_tool.sql` once after
+deploying, or this tool simply won't appear in AI Center despite being in
+the code.
+
+Uses `meta_connections.ad_account_id` (the pre-existing Ads column,
+untouched by the WhatsApp-focused extension migration) and the same
+`decryptOrPlaintext()` token-read pattern as `meta-send-whatsapp.ts`.
+
 ## Gotchas specific to Meta integrations
 
 | Issue | Fix |
@@ -280,6 +319,7 @@ META_OAUTH_STATE_SECRET    # or reuse ENCRYPTION_KEY for HMAC signing of `state`
 | `meta-webhook.ts` org lookup | Migrate from `integration_settings` JSONB to `meta_connections.waba_id` |
 | RLS on `meta_connections` | Must explicitly `ENABLE ROW LEVEL SECURITY` — writing policies isn't enough |
 | **Assuming a clean schema** | `meta_connections` already existed from an earlier Meta Ads build with real columns `meta_user_id`/`ad_account_id`/plaintext `access_token` (text) — **always re-run the `information_schema.columns` query before writing migrations or code against this table**, don't trust this doc's column list without verifying |
+| **`user_id` is `NOT NULL`** | The real table has a `user_id` column (the Supabase auth user who connected it, separate from `meta_user_id` which is the Facebook profile id) that is `NOT NULL` with no default. The OAuth callback has no Authorization header (it's a top-level browser redirect, not a fetch), so `userId` must be passed as a query param to `meta-oauth-start.ts` and signed into `state` alongside `orgId`, then read back out in `meta-oauth-callback.ts` and included in the upsert. Forgetting this causes the upsert to fail with a NOT NULL violation, surfaced to the user as a generic "Could not save the connection" toast. |
 | Token storage | `text` column, `"enc:"`-prefixed base64 for new writes, legacy plaintext rows have no prefix — handle both on read |
 | Deleting on disconnect | Never blind-delete the row on full disconnect — check `ad_account_id` first; an unrelated Ads connection can live on the same row |
 | Popup blocked by browser | Must call `window.open` synchronously inside the click handler, not after an awaited fetch |

@@ -1,4 +1,3 @@
-// n
 /**
  * seed-ai-center.ts
  * Seeds agent_definitions and tool_definitions tables.
@@ -537,6 +536,41 @@ Return ONLY valid JSON — no markdown:
 
 Generate 3-5 insights, 2-3 opportunities, and 3 recommended actions. Be concrete, not generic.`,
   },
+  {
+    name: "Create Ad Campaign",
+    description:
+      "Creates a real campaign and ad set in your connected Meta Ads account via the Marketing API — always created PAUSED with no creative attached, so it's safe to try and never spends money. Activate it yourself in Meta Ads Manager when you're ready to launch.",
+    category: "sales",
+    icon: "trending-up",
+    model: "n/a — calls the Meta Marketing API directly, not Claude",
+    input_schema: [
+      {
+        key: "name",
+        label: "Campaign Name",
+        type: "text",
+        placeholder: "e.g. Spring Kitchen Remodel Promo",
+      },
+      {
+        key: "daily_budget",
+        label: "Daily Budget",
+        type: "number",
+        prefix: "$",
+        placeholder: "25",
+      },
+      {
+        key: "objective",
+        label: "Objective",
+        type: "select",
+        options: ["OUTCOME_LEADS", "OUTCOME_TRAFFIC", "OUTCOME_AWARENESS", "OUTCOME_ENGAGEMENT", "OUTCOME_SALES"],
+        placeholder: "Select objective",
+      },
+    ],
+    // No system_prompt — this tool bypasses run-tool.mjs's Claude pipeline
+    // entirely. See ai-tools-tab.tsx ToolDrawerContent.handleRun, which
+    // special-cases tool.name === "Create Ad Campaign" to call
+    // meta-create-ad-campaign.ts instead of /.netlify/functions/run-tool.
+    system_prompt: "",
+  },
 ];
 
 // ── Seed runner ───────────────────────────────────────────────────────────────
@@ -579,4 +613,10 @@ export async function seedAiCenter() {
   console.log("[seed] Done.");
 }
 
-
+// Run directly if this is the main module
+const isMain = process.argv[1]?.endsWith("seed-ai-center.ts") || process.argv[1]?.endsWith("seed-ai-center.js");
+if (isMain) {
+  seedAiCenter()
+    .then(() => process.exit(0))
+    .catch((e) => { console.error(e); process.exit(1); });
+}
