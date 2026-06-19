@@ -1,3 +1,4 @@
+// src/routes/settings.integrations.tsx
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
@@ -33,7 +34,7 @@ function IntegrationsSettings() {
   const [integrations, setIntegrations] = useState<Integration[]>(INTEGRATIONS);
   const [disconnectTarget, setDisconnectTarget] = useState<Integration | null>(null);
 
-  // Load real connection status from org's integration_settings
+  // Load real connection status from org's integration_settings + meta_connections
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -41,10 +42,38 @@ function IntegrationsSettings() {
       const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
       const orgId = profile?.organization_id;
       if (!orgId) return;
+
       const { data: org } = await supabase.from("organizations").select("integration_settings").eq("id", orgId).maybeSingle();
       const settings: Record<string, any> = org?.integration_settings ?? {};
+
+      const { data: { session } } = await supabase.auth.getSession();
+      let connectedProducts: string[] = [];
+      if (session) {
+        try {
+          const res = await fetch("/.netlify/functions/meta-connection-status", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            connectedProducts = json.connection?.connected_products ?? [];
+          }
+        } catch {
+          // Meta connection status is best-effort here — card will just show "Not connected"
+        }
+      }
+
+      const metaProductMap: Record<string, string> = {
+        whatsapp: "whatsapp",
+        "fb-messenger": "messenger",
+        "instagram-direct": "instagram",
+        "meta-lead-ads": "lead_ads",
+      };
+
       setIntegrations((prev) =>
         prev.map((i) => {
+          if (metaProductMap[i.id]) {
+            return { ...i, connected: connectedProducts.includes(metaProductMap[i.id]) };
+          }
           const key = i.id.replace(/-/g, "_");
           const saved = settings[key];
           return { ...i, connected: !!saved && typeof saved === "object" && Object.keys(saved).length > 0 };

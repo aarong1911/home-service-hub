@@ -1,0 +1,303 @@
+// netlify/functions/meta-oauth-callback.ts
+import type { Handler } from "@netlify/functions";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "node:crypto";
+
+// ─────────────────────────────────────────────────────────────────────────
+// meta-oauth-callback.ts
+//
+// Facebook redirects here (still inside the popup window opened by
+// meta-oauth-start.ts) after the user authorizes Business Asset access.
+//
+// IMPORTANT: meta_connections already existed before this feature (built
+// for Meta Ads), with this real column shape:
+//   id, org_id, user_id, meta_user_id, meta_user_name, access_token (text,
+//   historically PLAINTEXT), token_type, expires_at, granted_scopes (array),
+//   ad_account_id, ad_account_name, page_id, page_name, ig_actor_id,
+//   is_active, connected_at, updated_at
+// Extended by supabase/migrations/002_meta_connections_extend.sql with:
+//   waba_id, waba_phone_number_id, waba_display_phone, ig_username,
+//   meta_user_picture_url, business_id, business_name, connected_products
+//
+// access_token is a `text` column, not `bytea`. We write an ENCRYPTED
+// base64 string into it going forward (see encryptToken below) rather than
+// plaintext — any pre-existing Ads row written before this change may still
+// hold a plaintext token; reader code must handle both (see
+// meta-send-whatsapp.ts decryptOrPlaintext()).
+//
+// See .claude/skills/meta-integrations/SKILL.md for the full design.
+// ─────────────────────────────────────────────────────────────────────────
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
+
+function verifyState(state: string, secret: string): { orgId: string; product: string } | null {
+  try {
+    const [payloadB64, sig] = state.split(".");
+    const payload = Buffer.from(payloadB64, "base64url").toString("utf8");
+    const expectedSig = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+    if (sig !== expectedSig) return null;
+    const parsed = JSON.parse(payload);
+    if (Date.now() - parsed.ts > 10 * 60 * 1000) return null;
+    return { orgId: parsed.orgId, product: parsed.product };
+  } catch {
+    return null;
+  }
+}
+
+// Encrypt with AES-256-GCM (key = SHA-256(ENCRYPTION_KEY)), output as a
+// single base64 string: base64(iv(12) || authTag(16) || ciphertext).
+// Stored directly in the `access_token` text column — prefixed with "enc:"
+// so reader code can tell an encrypted value apart from a legacy plaintext
+// token without needing to attempt-and-catch on every read.
+function encryptToken(plaintext: string): string {
+  const encKey = process.env.ENCRYPTION_KEY;
+  if (!encKey) throw new Error("ENCRYPTION_KEY env var is not set — cannot encrypt Meta token");
+  const key = crypto.createHash("sha256").update(encKey).digest();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return "enc:" + Buffer.concat([iv, tag, ciphertext]).toString("base64");
+}
+
+function popupResponse(success: boolean, message: string): { statusCode: number; headers: any; body: string } {
+  const html = `<!DOCTYPE html>
+<html><body>
+<script>
+  window.opener && window.opener.postMessage(
+    { source: "meta-oauth", success: ${success ? "true" : "false"}, error: ${JSON.stringify(success ? null : message)} },
+    window.location.origin
+  );
+  window.close();
+</script>
+<p>${success ? "Connected. You can close this window." : `Connection failed: ${message}`}</p>
+</body></html>`;
+  return { statusCode: 200, headers: { "Content-Type": "text/html" }, body: html };
+}
+
+export const handler: Handler = async (event) => {
+  const params = event.queryStringParameters ?? {};
+  const { code, state, error: fbError, error_description } = params;
+
+  if (fbError) {
+    return popupResponse(false, error_description || fbError);
+  }
+  if (!code || !state) {
+    return popupResponse(false, "Missing code or state from Facebook redirect");
+  }
+
+  const stateSecret = process.env.META_OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY;
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!stateSecret || !appId || !appSecret) {
+    return popupResponse(false, "Meta OAuth is not configured on the server");
+  }
+
+  const verified = verifyState(state, stateSecret);
+  if (!verified) {
+    return popupResponse(false, "Invalid or expired connection request — please try again");
+  }
+  const { orgId, product } = verified;
+
+  const siteUrl = process.env.URL || "https://connect.renometa.com";
+  const redirectUri = `${siteUrl}/.netlify/functions/meta-oauth-callback`;
+
+  try {
+    // 1. Exchange code → short-lived user access token
+    const shortTokenRes = await fetch(
+      `https://graph.facebook.com/v21.0/oauth/access_token` +
+        `?client_id=${encodeURIComponent(appId)}` +
+        `&client_secret=${encodeURIComponent(appSecret)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&code=${encodeURIComponent(code)}`,
+    );
+    const shortTokenJson = await shortTokenRes.json();
+    if (!shortTokenRes.ok || !shortTokenJson.access_token) {
+      console.error("[meta-oauth-callback] short-lived token exchange failed:", shortTokenJson);
+      return popupResponse(false, "Facebook did not return an access token");
+    }
+
+    // 2. Exchange short-lived → long-lived token (~60 days)
+    const longTokenRes = await fetch(
+      `https://graph.facebook.com/v21.0/oauth/access_token` +
+        `?grant_type=fb_exchange_token` +
+        `&client_id=${encodeURIComponent(appId)}` +
+        `&client_secret=${encodeURIComponent(appSecret)}` +
+        `&fb_exchange_token=${encodeURIComponent(shortTokenJson.access_token)}`,
+    );
+    const longTokenJson = await longTokenRes.json();
+    const accessToken: string = longTokenJson.access_token || shortTokenJson.access_token;
+    const expiresInSec: number | undefined = longTokenJson.expires_in || shortTokenJson.expires_in;
+    const tokenType: string = longTokenJson.token_type || shortTokenJson.token_type || "bearer";
+
+    // 3. Business Asset User Profile Access — id, name, picture
+    const meRes = await fetch(
+      `https://graph.facebook.com/v21.0/me?fields=id,name,picture&access_token=${encodeURIComponent(accessToken)}`,
+    );
+    const me = await meRes.json();
+    if (!meRes.ok || !me.id) {
+      console.error("[meta-oauth-callback] /me fetch failed:", me);
+      return popupResponse(false, "Could not read the connected Facebook profile");
+    }
+
+    // 4. Confirm granted scopes (Meta returns this via debug_token, but for
+    //    our purposes the permissions list from /me/permissions is simpler)
+    let grantedScopes: string[] = [];
+    try {
+      const permsRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/permissions?access_token=${encodeURIComponent(accessToken)}`,
+      );
+      const perms = await permsRes.json();
+      grantedScopes = (perms?.data ?? [])
+        .filter((p: any) => p.status === "granted")
+        .map((p: any) => p.permission);
+    } catch (e) {
+      console.warn("[meta-oauth-callback] permissions fetch failed:", e);
+    }
+
+    // 5. Discover business + product-specific assets (best-effort)
+    let businessId: string | null = null;
+    let businessName: string | null = null;
+    let pageId: string | null = null;
+    let pageName: string | null = null;
+    let igActorId: string | null = null;
+    let igUsername: string | null = null;
+    let wabaId: string | null = null;
+    let wabaPhoneNumberId: string | null = null;
+    let wabaDisplayPhone: string | null = null;
+
+    try {
+      const bizRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/businesses?access_token=${encodeURIComponent(accessToken)}`,
+      );
+      const biz = await bizRes.json();
+      const firstBusiness = biz?.data?.[0];
+      if (firstBusiness) {
+        businessId = firstBusiness.id;
+        businessName = firstBusiness.name;
+      }
+    } catch (e) {
+      console.warn("[meta-oauth-callback] business discovery failed:", e);
+    }
+
+    try {
+      const pagesRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/accounts?access_token=${encodeURIComponent(accessToken)}`,
+      );
+      const pages = await pagesRes.json();
+      const firstPage = pages?.data?.[0];
+      if (firstPage) {
+        pageId = firstPage.id;
+        pageName = firstPage.name;
+
+        if (product === "instagram-direct") {
+          try {
+            const igRes = await fetch(
+              `https://graph.facebook.com/v21.0/${firstPage.id}?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(accessToken)}`,
+            );
+            const ig = await igRes.json();
+            if (ig?.instagram_business_account) {
+              igActorId = ig.instagram_business_account.id;
+              igUsername = ig.instagram_business_account.username;
+            }
+          } catch (e) {
+            console.warn("[meta-oauth-callback] IG account discovery failed:", e);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[meta-oauth-callback] page discovery failed:", e);
+    }
+
+    if (product === "whatsapp" && businessId) {
+      try {
+        const wabaListRes = await fetch(
+          `https://graph.facebook.com/v21.0/${businessId}/owned_whatsapp_business_accounts?access_token=${encodeURIComponent(accessToken)}`,
+        );
+        const wabaList = await wabaListRes.json();
+        const firstWaba = wabaList?.data?.[0];
+        if (firstWaba) {
+          wabaId = firstWaba.id;
+          const phonesRes = await fetch(
+            `https://graph.facebook.com/v21.0/${firstWaba.id}/phone_numbers?access_token=${encodeURIComponent(accessToken)}`,
+          );
+          const phones = await phonesRes.json();
+          const firstPhone = phones?.data?.[0];
+          if (firstPhone) {
+            wabaPhoneNumberId = firstPhone.id;
+            wabaDisplayPhone = firstPhone.display_phone_number;
+          }
+        }
+      } catch (e) {
+        console.warn("[meta-oauth-callback] WABA discovery failed:", e);
+      }
+    }
+
+    // 6. Encrypt token — written as "enc:<base64>" into the existing text column
+    const encryptedToken = encryptToken(accessToken);
+    const expiresAt = expiresInSec
+      ? new Date(Date.now() + expiresInSec * 1000).toISOString()
+      : null;
+
+    // 7. Upsert — merge connected_products rather than overwrite, since a
+    //    contractor may run this flow once per product card. Reuses
+    //    meta_user_id/meta_user_name/ad_account_id naming already in the table.
+    const { data: existing } = await supabaseAdmin
+      .from("meta_connections")
+      .select("connected_products")
+      .eq("org_id", orgId)
+      .maybeSingle();
+
+    const productKey =
+      product === "whatsapp" ? "whatsapp" :
+      product === "fb-messenger" ? "messenger" :
+      product === "instagram-direct" ? "instagram" :
+      "lead_ads";
+
+    const mergedProducts = Array.from(
+      new Set([...(existing?.connected_products ?? []), productKey]),
+    );
+
+    const { error: upsertErr } = await supabaseAdmin
+      .from("meta_connections")
+      .upsert(
+        {
+          org_id: orgId,
+          meta_user_id: me.id,
+          meta_user_name: me.name ?? null,
+          meta_user_picture_url: me.picture?.data?.url ?? null,
+          business_id: businessId,
+          business_name: businessName,
+          page_id: pageId,
+          page_name: pageName,
+          ig_actor_id: igActorId,
+          ig_username: igUsername,
+          waba_id: wabaId,
+          waba_phone_number_id: wabaPhoneNumberId,
+          waba_display_phone: wabaDisplayPhone,
+          connected_products: mergedProducts,
+          access_token: encryptedToken,
+          token_type: tokenType,
+          expires_at: expiresAt,
+          granted_scopes: grantedScopes,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "org_id" },
+      );
+
+    if (upsertErr) {
+      console.error("[meta-oauth-callback] upsert failed:", upsertErr.message);
+      return popupResponse(false, "Could not save the connection — please try again");
+    }
+
+    return popupResponse(true, "");
+  } catch (err: any) {
+    console.error("[meta-oauth-callback] unhandled error:", err.message);
+    return popupResponse(false, "Unexpected error connecting to Facebook");
+  }
+};

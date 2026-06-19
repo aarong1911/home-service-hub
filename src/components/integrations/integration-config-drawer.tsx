@@ -1,3 +1,4 @@
+// src/components/integrations/integration-config-drawer.tsx
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Link2, Copy, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useCallback, useEffect } from "react";
@@ -24,11 +26,54 @@ function settingsKey(id: string): string {
   return id.replace(/-/g, "_"); // e.g. "meta-lead-ads" → "meta_lead_ads"
 }
 
+// Map integration card id → product key used in meta_connections.connected_products
+function metaProductKey(id: string): string | null {
+  if (id === "whatsapp") return "whatsapp";
+  if (id === "fb-messenger") return "messenger";
+  if (id === "instagram-direct") return "instagram";
+  if (id === "meta-lead-ads") return "lead_ads";
+  return null;
+}
+
+const META_IDS = new Set(["whatsapp", "fb-messenger", "instagram-direct", "meta-lead-ads"]);
+
+interface MetaConnection {
+  meta_user_id: string;
+  meta_user_name: string | null;
+  meta_user_picture_url: string | null;
+  business_id: string | null;
+  business_name: string | null;
+  page_id: string | null;
+  page_name: string | null;
+  ig_actor_id: string | null;
+  ig_username: string | null;
+  waba_id: string | null;
+  waba_phone_number_id: string | null;
+  waba_display_phone: string | null;
+  ad_account_id: string | null;
+  ad_account_name: string | null;
+  connected_products: string[];
+  is_active: boolean;
+  expires_at: string | null;
+  updated_at: string;
+}
+
 async function getOrgId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
   return data?.organization_id ?? null;
+}
+
+async function fetchMetaConnection(): Promise<MetaConnection | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  const res = await fetch("/.netlify/functions/meta-connection-status", {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.connection ?? null;
 }
 
 export function IntegrationConfigDrawer({ integration, open, onOpenChange, onConnect, onDisconnect }: Props) {
@@ -38,6 +83,8 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
   const [saving, setSaving] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
   const [reconfiguring, setReconfiguring] = useState(false);
+  const [metaConnection, setMetaConnection] = useState<MetaConnection | null>(null);
+  const [metaConnecting, setMetaConnecting] = useState(false);
 
   const updateField = useCallback((key: string, value: string) => {
     setFields((f) => ({ ...f, [key]: value }));
@@ -51,12 +98,23 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
   // Load existing connection status when drawer opens
   useEffect(() => {
     if (!open || !integration) return;
+    const currentId = integration.id;
     setFields({});
     setErrors({});
     setTouched({});
     setReconfiguring(false);
+    setMetaConnection(null);
 
     (async () => {
+      if (META_IDS.has(currentId)) {
+        const conn = await fetchMetaConnection();
+        const productKey = metaProductKey(currentId);
+        const connected = !!conn && !!productKey && conn.connected_products.includes(productKey);
+        setMetaConnection(connected ? conn : null);
+        setIsConfigured(connected);
+        return;
+      }
+
       const orgId = await getOrgId();
       if (!orgId) return;
       const { data } = await supabase
@@ -64,7 +122,7 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
         .select("integration_settings")
         .eq("id", orgId)
         .maybeSingle();
-      const key = settingsKey(int.id);
+      const key = settingsKey(currentId);
       const saved = data?.integration_settings?.[key];
       setIsConfigured(!!saved && typeof saved === "object" && Object.keys(saved).length > 0);
       // Pre-populate non-secret fields (phone number, account SID)
@@ -72,15 +130,90 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
         const safe: Record<string, string> = {};
         if (saved.phoneNumber) safe.phoneNumber = saved.phoneNumber;
         if (saved.accountSid) safe.accountSid = saved.accountSid;
-        if (saved.apiKey && int.id !== "stripe") safe.apiKey = saved.apiKey;
+        if (saved.apiKey && currentId !== "stripe") safe.apiKey = saved.apiKey;
         setFields(safe);
       }
     })();
   }, [open, integration?.id]);
 
+  // Listen for the OAuth popup's postMessage and refresh connection state
+  useEffect(() => {
+    if (!integration || !META_IDS.has(integration.id)) return;
+
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.source !== "meta-oauth") return;
+      setMetaConnecting(false);
+      if (e.data.success) {
+        toast.success(`${integration!.name} connected`);
+        (async () => {
+          const conn = await fetchMetaConnection();
+          const productKey = metaProductKey(integration!.id);
+          const connected = !!conn && !!productKey && conn.connected_products.includes(productKey);
+          setMetaConnection(connected ? conn : null);
+          setIsConfigured(connected);
+          if (connected) onConnect?.(integration!);
+        })();
+      } else {
+        toast.error(e.data.error || "Connection failed — please try again");
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [integration?.id, onConnect]);
+
   if (!integration) return null;
   // Captured as non-null so inner functions don't need repeated narrowing
   const int = integration;
+
+  function handleMetaConnect() {
+    (async () => {
+      const orgId = await getOrgId();
+      if (!orgId) {
+        toast.error("Could not determine your organization");
+        return;
+      }
+      setMetaConnecting(true);
+      const url = `/.netlify/functions/meta-oauth-start?orgId=${encodeURIComponent(orgId)}&product=${encodeURIComponent(int.id)}`;
+      const popup = window.open(url, "meta-oauth", "width=600,height=720");
+      if (!popup) {
+        setMetaConnecting(false);
+        toast.error("Your browser blocked the popup — please allow popups for this site and try again");
+        return;
+      }
+      // If the user closes the popup manually without completing auth, stop the spinner
+      const poll = window.setInterval(() => {
+        if (popup.closed) {
+          window.clearInterval(poll);
+          setMetaConnecting(false);
+        }
+      }, 500);
+    })();
+  }
+
+  async function handleMetaDisconnect() {
+    setSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const productKey = metaProductKey(int.id);
+      const res = await fetch("/.netlify/functions/meta-disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ product: productKey }),
+      });
+      if (!res.ok) throw new Error("Disconnect failed");
+      setMetaConnection(null);
+      setIsConfigured(false);
+      onDisconnect?.(int);
+      toast.success(`${int.name} disconnected`);
+    } catch (err: any) {
+      toast.error(`Failed to disconnect: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -236,7 +369,71 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
             ))}
           </div>
 
-          {integration.connectMethod === "oauth" && (
+          {integration.connectMethod === "oauth" && META_IDS.has(int.id) && (
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              {metaConnection ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 rounded-md bg-success/10 px-3 py-2.5">
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarImage src={metaConnection.meta_user_picture_url ?? undefined} alt={metaConnection.meta_user_name ?? "Connected account"} />
+                      <AvatarFallback>{(metaConnection.meta_user_name ?? "?").slice(0, 1)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 text-sm font-medium leading-tight">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                        {metaConnection.meta_user_name ?? "Connected"}
+                      </p>
+                      {metaConnection.business_name && (
+                        <p className="truncate text-xs text-muted-foreground">{metaConnection.business_name}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {int.id === "whatsapp" && metaConnection.waba_display_phone && (
+                    <p className="text-xs text-muted-foreground">
+                      WhatsApp number: <span className="font-medium text-foreground">{metaConnection.waba_display_phone}</span>
+                    </p>
+                  )}
+                  {int.id === "fb-messenger" && metaConnection.page_name && (
+                    <p className="text-xs text-muted-foreground">
+                      Page: <span className="font-medium text-foreground">{metaConnection.page_name}</span>
+                    </p>
+                  )}
+                  {int.id === "instagram-direct" && metaConnection.ig_username && (
+                    <p className="text-xs text-muted-foreground">
+                      Instagram: <span className="font-medium text-foreground">@{metaConnection.ig_username}</span>
+                    </p>
+                  )}
+                  {int.id === "meta-lead-ads" && (metaConnection.ad_account_name || metaConnection.page_name) && (
+                    <p className="text-xs text-muted-foreground">
+                      {metaConnection.ad_account_name ? "Ad account: " : "Page: "}
+                      <span className="font-medium text-foreground">{metaConnection.ad_account_name ?? metaConnection.page_name}</span>
+                    </p>
+                  )}
+                  {int.id !== "whatsapp" && (
+                    <p className="text-xs text-muted-foreground">Message sync for this product is coming soon — the connection is active and ready.</p>
+                  )}
+
+                  <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive" onClick={handleMetaDisconnect} disabled={saving}>
+                    {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Click below to open Facebook Login for Business in a popup and authorize access to your {integration.vendor} {int.id === "whatsapp" ? "WhatsApp Business Account" : int.id === "fb-messenger" ? "Page" : int.id === "instagram-direct" ? "Instagram account" : "ad account"}.
+                  </p>
+                  <Button className="w-full gap-2" onClick={handleMetaConnect} disabled={metaConnecting}>
+                    {metaConnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                    {metaConnecting ? "Waiting for Facebook…" : `Connect with ${integration.vendor}`}
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {integration.connectMethod === "oauth" && !META_IDS.has(int.id) && (
             <div className="space-y-3 rounded-lg border border-border p-4">
               <p className="text-xs text-muted-foreground">
                 Click below to securely connect your {integration.vendor} account via OAuth.
