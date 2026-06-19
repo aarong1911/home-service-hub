@@ -17,7 +17,7 @@ const PRODUCT_SCOPES: Record<string, string[]> = {
   whatsapp: ["whatsapp_business_management", "whatsapp_business_messaging", "business_management"],
   "fb-messenger": ["pages_messaging", "pages_show_list", "business_management"],
   "instagram-direct": ["instagram_basic", "instagram_manage_messages", "pages_show_list", "business_management"],
-  "meta-lead-ads": ["leads_retrieval", "pages_show_list", "business_management"],
+  "meta-lead-ads": ["pages_show_list", "pages_manage_ads", "pages_read_engagement", "business_management"],
 };
 
 function signState(payload: string, secret: string): string {
