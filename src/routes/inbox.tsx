@@ -324,6 +324,15 @@ function InboxPage() {
     : undefined;
   const contactProjects = contact ? mockProjects.filter((p) => p.client === contact.name) : [];
 
+  // If the active conversation changes to a contact who doesn't have a
+  // Messenger/Instagram identifier on file, but composeChannel is still set
+  // to one of those, fall back to SMS rather than leaving the compose box
+  // pointed at a channel with no visible tab and no valid recipient.
+  useEffect(() => {
+    if (composeChannel === "messenger" && !contact?.messenger_psid) setComposeChannel("sms");
+    if (composeChannel === "instagram" && !contact?.instagram_igsid) setComposeChannel("sms");
+  }, [activeId, contact?.messenger_psid, contact?.instagram_igsid, composeChannel]);
+
   // Real activity timeline for the selected contact
   const { items: contactActivity } = useContactActivity(active?.contactId ?? null);
 
@@ -732,7 +741,7 @@ function InboxPage() {
 
         {/* PANE 2 — Conversation list */}
         <section className="flex min-h-0 flex-col border-r border-border">
-          <div className="flex items-center gap-1 border-b border-border bg-card px-2 py-1.5">
+          <div className="flex flex-wrap items-center gap-1 border-b border-border bg-card px-2 py-1.5">
             {channelTabs.map((t) => {
               const Icon = t.icon;
               const isActive = channelFilter === t.id;
@@ -740,7 +749,7 @@ function InboxPage() {
                 <button
                   key={t.id}
                   onClick={() => setChannelFilter(t.id)}
-                  className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                  className={`flex items-center gap-1 whitespace-nowrap rounded px-1.5 py-1 text-[11px] font-medium transition-colors ${
                     isActive ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-secondary"
                   }`}
                 >
@@ -813,6 +822,22 @@ function InboxPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 px-2" title="WhatsApp"
+                    onClick={() => setComposeChannel("whatsapp")}>
+                    <MessageSquare className={`h-3.5 w-3.5 ${composeChannel === "whatsapp" ? "text-primary" : ""}`} />
+                  </Button>
+                  {contact?.messenger_psid && (
+                    <Button variant="ghost" size="sm" className="h-7 px-2" title="Messenger"
+                      onClick={() => setComposeChannel("messenger")}>
+                      <MessageSquare className={`h-3.5 w-3.5 ${composeChannel === "messenger" ? "text-primary" : ""}`} />
+                    </Button>
+                  )}
+                  {contact?.instagram_igsid && (
+                    <Button variant="ghost" size="sm" className="h-7 px-2" title="Instagram"
+                      onClick={() => setComposeChannel("instagram")}>
+                      <AtSign className={`h-3.5 w-3.5 ${composeChannel === "instagram" ? "text-primary" : ""}`} />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" className="h-7 px-2" title="Call"
                     onClick={() => toast.info(`Calling ${contact?.phone ?? ""}…`)}>
                     <PhoneCall className="h-3.5 w-3.5" />
@@ -895,7 +920,14 @@ function InboxPage() {
                 <div className="mb-2 flex items-center gap-1">
                   <div className="flex h-7 items-center gap-0.5 rounded-md border border-border bg-background p-0.5">
                     <ComposeTab id="sms" current={composeChannel} onSelect={setComposeChannel} icon={MessageSquare} label="SMS" />
+                    <ComposeTab id="whatsapp" current={composeChannel} onSelect={setComposeChannel} icon={MessageSquare} label="WhatsApp" />
                     <ComposeTab id="email" current={composeChannel} onSelect={setComposeChannel} icon={Mail} label="Email" />
+                    {contact?.messenger_psid && (
+                      <ComposeTab id="messenger" current={composeChannel} onSelect={setComposeChannel} icon={MessageSquare} label="Messenger" />
+                    )}
+                    {contact?.instagram_igsid && (
+                      <ComposeTab id="instagram" current={composeChannel} onSelect={setComposeChannel} icon={AtSign} label="Instagram" />
+                    )}
                     <ComposeTab id="note" current={composeChannel} onSelect={setComposeChannel} icon={StickyNote} label="Note" />
                   </div>
                   <div className="ml-auto flex items-center gap-1">
@@ -1243,7 +1275,26 @@ function InboxPage() {
       open={newConvOpen}
       onClose={() => setNewConvOpen(false)}
       onSelect={(c) => {
-        const existing = allConversations.find((conv) => conv.contactId === c.id);
+        // Use the channel currently filtered on (WhatsApp/SMS/Messenger/
+        // Instagram/Email) so starting a new conversation from the
+        // WhatsApp tab actually creates/opens a WhatsApp thread, not
+        // whichever channel that contact happens to already have. "All"
+        // and "Voice" aren't valid compose channels — voice has no
+        // outbound compose, and "all" has no single channel to pick — so
+        // both fall back to SMS as the most universal default.
+        //
+        // Typed as this exact literal union — not Conversation["channel"]
+        // (which includes "voice", invalid for setComposeChannel below) and
+        // not ComposeChannel (which includes "note", invalid for the
+        // Conversation object below) — because this value is genuinely
+        // used as both, and only this 5-value intersection is valid for
+        // both at once.
+        const targetChannel: "email" | "sms" | "whatsapp" | "messenger" | "instagram" =
+          channelFilter === "all" || channelFilter === "voice" ? "sms" : channelFilter;
+
+        const existing = allConversations.find(
+          (conv) => conv.contactId === c.id && conv.channel === targetChannel,
+        );
         if (existing) {
           setActiveId(existing.id);
         } else {
@@ -1251,7 +1302,7 @@ function InboxPage() {
             id: `local-conv-${Date.now()}`,
             contactId: c.id,
             contactName: c.name,
-            channel: "sms",
+            channel: targetChannel,
             preview: "New conversation",
             lastAt: new Date().toISOString(),
             unread: false,
@@ -1259,6 +1310,7 @@ function InboxPage() {
           setLocalConversations((prev) => [newConv, ...prev]);
           setActiveId(newConv.id);
         }
+        setComposeChannel(targetChannel);
         setNewConvOpen(false);
       }}
     />
