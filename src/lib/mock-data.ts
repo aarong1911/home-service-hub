@@ -1,3 +1,4 @@
+// src/lib/mock-data.ts
 // Mock renovation-industry data shared across features.
 export type Contact = {
   id: string;
@@ -10,6 +11,12 @@ export type Contact = {
   owner: string;
   lastActivity: string;
   createdAt: string;
+  // Platform-scoped messaging identifiers — only set once a contact has
+  // messaged in via Messenger/Instagram (see
+  // supabase/migrations/004_contacts_meta_identifiers.sql). Not phone
+  // numbers or usernames; outbound sends use these as the recipient id.
+  messenger_psid?: string;
+  instagram_igsid?: string;
 };
 
 export type LostReason = "Budget" | "Timing" | "Scope" | "Competitor" | "No response";

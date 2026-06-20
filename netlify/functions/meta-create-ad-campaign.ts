@@ -16,6 +16,8 @@ import crypto from "node:crypto";
 //
 // Uses the same encrypted-or-legacy-plaintext token read as
 // meta-send-whatsapp.ts (access_token column predates the "enc:" scheme).
+// Note: meta-send-whatsapp.ts was deleted as redundant — its logic is
+// now part of send-inbox-message.ts, which is the real call site.
 // ─────────────────────────────────────────────────────────────────────────
 
 const supabaseAdmin = createClient(

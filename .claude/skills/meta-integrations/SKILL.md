@@ -348,6 +348,57 @@ etc.) — newly-discovered values win, but nothing gets clobbered to null by a
 run that didn't look for it. Any future field added to discovery must follow
 this same fallback pattern or risk reintroducing the bug.
 
+## `inbox_messages` never existed — real table is `sms_meta_messages`
+
+Early in the Inbox-wiring work, `meta-webhook.ts`, `send-inbox-message.ts`,
+and a `meta-conversations.ts` hook were all written against a table called
+`inbox_messages`. **That table was never created.** It was assumed by
+analogy with `inbox_emails` (which IS real) without verifying via
+`information_schema.tables` first — the same category of mistake as the
+`meta_connections` schema assumption earlier, just at the "does this table
+exist at all" level instead of "are these the right column names" level.
+
+What's actually real, confirmed via `information_schema.tables`:
+- **Email** has its own dedicated tables: `emails`, `email_threads`,
+  `inbox_emails`, `gmail_messages` — don't touch these for SMS/Meta work,
+  they have Gmail-specific shapes (`gmail_message_id`, `body_html`, thread
+  linkage) and likely their own sync logic elsewhere.
+- **Voice** has `voice_calls`/`call_logs` — also untouched.
+- **SMS, WhatsApp, Messenger, Instagram** had genuinely NO real table.
+  SMS "working" before this was sent via Twilio successfully (a real
+  external send) but persisted ONLY in browser `localStorage`
+  (`inbox-messages`/`inbox-conversations` keys) — not synced across
+  devices or team members, lost if storage is cleared. This was confirmed
+  by watching mock data flash on page load before `localStorage` data
+  replaced it, and by testing on a second device and seeing no history.
+
+**Fixed by creating `sms_meta_messages`**
+(`supabase/migrations/005_sms_meta_messages.sql`) — one shared table for
+all 4 channels, since they have a near-identical shape (sender id, body,
+direction, timestamp) and none of them had any existing table to extend.
+Real columns: `id, org_id, contact_id, channel, direction, body,
+from_address, provider_message_id, is_read, meta, created_at` — NOT
+`received_at` (that was the same naming mistake as the original
+`inbox_messages` assumption; this table uses `created_at` like everything
+else in this schema).
+
+`meta-webhook.ts`, `send-inbox-message.ts`, and the conversations-loading
+hook (renamed `sms-meta-conversations.ts`, exporting
+`useSmsMetaConversations()`) were all rewritten against the real table.
+`meta-send-whatsapp.ts` was deleted — it was a redundant standalone WhatsApp
+sender, made obsolete once `send-inbox-message.ts` grew WhatsApp/Messenger/
+Instagram branches; keeping both would have meant two diverging
+implementations of the same token-decrypt-and-send logic.
+
+**The lesson, stated plainly for future sessions:** before writing ANY
+code that assumes a table exists — even one that "should obviously exist
+already" because a similar feature looks live in the UI — run
+```sql
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
+```
+first. A feature appearing to work in the UI does not mean it's backed by
+a real table; it may be local-only state that happens to survive a refresh.
+
 ## Gotchas specific to Meta integrations
 
 | Issue | Fix |
