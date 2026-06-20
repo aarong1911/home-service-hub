@@ -2,20 +2,11 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
-// Required Supabase table (run once in the SQL editor):
-//
-// CREATE TABLE inbox_messages (
-//   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-//   org_id       uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-//   contact_id   uuid REFERENCES contacts(id) ON DELETE SET NULL,
-//   channel      text NOT NULL,
-//   direction    text NOT NULL CHECK (direction IN ('in', 'out')),
-//   body         text NOT NULL DEFAULT '',
-//   from_address text,
-//   received_at  timestamptz NOT NULL DEFAULT now(),
-//   meta         jsonb
-// );
-// CREATE INDEX ON inbox_messages (org_id, received_at DESC);
+// Writes inbound messages to sms_meta_messages — see
+// supabase/migrations/005_sms_meta_messages.sql for the real schema.
+// (This file previously assumed a table called "inbox_messages" that was
+// never actually created — see .claude/skills/meta-integrations/SKILL.md
+// for how that was discovered and fixed.)
 
 const CORS = {
   "Content-Type": "application/json",
@@ -71,8 +62,21 @@ async function processPayload(rawBody: string): Promise<void> {
     return;
   }
 
-  if (payload.object !== "whatsapp_business_account") return;
+  if (payload.object === "whatsapp_business_account") {
+    await processWhatsAppPayload(payload);
+    return;
+  }
+  if (payload.object === "page") {
+    await processMessengerOrInstagramPayload(payload, "messenger");
+    return;
+  }
+  if (payload.object === "instagram") {
+    await processMessengerOrInstagramPayload(payload, "instagram");
+    return;
+  }
+}
 
+async function processWhatsAppPayload(payload: any): Promise<void> {
   for (const entry of payload.entry ?? []) {
     const wabaId: string = entry.id; // WhatsApp Business Account ID
 
@@ -147,7 +151,7 @@ async function processPayload(rawBody: string): Promise<void> {
 
         // Persist the inbound message
         const { error: insertErr } = await supabaseAdmin
-          .from("inbox_messages")
+          .from("sms_meta_messages")
           .insert({
             org_id:       orgId,
             contact_id:   contactId,
@@ -155,13 +159,116 @@ async function processPayload(rawBody: string): Promise<void> {
             direction:    "in",
             body,
             from_address: e164,
-            received_at:  receivedAt,
-            meta:         { waba_id: wabaId, msg_id: msgId },
+            provider_message_id: msgId,
+            meta:         { waba_id: wabaId },
           });
 
         if (insertErr) {
           console.error("[meta-webhook] message insert error:", insertErr.message);
         }
+      }
+    }
+  }
+}
+
+// Messenger and Instagram Direct share the same `entry[].messaging[]`
+// payload shape. `entry.id` is the Page ID in both cases — Instagram
+// Direct webhooks route through the Page the IG Business Account is
+// linked to, not a separate Instagram-only id. `channel` distinguishes
+// which product this run is for, since the same shape can't otherwise be
+// told apart from the payload alone in every case (a Page can have both
+// Messenger and a linked IG account active).
+async function processMessengerOrInstagramPayload(
+  payload: any,
+  channel: "messenger" | "instagram",
+): Promise<void> {
+  for (const entry of payload.entry ?? []) {
+    const pageId: string = entry.id;
+
+    for (const msgEvent of entry.messaging ?? []) {
+      // Skip echoes (messages the page itself sent, delivered back to us),
+      // read receipts, and anything without an actual text message body
+      if (msgEvent.message?.is_echo) continue;
+      const body: string | undefined = msgEvent.message?.text;
+      if (!body) continue;
+
+      const senderId: string = msgEvent.sender?.id; // PSID (Messenger) or IGSID (Instagram)
+      const msgId: string = msgEvent.message?.mid ?? `${pageId}-${msgEvent.timestamp}`;
+      const receivedAt: string = new Date(msgEvent.timestamp).toISOString();
+
+      if (!senderId) {
+        console.warn(`[meta-webhook] ${channel} message missing sender id, skipping`);
+        continue;
+      }
+
+      // Find the org whose connection matches this Page ID
+      const { data: connRow, error: connErr } = await supabaseAdmin
+        .from("meta_connections")
+        .select("org_id")
+        .eq("page_id", pageId)
+        .maybeSingle();
+
+      if (connErr) {
+        console.error(`[meta-webhook] meta_connections lookup error (${channel}):`, connErr.message);
+      }
+      const orgId = connRow?.org_id;
+
+      if (!orgId) {
+        console.warn(`[meta-webhook] no org found for page_id (${channel}):`, pageId);
+        continue;
+      }
+
+      // Upsert contact by platform-specific identifier — these are NOT
+      // phone numbers or emails, so they go in messenger_psid/instagram_igsid
+      // (see supabase/migrations/004_contacts_meta_identifiers.sql), not the
+      // phone column. We don't get a display name from this webhook payload
+      // alone — fetching it requires a separate Graph API call
+      // (/{psid}?fields=first_name,last_name), which is left as a future
+      // enhancement; for now the contact is created with a placeholder name
+      // if one doesn't already exist.
+      const idColumn = channel === "messenger" ? "messenger_psid" : "instagram_igsid";
+
+      const { data: existingContact } = await supabaseAdmin
+        .from("contacts")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq(idColumn, senderId)
+        .maybeSingle();
+
+      let contactId: string | null = existingContact?.id ?? null;
+
+      if (!contactId) {
+        const { data: newContact, error: contactErr } = await supabaseAdmin
+          .from("contacts")
+          .insert({
+            org_id: orgId,
+            full_name: channel === "messenger" ? "Messenger Contact" : "Instagram Contact",
+            [idColumn]: senderId,
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (contactErr) {
+          console.error(`[meta-webhook] contact insert error (${channel}):`, contactErr.message);
+        }
+        contactId = newContact?.id ?? null;
+      }
+
+      const { error: insertErr } = await supabaseAdmin
+        .from("sms_meta_messages")
+        .insert({
+          org_id: orgId,
+          contact_id: contactId,
+          channel,
+          direction: "in",
+          body,
+          from_address: senderId,
+          provider_message_id: msgId,
+          meta: { page_id: pageId },
+        });
+
+      if (insertErr) {
+        console.error(`[meta-webhook] message insert error (${channel}):`, insertErr.message);
       }
     }
   }

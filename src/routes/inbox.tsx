@@ -1,3 +1,4 @@
+// src/routes/inbox.tsx
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -48,8 +49,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  mockConversations,
-  mockMessages,
   mockContacts,
   mockProjects,
   type Conversation,
@@ -84,6 +83,7 @@ import { FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useVoiceConversations } from "@/lib/voice-conversations";
+import { useSmsMetaConversations } from "@/lib/sms-meta-conversations";
 
 type InboxSearch = { templateId?: string };
 
@@ -105,12 +105,12 @@ function InboxLayout() {
 }
 
 type FolderId = "all" | "unread" | "assigned" | "mentions" | "starred" | "unassigned" | "archived";
-type ChannelFilter = "all" | "email" | "sms" | "voice";
-type ComposeChannel = "email" | "sms" | "note";
+type ChannelFilter = "all" | "email" | "sms" | "voice" | "whatsapp" | "messenger" | "instagram";
+type ComposeChannel = "email" | "sms" | "note" | "whatsapp" | "messenger" | "instagram";
 
 // Extends Message with note channel + optimistic send metadata
 type LocalMessage = Omit<Message, "channel"> & {
-  channel: "email" | "sms" | "voice" | "note";
+  channel: "email" | "sms" | "voice" | "note" | "whatsapp" | "messenger" | "instagram";
   isScheduled?: boolean;
   scheduledFor?: string;
 };
@@ -130,6 +130,9 @@ const channelTabs: { id: ChannelFilter; label: string; icon: typeof Mail }[] = [
   { id: "email", label: "Email", icon: Mail },
   { id: "sms", label: "SMS", icon: MessageSquare },
   { id: "voice", label: "Voice", icon: Phone },
+  { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
+  { id: "messenger", label: "Messenger", icon: MessageSquare },
+  { id: "instagram", label: "Instagram", icon: AtSign },
 ];
 
 const NOW = Date.now();
@@ -198,24 +201,39 @@ function InboxPage() {
   const [showInsertLog, setShowInsertLog] = useState(false);
   // Voice calls from Supabase — merged into conversations when Voice tab is active
   const { conversations: voiceConvs, messages: voiceMsgs } = useVoiceConversations();
+  // SMS/WhatsApp/Messenger/Instagram from sms_meta_messages — no mock
+  // fallback, these channels only ever show real data. This is the only
+  // source of actual message content for these 4 channels; Email has its
+  // own separate real tables (not handled here).
+  const { conversations: realConvs, messages: realMsgs, refresh: refreshRealConvs } = useSmsMetaConversations();
   // Contacts from the store — uses correct org via getOrgId() + memberships fallback
   const allStoreContacts = useContacts();
   const storeContactMap = useMemo(
     () => new Map(allStoreContacts.map((c) => [c.id, c])),
     [allStoreContacts]
   );
-  // Build conversation entries from contacts-store (eliminates the duplicate fetch that was hitting the wrong org_id)
-  const supabaseConvs = useMemo<Conversation[]>(
-    () => allStoreContacts.map((c) => ({
-      id: `sb-${c.id}`,
-      contactId: c.id,
-      contactName: c.name,
-      channel: "sms" as const,
-      preview: c.phone || c.email || "No contact info",
-      lastAt: c.lastActivity ?? c.createdAt ?? new Date().toISOString(),
-      unread: false,
-    })),
-    [allStoreContacts]
+  // One synthetic "start a conversation" placeholder per contact who has no
+  // real SMS thread yet, so every contact remains reachable even before a
+  // first message is sent. Contacts that already have a real SMS
+  // conversation (from realConvs) are excluded here to avoid showing both
+  // a placeholder and the real thread for the same contact.
+  const contactIdsWithRealSms = useMemo(
+    () => new Set(realConvs.filter((c) => c.channel === "sms").map((c) => c.contactId)),
+    [realConvs]
+  );
+  const placeholderConvs = useMemo<Conversation[]>(
+    () => allStoreContacts
+      .filter((c) => !contactIdsWithRealSms.has(c.id))
+      .map((c) => ({
+        id: `sb-${c.id}`,
+        contactId: c.id,
+        contactName: c.name,
+        channel: "sms" as const,
+        preview: c.phone || c.email || "No contact info",
+        lastAt: c.lastActivity ?? c.createdAt ?? new Date().toISOString(),
+        unread: false,
+      })),
+    [allStoreContacts, contactIdsWithRealSms]
   );
   const org = useOrganization();
   const [currentUserName, setCurrentUserName] = useState("");
@@ -231,21 +249,17 @@ function InboxPage() {
  
 
   const allConversations = useMemo(
-    () => {
-      // Only show mock conversations when no real data has loaded yet (avoid fake phone numbers reaching Twilio)
-      const hasRealData = supabaseConvs.length > 0 || voiceConvs.length > 0;
-      return [
-        ...supabaseConvs,
-        ...(hasRealData ? [] : mockConversations.map((m) => ({ ...m, lastAt: "2020-01-01T00:00:00Z" }))),
-        ...voiceConvs,
-        ...localConversations,
-      ];
-    },
-    [supabaseConvs, voiceConvs, localConversations]
+    () => [
+      ...realConvs,
+      ...placeholderConvs,
+      ...voiceConvs,
+      ...localConversations,
+    ],
+    [realConvs, placeholderConvs, voiceConvs, localConversations]
   );
   const allMessages = useMemo(
-    () => [...mockMessages, ...voiceMsgs],
-    [voiceMsgs]
+    () => [...voiceMsgs, ...realMsgs],
+    [voiceMsgs, realMsgs]
   );
 
   const checkStarred = (id: string) => starredIds.has(id) || isStarred(id);
@@ -266,7 +280,7 @@ function InboxPage() {
       })
       .sort((a, b) => {
         // Contacts (sb-) first, voice calls second, local last — then by recency within each group
-        const tier = (id: string) => id.startsWith("sb-") ? 0 : id.startsWith("voice-") ? 1 : 2;
+        const tier = (id: string) => id.startsWith("sb-") ? 0 : id.startsWith("voice-") || id.startsWith("meta-") ? 1 : 2;
         const td = tier(a.id) - tier(b.id);
         if (td !== 0) return td;
         return new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime();
@@ -301,9 +315,9 @@ function InboxPage() {
   const resolvedStoreContact = active ? (storeContactMap.get(active.contactId) ?? null) : null;
   const contact = active
     ? (resolvedStoreContact
-        ? { name: resolvedStoreContact.name, email: resolvedStoreContact.email, phone: resolvedStoreContact.phone, tags: resolvedStoreContact.tags, owner: resolvedStoreContact.owner }
+        ? { name: resolvedStoreContact.name, email: resolvedStoreContact.email, phone: resolvedStoreContact.phone, tags: resolvedStoreContact.tags, owner: resolvedStoreContact.owner, messenger_psid: resolvedStoreContact.messenger_psid, instagram_igsid: resolvedStoreContact.instagram_igsid }
         : mockContacts.find((c) => c.id === active.contactId)
-          ?? { name: active.contactName, email: "", phone: active.callerPhone ?? "", tags: [], owner: "" })
+          ?? { name: active.contactName, email: "", phone: active.callerPhone ?? "", tags: [], owner: "", messenger_psid: undefined, instagram_igsid: undefined })
     : undefined;
   const contactProjects = contact ? mockProjects.filter((p) => p.client === contact.name) : [];
 
@@ -390,9 +404,18 @@ function InboxPage() {
       return;
     }
 
-    const to = composeChannel === "sms" ? contact?.phone : contact?.email;
+    const to =
+      composeChannel === "sms" || composeChannel === "whatsapp" ? contact?.phone :
+      composeChannel === "messenger" ? contact?.messenger_psid :
+      composeChannel === "instagram" ? contact?.instagram_igsid :
+      contact?.email;
+
     if (!to) {
-      const missing = composeChannel === "sms" ? "phone number" : "email address";
+      const missing =
+        composeChannel === "sms" || composeChannel === "whatsapp" ? "phone number" :
+        composeChannel === "messenger" ? "Messenger connection (they must message you first)" :
+        composeChannel === "instagram" ? "Instagram connection (they must message you first)" :
+        "email address";
       toast.error(`${active.contactName} has no ${missing} on file`);
       return;
     }
@@ -411,13 +434,23 @@ function InboxPage() {
           body: draft.trim(),
           subject: composeChannel === "email" ? subject : undefined,
           from_name: mergeCtx.company_name,
+          contact_id: active.contactId,
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         toast.error(err.error ?? "Send failed");
       } else {
-        toast.success(composeChannel === "sms" ? "SMS sent" : "Email sent");
+        const channelLabel =
+          composeChannel === "sms" ? "SMS" :
+          composeChannel === "email" ? "Email" :
+          composeChannel === "whatsapp" ? "WhatsApp" :
+          composeChannel === "messenger" ? "Messenger" :
+          "Instagram";
+        toast.success(`${channelLabel} sent`);
+        // SMS/WhatsApp/Messenger/Instagram are backed by sms_meta_messages —
+        // refresh so the real persisted row replaces the optimistic local one.
+        if (composeChannel !== "email") refreshRealConvs();
       }
     } catch {
       toast.error("Network error — message shown locally only");
@@ -1504,6 +1537,8 @@ function NewConversationSheet({
 function ChannelGlyph({ channel }: { channel: LocalMessage["channel"] }) {
   if (channel === "email") return <Mail className="h-3 w-3 text-muted-foreground" />;
   if (channel === "sms" || channel === "note") return <MessageSquare className="h-3 w-3 text-muted-foreground" />;
+  if (channel === "whatsapp" || channel === "messenger") return <MessageSquare className="h-3 w-3 text-muted-foreground" />;
+  if (channel === "instagram") return <AtSign className="h-3 w-3 text-muted-foreground" />;
   return <Phone className="h-3 w-3 text-muted-foreground" />;
 }
 

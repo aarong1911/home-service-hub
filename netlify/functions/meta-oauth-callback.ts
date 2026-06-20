@@ -23,7 +23,8 @@ import crypto from "node:crypto";
 // base64 string into it going forward (see encryptToken below) rather than
 // plaintext — any pre-existing Ads row written before this change may still
 // hold a plaintext token; reader code must handle both (see
-// meta-send-whatsapp.ts decryptOrPlaintext()).
+// meta-send-whatsapp.ts decryptOrPlaintext()). Note: meta-send-whatsapp.ts
+// was deleted as redundant with send-inbox-message.ts's WhatsApp branch.
 //
 // See .claude/skills/meta-integrations/SKILL.md for the full design.
 // ─────────────────────────────────────────────────────────────────────────
