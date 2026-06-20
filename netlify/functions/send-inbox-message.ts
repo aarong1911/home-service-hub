@@ -178,7 +178,16 @@ export const handler: Handler = async (event) => {
         if (!conn.waba_phone_number_id) {
           return { statusCode: 422, headers: CORS, body: JSON.stringify({ error: "No WhatsApp phone number on this connection — try reconnecting" }) };
         }
-        const toDigits = to.replace(/[^\d]/g, "");
+        // Meta's recipient allow-list (Development-mode WhatsApp numbers)
+        // does an EXACT match against the full international format — a
+        // 10-digit US number with no country code (e.g. "9548718466", as
+        // many contacts are stored) is rejected with "(#131030) Recipient
+        // phone number not in allowed list" even after that same number was
+        // added/verified through Meta's console, since the console
+        // stores/compares the full E.164 form. Reuse the same toE164()
+        // normalizer SMS/Twilio already uses below, just without the "+"
+        // since the Graph API's `to` field wants bare digits.
+        const toDigits = toE164(to).replace("+", "");
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${conn.waba_phone_number_id}/messages`,
           {
