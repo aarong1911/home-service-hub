@@ -123,7 +123,7 @@ export function useSmsMetaConversations(): {
         id: convId,
         contactId: group.contactId,
         contactName,
-        channel: group.channel as any, // Conversation["channel"] is widened at the call site via the LocalMessage union
+        channel: group.channel,
         preview: lastRow?.body?.slice(0, 80) ?? "",
         unread: lastRow?.direction === "in",
         lastAt: lastRow?.created_at ?? new Date().toISOString(),
@@ -134,7 +134,7 @@ export function useSmsMetaConversations(): {
         msgs.push({
           id: `sm-msg-${row.id}`,
           conversationId: convId,
-          channel: group.channel as any,
+          channel: group.channel,
           direction: row.direction === "out" ? "out" : "in",
           body: row.body ?? "",
           at: row.created_at ?? new Date().toISOString(),

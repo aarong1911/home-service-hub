@@ -218,7 +218,7 @@ export type Conversation = {
   id: string;
   contactId: string;
   contactName: string;
-  channel: "email" | "sms" | "voice";
+  channel: "email" | "sms" | "voice" | "whatsapp" | "messenger" | "instagram";
   preview: string;
   unread: boolean;
   lastAt: string;
@@ -229,7 +229,7 @@ export type Conversation = {
 export type Message = {
   id: string;
   conversationId: string;
-  channel: "email" | "sms" | "voice";
+  channel: "email" | "sms" | "voice" | "whatsapp" | "messenger" | "instagram";
   direction: "in" | "out";
   body: string;
   at: string;
