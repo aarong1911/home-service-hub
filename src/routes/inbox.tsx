@@ -279,8 +279,11 @@ function InboxPage() {
         return true;
       })
       .sort((a, b) => {
-        // Contacts (sb-) first, voice calls second, local last — then by recency within each group
-        const tier = (id: string) => id.startsWith("sb-") ? 0 : id.startsWith("voice-") || id.startsWith("meta-") ? 1 : 2;
+        // Real conversations (sm- = SMS/WhatsApp/Messenger/Instagram with
+        // actual message history, voice- = voice calls) sort first, then
+        // empty placeholder contacts (sb-) with no messages yet, then
+        // anything else — then by recency within each group.
+        const tier = (id: string) => id.startsWith("sm-") || id.startsWith("voice-") ? 0 : id.startsWith("sb-") ? 1 : 2;
         const td = tier(a.id) - tier(b.id);
         if (td !== 0) return td;
         return new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime();
@@ -387,19 +390,20 @@ function InboxPage() {
     if (!draft.trim()) { toast.error("Message is empty"); return; }
     if (!active) return;
 
-    const msg: LocalMessage = {
-      id: `local-${Date.now()}`,
-      conversationId: active.id,
-      direction: "out",
-      channel: composeChannel,
-      body: draft.trim(),
-      at: new Date().toISOString(),
-    };
-    setLocalMessages((prev) => [...prev, msg]);
+    const draftText = draft.trim();
     setDraft("");
     setSubject("");
 
     if (composeChannel === "note") {
+      // Notes have no backend table — they only ever exist as local state.
+      setLocalMessages((prev) => [...prev, {
+        id: `local-${Date.now()}`,
+        conversationId: active.id,
+        direction: "out",
+        channel: composeChannel,
+        body: draftText,
+        at: new Date().toISOString(),
+      }]);
       toast.success("Note added to conversation");
       return;
     }
@@ -431,7 +435,7 @@ function InboxPage() {
         body: JSON.stringify({
           channel: composeChannel,
           to,
-          body: draft.trim(),
+          body: draftText,
           subject: composeChannel === "email" ? subject : undefined,
           from_name: mergeCtx.company_name,
           contact_id: active.contactId,
@@ -440,6 +444,16 @@ function InboxPage() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         toast.error(err.error ?? "Send failed");
+        // Keep the failed message visible locally so the user can see what
+        // didn't go through and retry, rather than losing it silently.
+        setLocalMessages((prev) => [...prev, {
+          id: `local-failed-${Date.now()}`,
+          conversationId: active.id,
+          direction: "out",
+          channel: composeChannel,
+          body: draftText,
+          at: new Date().toISOString(),
+        }]);
       } else {
         const channelLabel =
           composeChannel === "sms" ? "SMS" :
@@ -449,11 +463,22 @@ function InboxPage() {
           "Instagram";
         toast.success(`${channelLabel} sent`);
         // SMS/WhatsApp/Messenger/Instagram are backed by sms_meta_messages —
-        // refresh so the real persisted row replaces the optimistic local one.
+        // refresh so the real persisted row shows up. No optimistic local
+        // copy is kept for these channels (see top of this function) since
+        // that previously caused the same message to render twice: once
+        // from a stale localStorage entry, once from the real row.
         if (composeChannel !== "email") refreshRealConvs();
       }
     } catch {
-      toast.error("Network error — message shown locally only");
+      toast.error("Network error — message not sent");
+      setLocalMessages((prev) => [...prev, {
+        id: `local-failed-${Date.now()}`,
+        conversationId: active.id,
+        direction: "out",
+        channel: composeChannel,
+        body: draftText,
+        at: new Date().toISOString(),
+      }]);
     }
   };
 
@@ -1453,39 +1478,39 @@ function NewConversationSheet({
 }) {
   const [query, setQuery] = useState("");
   const [sbList, setSbList] = useState<{ id: string; name: string; email: string; phone: string }[]>([]);
+  const [sbLoading, setSbLoading] = useState(true);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setSbLoading(true);
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
+      if (!user || cancelled) { setSbLoading(false); return; }
       const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
       const orgId = profile?.organization_id;
-      if (!orgId || cancelled) return;
+      if (!orgId || cancelled) { setSbLoading(false); return; }
       const { data } = await supabase
         .from("contacts")
         .select("id, full_name, email, phone")
         .eq("org_id", orgId)
         .order("full_name", { ascending: true })
         .limit(500);
-      if (!data || cancelled) return;
-      setSbList(data.map((c: any) => ({
+      if (cancelled) return;
+      setSbList((data ?? []).map((c: any) => ({
         id: c.id,
         name: c.full_name ?? "Unknown",
         email: c.email ?? "",
         phone: c.phone ?? "",
       })));
+      setSbLoading(false);
     })();
     return () => { cancelled = true; };
   }, [open]);
 
   const contacts = useMemo(() => {
     const q = query.toLowerCase();
-    const source = sbList.length > 0
-      ? sbList
-      : mockContacts.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone }));
-    return source
+    return sbList
       .filter((c) => !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q))
       .slice(0, 100);
   }, [query, sbList]);
@@ -1508,7 +1533,10 @@ function NewConversationSheet({
           />
         </div>
         <div className="mt-3 flex-1 overflow-y-auto space-y-0.5">
-          {contacts.length === 0 && (
+          {sbLoading && (
+            <p className="p-6 text-center text-xs text-muted-foreground">Loading contacts…</p>
+          )}
+          {!sbLoading && contacts.length === 0 && (
             <p className="p-6 text-center text-xs text-muted-foreground">No contacts found</p>
           )}
           {contacts.map((c) => (
