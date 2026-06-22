@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "@/components/auth/auth-layout";
 
-export const Route = createFileRoute("/src/routes/auth/callback")({
+export const Route = createFileRoute("/auth/callback")({
   validateSearch: (s: Record<string, unknown>) => ({ token: (s.token as string) ?? "" }),
   component: AuthCallback,
 });

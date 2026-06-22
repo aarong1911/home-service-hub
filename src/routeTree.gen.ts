@@ -51,9 +51,9 @@ import { Route as AutomationWorkflowsRouteImport } from './routes/automation.wor
 import { Route as AutomationTriggersRouteImport } from './routes/automation.triggers'
 import { Route as AutomationCallLogsRouteImport } from './routes/automation.call-logs'
 import { Route as AutomationAgentsRouteImport } from './routes/automation.agents'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AutomationWorkflowsIndexRouteImport } from './routes/automation.workflows.index'
 import { Route as AutomationWorkflowsWorkflowIdRouteImport } from './routes/automation.workflows.$workflowId'
-import { Route as SrcRoutesAuthCallbackRouteImport } from './routes/src/routes/auth.callback'
 
 const TasksRoute = TasksRouteImport.update({
   id: '/tasks',
@@ -265,6 +265,11 @@ const AutomationAgentsRoute = AutomationAgentsRouteImport.update({
   path: '/automation/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AutomationWorkflowsIndexRoute =
   AutomationWorkflowsIndexRouteImport.update({
     id: '/',
@@ -277,11 +282,6 @@ const AutomationWorkflowsWorkflowIdRoute =
     path: '/$workflowId',
     getParentRoute: () => AutomationWorkflowsRoute,
   } as any)
-const SrcRoutesAuthCallbackRoute = SrcRoutesAuthCallbackRouteImport.update({
-  id: '/src/routes/auth/callback',
-  path: '/src/routes/auth/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -300,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -328,7 +329,6 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof ProjectsIndexRoute
   '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
   '/automation/workflows/': typeof AutomationWorkflowsIndexRoute
-  '/src/routes/auth/callback': typeof SrcRoutesAuthCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -347,6 +347,7 @@ export interface FileRoutesByTo {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -374,7 +375,6 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsIndexRoute
   '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
   '/automation/workflows': typeof AutomationWorkflowsIndexRoute
-  '/src/routes/auth/callback': typeof SrcRoutesAuthCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -394,6 +394,7 @@ export interface FileRoutesById {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/tasks': typeof TasksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/automation/agents': typeof AutomationAgentsRoute
   '/automation/call-logs': typeof AutomationCallLogsRoute
   '/automation/triggers': typeof AutomationTriggersRoute
@@ -422,7 +423,6 @@ export interface FileRoutesById {
   '/projects/': typeof ProjectsIndexRoute
   '/automation/workflows/$workflowId': typeof AutomationWorkflowsWorkflowIdRoute
   '/automation/workflows/': typeof AutomationWorkflowsIndexRoute
-  '/src/routes/auth/callback': typeof SrcRoutesAuthCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -443,6 +443,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tasks'
+    | '/auth/callback'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -471,7 +472,6 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/automation/workflows/$workflowId'
     | '/automation/workflows/'
-    | '/src/routes/auth/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -490,6 +490,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tasks'
+    | '/auth/callback'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -517,7 +518,6 @@ export interface FileRouteTypes {
     | '/projects'
     | '/automation/workflows/$workflowId'
     | '/automation/workflows'
-    | '/src/routes/auth/callback'
   id:
     | '__root__'
     | '/'
@@ -536,6 +536,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tasks'
+    | '/auth/callback'
     | '/automation/agents'
     | '/automation/call-logs'
     | '/automation/triggers'
@@ -564,7 +565,6 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/automation/workflows/$workflowId'
     | '/automation/workflows/'
-    | '/src/routes/auth/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -584,6 +584,7 @@ export interface RootRouteChildren {
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
   TasksRoute: typeof TasksRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   AutomationAgentsRoute: typeof AutomationAgentsRoute
   AutomationCallLogsRoute: typeof AutomationCallLogsRoute
   AutomationTriggersRoute: typeof AutomationTriggersRoute
@@ -593,7 +594,6 @@ export interface RootRouteChildren {
   ProjectsClientSlugRoute: typeof ProjectsClientSlugRoute
   SalesPipelineRoute: typeof SalesPipelineRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
-  SrcRoutesAuthCallbackRoute: typeof SrcRoutesAuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -892,6 +892,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomationAgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/automation/workflows/': {
       id: '/automation/workflows/'
       path: '/'
@@ -905,13 +912,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/automation/workflows/$workflowId'
       preLoaderRoute: typeof AutomationWorkflowsWorkflowIdRouteImport
       parentRoute: typeof AutomationWorkflowsRoute
-    }
-    '/src/routes/auth/callback': {
-      id: '/src/routes/auth/callback'
-      path: '/src/routes/auth/callback'
-      fullPath: '/src/routes/auth/callback'
-      preLoaderRoute: typeof SrcRoutesAuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -1008,6 +1008,7 @@ const rootRouteChildren: RootRouteChildren = {
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
   TasksRoute: TasksRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   AutomationAgentsRoute: AutomationAgentsRoute,
   AutomationCallLogsRoute: AutomationCallLogsRoute,
   AutomationTriggersRoute: AutomationTriggersRoute,
@@ -1017,7 +1018,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsClientSlugRoute: ProjectsClientSlugRoute,
   SalesPipelineRoute: SalesPipelineRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
-  SrcRoutesAuthCallbackRoute: SrcRoutesAuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
