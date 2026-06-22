@@ -80,6 +80,9 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "channel, to, body are required" }) };
   }
 
+  let sentAsTemplate = false;
+  let templateNameUsed: string | undefined;
+
   try {
     if (channel === "sms") {
       // Fetch org's Twilio credentials from integration_settings
@@ -188,22 +191,80 @@ export const handler: Handler = async (event) => {
         // normalizer SMS/Twilio already uses below, just without the "+"
         // since the Graph API's `to` field wants bare digits.
         const toDigits = toE164(to).replace("+", "");
+
+        // WhatsApp's 24-hour session rule: free-form text (type: "text")
+        // is only allowed if the contact has messaged US within the last
+        // 24 hours, opening a "customer service window." Outside that
+        // window — including the very first message to a contact who has
+        // never written in — only pre-approved TEMPLATE messages are
+        // accepted; a "text" send in that situation is rejected by Meta
+        // even though our own API call returns 200 in some failure modes,
+        // which is what made this bug hard to spot (it can look like it
+        // sent, then never arrives). Check the most recent INBOUND
+        // sms_meta_messages row for this contact+channel to determine
+        // whether a session is currently open.
+        let sessionOpen = false;
+        if (contact_id) {
+          const { data: lastInbound } = await supabaseAdmin
+            .from("sms_meta_messages")
+            .select("created_at")
+            .eq("org_id", orgId)
+            .eq("contact_id", contact_id)
+            .eq("channel", "whatsapp")
+            .eq("direction", "in")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lastInbound?.created_at) {
+            const hoursSince = (Date.now() - new Date(lastInbound.created_at).getTime()) / 36e5;
+            sessionOpen = hoursSince < 24;
+          }
+        }
+
+        const messagePayload = sessionOpen
+          ? { messaging_product: "whatsapp", to: toDigits, type: "text", text: { body } }
+          : {
+              messaging_product: "whatsapp",
+              to: toDigits,
+              type: "template",
+              // TODO(Ron): replace with the real approved template name +
+              // language once submitted in WhatsApp Manager. "hello_world"
+              // is Meta's built-in sample template (no variables, always
+              // pre-approved on every WABA) — used here ONLY as a working
+              // placeholder so this code path is testable today. It will
+              // send a generic Meta sample message, not real RenoMeta
+              // content, until swapped for your own approved template.
+              template: {
+                name: process.env.WHATSAPP_TEMPLATE_NAME || "hello_world",
+                language: { code: process.env.WHATSAPP_TEMPLATE_LANG || "en_US" },
+                // If your approved template has variables ({{1}}, {{2}}...),
+                // add a `components` array here mapping `body` (or parts of
+                // it) into those slots — Meta does not accept arbitrary
+                // free text inside a template send, only the template's
+                // predefined structure with variable substitutions.
+              },
+            };
+
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${conn.waba_phone_number_id}/messages`,
           {
             method: "POST",
             headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messaging_product: "whatsapp",
-              to: toDigits,
-              type: "text",
-              text: { body },
-            }),
+            body: JSON.stringify(messagePayload),
           },
         );
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
           throw new Error(err?.error?.message ?? `WhatsApp send failed (${res.status})`);
+        }
+        if (!sessionOpen) {
+          sentAsTemplate = true;
+          templateNameUsed = messagePayload.template!.name;
+          console.log(
+            `[send-inbox-message] sent WhatsApp TEMPLATE (no open 24h session) to org ${orgId}, contact ${contact_id ?? "unknown"} — ` +
+            `using template "${templateNameUsed}". The actual message body the user typed was NOT delivered as-is; ` +
+            `only the template's fixed content was sent. Swap WHATSAPP_TEMPLATE_NAME once a real template is approved.`,
+          );
         }
       } else {
         // Messenger and Instagram both send through the same Page-scoped
@@ -245,9 +306,13 @@ export const handler: Handler = async (event) => {
         contact_id: contact_id ?? null,
         channel,
         direction: "out",
-        body,
+        // If a template was sent instead of free text (no open WhatsApp
+        // session), record what actually went out — Meta's fixed template
+        // content, not the user's typed draft — so the conversation history
+        // doesn't show a message that was never really delivered as written.
+        body: sentAsTemplate ? `[Template: ${templateNameUsed}] (sent because no message was received from this contact in the last 24h)` : body,
         from_address: to,
-        meta: null,
+        meta: sentAsTemplate ? { sent_as_template: templateNameUsed } : null,
       });
       if (insertErr) {
         // Don't fail the request over this — the external send already
@@ -257,7 +322,15 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) };
+    return {
+      statusCode: 200,
+      headers: CORS,
+      body: JSON.stringify({
+        ok: true,
+        sentAsTemplate,
+        ...(sentAsTemplate ? { templateName: templateNameUsed } : {}),
+      }),
+    };
   } catch (err: any) {
     console.error("[send-inbox-message]", err.message);
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: err.message }) };

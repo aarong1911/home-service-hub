@@ -464,13 +464,27 @@ function InboxPage() {
           at: new Date().toISOString(),
         }]);
       } else {
+        const result = await res.json().catch(() => ({}));
         const channelLabel =
           composeChannel === "sms" ? "SMS" :
           composeChannel === "email" ? "Email" :
           composeChannel === "whatsapp" ? "WhatsApp" :
           composeChannel === "messenger" ? "Messenger" :
           "Instagram";
-        toast.success(`${channelLabel} sent`);
+        if (result.sentAsTemplate) {
+          // WhatsApp's 24-hour session rule: the contact hasn't messaged
+          // us recently, so free text isn't allowed — a pre-approved
+          // template was sent instead, NOT the message the user typed.
+          // This must be surfaced clearly, since silently sending
+          // different content than what was drafted would otherwise look
+          // like a successful send of the real message.
+          toast.warning(
+            `${active.contactName} hasn't messaged you in the last 24h, so WhatsApp required a template message instead — your typed text was not sent. Template used: ${result.templateName}.`,
+            { duration: 8000 },
+          );
+        } else {
+          toast.success(`${channelLabel} sent`);
+        }
         // SMS/WhatsApp/Messenger/Instagram are backed by sms_meta_messages —
         // refresh so the real persisted row shows up. No optimistic local
         // copy is kept for these channels (see top of this function) since
