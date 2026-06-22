@@ -399,6 +399,51 @@ SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' O
 first. A feature appearing to work in the UI does not mean it's backed by
 a real table; it may be local-only state that happens to survive a refresh.
 
+## WhatsApp 24-hour session rule — template messages required outside it
+
+Error `131030` ("Recipient phone number not in allowed list") was real and
+fixed by E.164-normalizing the recipient number — but fixing that exposed a
+second, separate WhatsApp constraint: **free-form text (`type: "text"`) is
+only accepted if the contact has messaged the business within the last 24
+hours** (an open "customer service window"). Outside that window — which
+includes every *first* message to a contact who has never written in —
+Meta only accepts `type: "template"` messages using a pre-approved
+template. This is unrelated to Development-mode/allow-list status; it
+applies in production too.
+
+This was confirmed by testing side-by-side: Meta's own WhatsApp Manager
+"Try it out" console sends a `type: "template"` message ("hello_world")
+which arrives on the real device; the exact same recipient via our app's
+`type: "text"` call does not arrive, despite a 200 OK response and a
+correctly-formatted number — because Meta accepts the API call but the
+message itself isn't delivered outside the session window.
+
+**Fixed in `send-inbox-message.ts`:** before sending, it checks
+`sms_meta_messages` for the most recent INBOUND row from that contact on
+the `whatsapp` channel; if none exists or it's older than 24 hours, the
+send uses `type: "template"` instead of `type: "text"`. The template
+name/language come from `WHATSAPP_TEMPLATE_NAME`/`WHATSAPP_TEMPLATE_LANG`
+env vars, defaulting to Meta's built-in `hello_world` sample template (no
+variables, pre-approved on every WABA automatically) as a working
+placeholder until a real business-specific template is submitted and
+approved in WhatsApp Manager. **Set these env vars once a real template is
+approved** — until then, any first-contact WhatsApp send goes out as the
+generic Meta sample message, not the user's typed text, and the frontend
+shows a warning toast (`sentAsTemplate` in the response) explaining this so
+it's never silently confusing.
+
+The persisted `sms_meta_messages` row for a template-substituted send
+records `[Template: name] (sent because no message was received from this
+contact in the last 24h)` rather than the user's original draft, since that
+draft was never actually what got delivered.
+
+**Not yet built:** support for templates with variables (`components`
+array mapping the user's typed text or contact fields into `{{1}}`,
+`{{2}}` slots) — the current placeholder template has no variables, so
+`messagePayload.template` never includes a `components` field. Add this
+once a real variable-based template is approved, if the template design
+calls for it.
+
 ## Gotchas specific to Meta integrations
 
 | Issue | Fix |
