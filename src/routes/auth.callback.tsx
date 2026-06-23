@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { getOrgProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
 });
 
-type Stage = "loading" | "setup" | "done" | "error";
+type Stage = "loading" | "setup" | "done" | "error" | "no-account";
 
 type Invitation = {
   id: string; email: string; role: string;
@@ -68,7 +69,19 @@ function AuthCallback() {
   }
 
   useEffect(() => {
-    if (!token) { setErrorMsg("No invitation token found."); setStage("error"); return; }
+    // This route is dual-purpose: (1) invitation-acceptance, reached with a
+    // ?token= from a team-invite email, and (2) the plain OAuth redirect
+    // target for "Sign in with Google"/"Sign in with Apple" (see
+    // signInWithGoogle()/signInWithApple() in src/lib/auth.ts, which both
+    // set redirectTo to this exact route with no token). Previously, ANY
+    // visit here with no ?token= unconditionally showed "Link expired" —
+    // which is what every Google/Apple sign-in hit, since OAuth never
+    // supplies an invitations-table token. Branch on whether a token is
+    // present BEFORE assuming this is an invite-acceptance visit.
+    if (!token) {
+      handleOAuthReturn();
+      return;
+    }
 
     const load = async () => {
       const { data, error } = await supabase
@@ -100,6 +113,42 @@ function AuthCallback() {
     };
     load();
   }, [token]);
+
+  // No invite token present — this is a plain OAuth return (Google/Apple).
+  // Supabase's JS client processes the OAuth redirect's hash/code
+  // automatically, so by the time this effect runs, getSession() should
+  // already reflect the newly-authenticated user if the OAuth exchange
+  // succeeded. Check whether that user already has a profile/org: if so,
+  // they're an existing user signing in — go to the dashboard (or
+  // onboarding, if they have an account but never finished setup). If
+  // there's no session at all, or no profile/org exists yet, treat it as
+  // "no account" rather than showing a broken invite-link error.
+  async function handleOAuthReturn() {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      // OAuth exchange didn't produce a session (e.g. user cancelled on
+      // Google's side, or the exchange failed) — send them back to sign in
+      // rather than showing an invite-specific error message.
+      setErrorMsg("Sign-in didn't complete. Please try again.");
+      setStage("error");
+      return;
+    }
+
+    const orgProfile = await getOrgProfile();
+    if (orgProfile?.organizationId) {
+      // Existing user with a real org — go straight to the dashboard
+      // (or onboarding, if they have an org but never finished setup).
+      navigate({ to: orgProfile.onboardingComplete ? "/" : "/onboarding" });
+      return;
+    }
+
+    // Authenticated with Google/Apple, but no profile/org exists for this
+    // user yet — this is a brand-new sign-up via OAuth, not an existing
+    // user signing in. Per the desired behavior: tell them clearly and
+    // route into the sign-up/onboarding flow rather than erroring out.
+    setStage("no-account");
+  }
 
   const isSub = invitation?.worker_type === "subcontractor";
 
@@ -148,6 +197,22 @@ function AuthCallback() {
       <div className="flex flex-col items-center gap-3 py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <p className="text-xs text-muted-foreground">Verifying your invitation…</p>
+      </div>
+    </AuthLayout>
+  );
+
+  if (stage === "no-account") return (
+    <AuthLayout title="Please sign up first" subtitle="We couldn't find an existing RenoMeta Connect account for this Google account.">
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Continue to finish setting up your organization, or go back if this was a mistake.
+        </p>
+        <Button type="button" className="h-11 w-full bg-foreground text-background hover:bg-foreground/90"
+          onClick={() => navigate({ to: "/onboarding" })}>Continue to sign up</Button>
+        <Button type="button" variant="outline" className="h-11 w-full"
+          onClick={async () => { await supabase.auth.signOut(); navigate({ to: "/signin" }); }}>
+          Back to sign in
+        </Button>
       </div>
     </AuthLayout>
   );
