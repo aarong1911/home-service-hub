@@ -68,14 +68,23 @@ export const handler: Handler = async (event) => {
   if (!orgId) return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: "No organization found" }) };
 
   // Parse request body
-  let reqBody: { channel: string; to: string; body: string; subject?: string; from_name?: string; contact_id?: string };
+  let reqBody: {
+    channel: string; to: string; body: string; subject?: string; from_name?: string; contact_id?: string;
+    // Optional explicit values for WhatsApp template variables (used only
+    // when a template send is required — see the 24h session check below).
+    // Falls back to sensible defaults (contact name from `contacts`,
+    // current date/time, generic service/confirmation text) when not
+    // supplied, since the Inbox compose box is currently a single
+    // free-text field with no appointment-specific inputs.
+    templateVars?: { dateTime?: string; service?: string; confirmationNumber?: string };
+  };
   try {
     reqBody = JSON.parse(event.body ?? "{}");
   } catch {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "Invalid JSON" }) };
   }
 
-  const { channel, to, body, subject, from_name, contact_id } = reqBody;
+  const { channel, to, body, subject, from_name, contact_id, templateVars } = reqBody;
   if (!channel || !to || !body) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "channel, to, body are required" }) };
   }
@@ -221,29 +230,80 @@ export const handler: Handler = async (event) => {
           }
         }
 
-        const messagePayload = sessionOpen
-          ? { messaging_product: "whatsapp", to: toDigits, type: "text", text: { body } }
-          : {
-              messaging_product: "whatsapp",
-              to: toDigits,
-              type: "template",
-              // TODO(Ron): replace with the real approved template name +
-              // language once submitted in WhatsApp Manager. "hello_world"
-              // is Meta's built-in sample template (no variables, always
-              // pre-approved on every WABA) — used here ONLY as a working
-              // placeholder so this code path is testable today. It will
-              // send a generic Meta sample message, not real RenoMeta
-              // content, until swapped for your own approved template.
-              template: {
-                name: process.env.WHATSAPP_TEMPLATE_NAME || "hello_world",
-                language: { code: process.env.WHATSAPP_TEMPLATE_LANG || "en_US" },
-                // If your approved template has variables ({{1}}, {{2}}...),
-                // add a `components` array here mapping `body` (or parts of
-                // it) into those slots — Meta does not accept arbitrary
-                // free text inside a template send, only the template's
-                // predefined structure with variable substitutions.
-              },
-            };
+        async function buildTemplatePayload(
+          toParam: string,
+          contactId: string | undefined,
+          vars: { dateTime?: string; service?: string; confirmationNumber?: string } | undefined,
+        ) {
+          // renometa_appointment_confirmed_ (Utility > Default, header
+          // "Appointment confirmed") — Meta rejected the original {{1}}
+          // style positional variables with "Variable parameters must be
+          // lowercase characters, underscores and numbers with two sets of
+          // curly brackets", so the template body uses NAMED variables
+          // instead. Confirmed final body:
+          //
+          //   Hi {{customer_name}},
+          //   Your appointment is scheduled for {{appointment_datetime}}.
+          //   Service: {{service_name}}
+          //   Confirmation number: {{confirmation_number}}
+          //   We're looking forward to your visit.
+          //
+          // Named-variable templates use a DIFFERENT parameters shape than
+          // older {{1}}-style templates: each parameter object includes a
+          // `parameter_name` field and is NOT positionally ordered — Meta
+          // matches by name, not array index. (hello_world and the older
+          // template-library samples seen earlier in this project still
+          // use the old {{1}} positional style; don't assume both
+          // templates in this codebase use the same parameter shape.)
+          //
+          // Header is static text ("Appointment confirmed") with no
+          // variable, so no `header` component is needed, only `body`.
+          let contactName = "there";
+          if (contactId) {
+            const { data: c } = await supabaseAdmin
+              .from("contacts")
+              .select("full_name")
+              .eq("id", contactId)
+              .maybeSingle();
+            if (c?.full_name) contactName = c.full_name;
+          }
+
+          const fallbackDateTime = new Date().toLocaleString(undefined, {
+            month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+          });
+
+          return {
+            messaging_product: "whatsapp",
+            to: toParam,
+            type: "template",
+            template: {
+              name: process.env.WHATSAPP_TEMPLATE_NAME || "renometa_appointment_confirmed_",
+              language: { code: process.env.WHATSAPP_TEMPLATE_LANG || "en_US" },
+              components: [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", parameter_name: "customer_name", text: contactName },
+                    { type: "text", parameter_name: "appointment_datetime", text: vars?.dateTime || fallbackDateTime },
+                    { type: "text", parameter_name: "service_name", text: vars?.service || "your service" },
+                    { type: "text", parameter_name: "confirmation_number", text: vars?.confirmationNumber || "—" },
+                  ],
+                },
+              ],
+            },
+          };
+        }
+
+        let messagePayload: { messaging_product: string; to: string; type: string; text?: { body: string }; template?: { name: string; language: { code: string }; components: any[] } };
+        let templateNameForThisSend: string | undefined;
+
+        if (sessionOpen) {
+          messagePayload = { messaging_product: "whatsapp", to: toDigits, type: "text", text: { body } };
+        } else {
+          const payload = await buildTemplatePayload(toDigits, contact_id, templateVars);
+          templateNameForThisSend = payload.template.name;
+          messagePayload = payload;
+        }
 
         const res = await fetch(
           `https://graph.facebook.com/v21.0/${conn.waba_phone_number_id}/messages`,
@@ -259,7 +319,7 @@ export const handler: Handler = async (event) => {
         }
         if (!sessionOpen) {
           sentAsTemplate = true;
-          templateNameUsed = messagePayload.template!.name;
+          templateNameUsed = templateNameForThisSend;
           console.log(
             `[send-inbox-message] sent WhatsApp TEMPLATE (no open 24h session) to org ${orgId}, contact ${contact_id ?? "unknown"} — ` +
             `using template "${templateNameUsed}". The actual message body the user typed was NOT delivered as-is; ` +
