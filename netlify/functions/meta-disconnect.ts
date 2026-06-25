@@ -5,10 +5,15 @@ import { createClient } from "@supabase/supabase-js";
 // ─────────────────────────────────────────────────────────────────────────
 // meta-disconnect.ts
 //
-// POST { product?: "whatsapp" | "messenger" | "instagram" | "lead_ads" }
-// If `product` is given, removes just that product from connected_products
-// (leaving the token/profile in place if other products still use it).
-// If omitted, deletes the whole meta_connections row for the org.
+// POST { product: "whatsapp" | "messenger" | "instagram" | "lead_ads" | "ads" }
+// With the per-product schema (see
+// supabase/migrations/006_meta_connections_per_product.sql), disconnecting
+// a product is just deleting that ONE (org_id, product) row — it can never
+// affect any other product's connection, since each lives in its own row.
+// `product` is required; there's no longer a meaningful "disconnect
+// everything" action here (the old version of this function tried to
+// guess whether other products were "using" the same row — that ambiguity
+// is exactly what the per-product schema eliminates).
 // ─────────────────────────────────────────────────────────────────────────
 
 const supabaseAdmin = createClient(
@@ -52,62 +57,17 @@ export const handler: Handler = async (event) => {
   try { reqBody = JSON.parse(event.body ?? "{}"); } catch { /* default {} */ }
 
   if (!reqBody.product) {
-    // Full disconnect with no product specified — still avoid nuking an
-    // unrelated pre-existing Ads connection. Just clear connected_products
-    // and the messaging-product fields rather than deleting the row if an
-    // ad_account_id is present.
-    const { data: existing } = await supabaseAdmin
-      .from("meta_connections")
-      .select("ad_account_id")
-      .eq("org_id", orgId)
-      .maybeSingle();
-
-    if (existing?.ad_account_id) {
-      const { error } = await supabaseAdmin
-        .from("meta_connections")
-        .update({ connected_products: [], updated_at: new Date().toISOString() })
-        .eq("org_id", orgId);
-      if (error) {
-        return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: error.message }) };
-      }
-      return { statusCode: 200, headers: CORS, body: JSON.stringify({ success: true }) };
-    }
-
-    const { error } = await supabaseAdmin.from("meta_connections").delete().eq("org_id", orgId);
-    if (error) {
-      return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: error.message }) };
-    }
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ success: true }) };
+    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "product is required" }) };
   }
 
-  const { data: existing } = await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("meta_connections")
-    .select("connected_products, ad_account_id")
+    .delete()
     .eq("org_id", orgId)
-    .maybeSingle();
+    .eq("product", reqBody.product);
 
-  if (!existing) {
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ success: true }) };
-  }
-
-  const remaining = (existing.connected_products ?? []).filter((p: string) => p !== reqBody.product);
-
-  // Only fully delete the row if nothing else is using it — that includes
-  // an Ads connection (ad_account_id) that may predate connected_products
-  // and isn't tracked in that array at all. Otherwise just shrink the array.
-  if (remaining.length === 0 && !existing.ad_account_id) {
-    const { error } = await supabaseAdmin.from("meta_connections").delete().eq("org_id", orgId);
-    if (error) {
-      return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: error.message }) };
-    }
-  } else {
-    const { error } = await supabaseAdmin
-      .from("meta_connections")
-      .update({ connected_products: remaining, updated_at: new Date().toISOString() })
-      .eq("org_id", orgId);
-    if (error) {
-      return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: error.message }) };
-    }
+  if (error) {
+    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: error.message }) };
   }
 
   return { statusCode: 200, headers: CORS, body: JSON.stringify({ success: true }) };

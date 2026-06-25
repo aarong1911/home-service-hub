@@ -26,7 +26,9 @@ function settingsKey(id: string): string {
   return id.replace(/-/g, "_"); // e.g. "meta-lead-ads" → "meta_lead_ads"
 }
 
-// Map integration card id → product key used in meta_connections.connected_products
+// Map integration card id → product key used as meta_connections.product
+// (one row per (org_id, product) now — see
+// supabase/migrations/006_meta_connections_per_product.sql)
 function metaProductKey(id: string): string | null {
   if (id === "whatsapp") return "whatsapp";
   if (id === "fb-messenger") return "messenger";
@@ -39,6 +41,7 @@ function metaProductKey(id: string): string | null {
 const META_IDS = new Set(["whatsapp", "fb-messenger", "instagram-direct", "meta-lead-ads", "meta-ads"]);
 
 interface MetaConnection {
+  product: string;
   meta_user_id: string;
   meta_user_name: string | null;
   meta_user_picture_url: string | null;
@@ -53,7 +56,6 @@ interface MetaConnection {
   waba_display_phone: string | null;
   ad_account_id: string | null;
   ad_account_name: string | null;
-  connected_products: string[];
   is_active: boolean;
   expires_at: string | null;
   updated_at: string;
@@ -75,7 +77,12 @@ async function getOrgAndUserId(): Promise<{ orgId: string; userId: string } | nu
   return { orgId, userId: user.id };
 }
 
-async function fetchMetaConnection(): Promise<MetaConnection | null> {
+// Returns the connection row for ONE specific product, or null if that
+// product isn't connected. Each product is now fully independent — there
+// is no shared array to check membership against, so this fetches the
+// full per-product map and picks out just the one the caller asked for.
+async function fetchMetaConnection(productKey: string | null): Promise<MetaConnection | null> {
+  if (!productKey) return null;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
   const res = await fetch("/.netlify/functions/meta-connection-status", {
@@ -83,7 +90,7 @@ async function fetchMetaConnection(): Promise<MetaConnection | null> {
   });
   if (!res.ok) return null;
   const json = await res.json();
-  return json.connection ?? null;
+  return json.connections?.[productKey] ?? null;
 }
 
 export function IntegrationConfigDrawer({ integration, open, onOpenChange, onConnect, onDisconnect }: Props) {
@@ -117,11 +124,10 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
 
     (async () => {
       if (META_IDS.has(currentId)) {
-        const conn = await fetchMetaConnection();
         const productKey = metaProductKey(currentId);
-        const connected = !!conn && !!productKey && conn.connected_products.includes(productKey);
-        setMetaConnection(connected ? conn : null);
-        setIsConfigured(connected);
+        const conn = await fetchMetaConnection(productKey);
+        setMetaConnection(conn);
+        setIsConfigured(!!conn);
         return;
       }
 
@@ -157,12 +163,11 @@ export function IntegrationConfigDrawer({ integration, open, onOpenChange, onCon
       if (e.data.success) {
         toast.success(`${integration!.name} connected`);
         (async () => {
-          const conn = await fetchMetaConnection();
           const productKey = metaProductKey(integration!.id);
-          const connected = !!conn && !!productKey && conn.connected_products.includes(productKey);
-          setMetaConnection(connected ? conn : null);
-          setIsConfigured(connected);
-          if (connected) onConnect?.(integration!);
+          const conn = await fetchMetaConnection(productKey);
+          setMetaConnection(conn);
+          setIsConfigured(!!conn);
+          if (conn) onConnect?.(integration!);
         })();
       } else {
         toast.error(e.data.error || "Connection failed — please try again");

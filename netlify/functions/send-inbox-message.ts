@@ -161,16 +161,21 @@ export const handler: Handler = async (event) => {
         text: body,
       });
     } else if (channel === "whatsapp" || channel === "messenger" || channel === "instagram") {
-      const { data: conn, error: connErr } = await supabaseAdmin
-        .from("meta_connections")
-        .select("waba_phone_number_id, page_id, access_token, connected_products")
-        .eq("org_id", orgId)
-        .maybeSingle();
-
-      const connectedProducts: string[] = conn?.connected_products ?? [];
       const productKey = channel === "whatsapp" ? "whatsapp" : channel === "messenger" ? "messenger" : "instagram";
 
-      if (connErr || !conn || !conn.access_token || !connectedProducts.includes(productKey)) {
+      // Per-product schema (supabase/migrations/006_meta_connections_per_product.sql)
+      // — query the row for THIS product specifically, rather than a shared
+      // org-level row with a connected_products array to check membership
+      // against. If no row exists for this exact product, it was never
+      // connected (or was disconnected), full stop.
+      const { data: conn, error: connErr } = await supabaseAdmin
+        .from("meta_connections")
+        .select("waba_phone_number_id, page_id, access_token")
+        .eq("org_id", orgId)
+        .eq("product", productKey)
+        .maybeSingle();
+
+      if (connErr || !conn || !conn.access_token) {
         return {
           statusCode: 422,
           headers: CORS,

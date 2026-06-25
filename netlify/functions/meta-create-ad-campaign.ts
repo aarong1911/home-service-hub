@@ -100,10 +100,16 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Objective must be one of: ${[...ALLOWED_OBJECTIVES].join(", ")}` }) };
   }
 
+  // Per-product schema (supabase/migrations/006_meta_connections_per_product.sql)
+  // — query the "ads" product row specifically, not just any row for this
+  // org. Without the product filter, an org with multiple connected
+  // products (e.g. whatsapp + ads) would have multiple meta_connections
+  // rows and .maybeSingle() would error on more than one match.
   const { data: conn, error: connErr } = await supabaseAdmin
     .from("meta_connections")
     .select("ad_account_id, ad_account_name, access_token")
     .eq("org_id", orgId)
+    .eq("product", "ads")
     .maybeSingle();
 
   if (connErr || !conn || !conn.ad_account_id || !conn.access_token) {
