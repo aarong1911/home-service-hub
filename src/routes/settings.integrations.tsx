@@ -55,7 +55,14 @@ function IntegrationsSettings() {
           });
           if (res.ok) {
             const json = await res.json();
-            connectedProducts = json.connection?.connected_products ?? [];
+            // Per-product schema (see
+            // supabase/migrations/006_meta_connections_per_product.sql) —
+            // meta-connection-status.ts now returns `connections` keyed by
+            // product (e.g. { whatsapp: {...}, ads: {...} }), one entry
+            // per product that's actually connected. A product's presence
+            // as a key means it's connected; there's no shared array to
+            // check membership against anymore.
+            connectedProducts = Object.keys(json.connections ?? {});
           }
         } catch {
           // Meta connection status is best-effort here — card will just show "Not connected"
