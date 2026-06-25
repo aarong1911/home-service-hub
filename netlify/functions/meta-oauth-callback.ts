@@ -18,6 +18,12 @@ import crypto from "node:crypto";
 // Extended by supabase/migrations/002_meta_connections_extend.sql with:
 //   waba_id, waba_phone_number_id, waba_display_phone, ig_username,
 //   meta_user_picture_url, business_id, business_name, connected_products
+// Then migrated by supabase/migrations/006_meta_connections_per_product.sql
+// to ONE ROW PER (org_id, product) instead of one shared row with a
+// connected_products array — fixes a real bug where connecting one
+// product (e.g. WhatsApp) made other products (Ads, Lead Ads) show as
+// "Connected" too, since the array only ever grew and was never
+// per-product-scoped. connected_products no longer exists as a column.
 //
 // access_token is a `text` column, not `bytea`. We write an ENCRYPTED
 // base64 string into it going forward (see encryptToken below) rather than
@@ -176,8 +182,16 @@ export const handler: Handler = async (event) => {
     // existingRow.business_id). This cast is the fix, not a workaround —
     // it'll keep being needed unless/until the project adopts a typed
     // `createClient<Database>(...)` with real generated Supabase types.
+    //
+    // With the per-product schema (see
+    // supabase/migrations/006_meta_connections_per_product.sql), each
+    // (org_id, product) pair has its OWN row — connecting WhatsApp can
+    // never again affect what's stored for Ads or Lead Ads, so there's no
+    // need to fetch-and-preserve-other-fields the way the old shared-row
+    // design required. Still fetch the existing row for THIS product, in
+    // case re-discovery of one field fails on a reconnect but others
+    // already have good values from a prior successful connect.
     interface ExistingMetaConnectionRow {
-      connected_products: string[] | null;
       business_id: string | null;
       business_name: string | null;
       page_id: string | null;
@@ -191,12 +205,20 @@ export const handler: Handler = async (event) => {
       ad_account_name: string | null;
     }
 
+    const productKey =
+      product === "whatsapp" ? "whatsapp" :
+      product === "fb-messenger" ? "messenger" :
+      product === "instagram-direct" ? "instagram" :
+      product === "meta-ads" ? "ads" :
+      "lead_ads";
+
     const { data: existingRow } = (await supabaseAdmin
       .from("meta_connections")
       .select(
-        "business_id, business_name, page_id, page_name, ig_actor_id, ig_username, waba_id, waba_phone_number_id, waba_display_phone, ad_account_id, ad_account_name, connected_products",
+        "business_id, business_name, page_id, page_name, ig_actor_id, ig_username, waba_id, waba_phone_number_id, waba_display_phone, ad_account_id, ad_account_name",
       )
       .eq("org_id", orgId)
+      .eq("product", productKey)
       .maybeSingle()) as unknown as { data: ExistingMetaConnectionRow | null };
 
     let businessId: string | null = null;
@@ -308,26 +330,16 @@ export const handler: Handler = async (event) => {
       ? new Date(Date.now() + expiresInSec * 1000).toISOString()
       : null;
 
-    // 7. Upsert — merge connected_products rather than overwrite, since a
-    //    contractor may run this flow once per product card. existingRow
-    //    (fetched in step 5) already has connected_products, so no second
-    //    lookup is needed here.
-    const productKey =
-      product === "whatsapp" ? "whatsapp" :
-      product === "fb-messenger" ? "messenger" :
-      product === "instagram-direct" ? "instagram" :
-      product === "meta-ads" ? "ads" :
-      "lead_ads";
-
-    const mergedProducts = Array.from(
-      new Set([...(existingRow?.connected_products ?? []), productKey]),
-    );
-
+    // 7. Upsert — ONE ROW PER (org_id, product). No connected_products
+    //    merge logic needed anymore: this row IS the record of this one
+    //    product's connection, full stop. Connecting a different product
+    //    creates/updates a SEPARATE row and cannot affect this one.
     const { error: upsertErr } = await supabaseAdmin
       .from("meta_connections")
       .upsert(
         {
           org_id: orgId,
+          product: productKey,
           user_id: userId,
           meta_user_id: me.id,
           meta_user_name: me.name ?? null,
@@ -343,7 +355,6 @@ export const handler: Handler = async (event) => {
           waba_display_phone: wabaDisplayPhone ?? existingRow?.waba_display_phone ?? null,
           ad_account_id: adAccountId ?? existingRow?.ad_account_id ?? null,
           ad_account_name: adAccountName ?? existingRow?.ad_account_name ?? null,
-          connected_products: mergedProducts,
           access_token: encryptedToken,
           token_type: tokenType,
           expires_at: expiresAt,
@@ -351,7 +362,7 @@ export const handler: Handler = async (event) => {
           is_active: true,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "org_id" },
+        { onConflict: "org_id,product" },
       );
 
     if (upsertErr) {
