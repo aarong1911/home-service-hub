@@ -539,7 +539,7 @@ Generate 3-5 insights, 2-3 opportunities, and 3 recommended actions. Be concrete
   {
     name: "Create Ad Campaign",
     description:
-      "Creates a real campaign and ad set in your connected Meta Ads account via the Marketing API — always created PAUSED with no creative attached, so it's safe to try and never spends money. Activate it yourself in Meta Ads Manager when you're ready to launch.",
+      "Creates a real campaign, ad set, and ad in your connected Meta Ads account via the Marketing API — always created PAUSED, so it's safe to try and never spends money. Activate it yourself in Meta Ads Manager when you're ready to launch.",
     category: "sales",
     icon: "trending-up",
     model: "n/a — calls the Meta Marketing API directly, not Claude",
@@ -563,6 +563,42 @@ Generate 3-5 insights, 2-3 opportunities, and 3 recommended actions. Be concrete
         type: "select",
         options: ["OUTCOME_LEADS", "OUTCOME_TRAFFIC", "OUTCOME_AWARENESS", "OUTCOME_ENGAGEMENT", "OUTCOME_SALES"],
         placeholder: "Select objective",
+      },
+      {
+        key: "image",
+        label: "Ad Image",
+        type: "image",
+      },
+      {
+        key: "headline",
+        label: "Headline",
+        type: "text",
+        placeholder: "e.g. Transform Your Kitchen This Spring",
+      },
+      {
+        key: "primary_text",
+        label: "Primary Text",
+        type: "textarea",
+        placeholder: "The main ad copy shown above the image — what's the offer or message?",
+      },
+      {
+        key: "description",
+        label: "Description",
+        type: "text",
+        placeholder: "Shorter supporting text shown below the headline",
+      },
+      {
+        key: "cta",
+        label: "Call to Action",
+        type: "select",
+        options: ["LEARN_MORE", "GET_QUOTE", "CONTACT_US", "BOOK_TRAVEL", "SIGN_UP", "CALL_NOW", "MESSAGE_PAGE"],
+        placeholder: "Select a call-to-action button",
+      },
+      {
+        key: "destination_url",
+        label: "Destination URL",
+        type: "text",
+        placeholder: "https://connect.renometa.com or a specific project/landing page",
       },
     ],
     // No system_prompt — this tool bypasses run-tool.mjs's Claude pipeline
