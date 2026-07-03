@@ -444,6 +444,109 @@ array mapping the user's typed text or contact fields into `{{1}}`,
 once a real variable-based template is approved, if the template design
 calls for it.
 
+## `meta_connections` is now ONE ROW PER (org_id, product)
+
+A real bug, caught while preparing the App Review recording: connecting
+**any** Meta product (e.g. WhatsApp) made **all previously-connected
+products** (Ads, Lead Ads) show as "Connected" too — without separately
+authorizing them. This happened because the original design used one
+shared row per org with a `connected_products` array that only ever grew
+(`mergedProducts = [...existingRow.connected_products, productKey]` in
+`meta-oauth-callback.ts`) — there was no way to tell "this org separately
+authorized 3 products" from "this org connected once and we're assuming
+the rest still apply," and old test-era product entries were never
+removed.
+
+**Fixed via `supabase/migrations/006_meta_connections_per_product.sql`**:
+added a `product` column, changed the unique constraint from `(org_id)` to
+`(org_id, product)`, backfilled existing rows by splitting their
+`connected_products` array into one row per product, then dropped
+`connected_products` entirely. Each product (`whatsapp`, `messenger`,
+`instagram`, `lead_ads`, `ads`) now has its own fully independent row —
+connecting one can never again affect what shows as connected for another.
+
+**Every function querying `meta_connections` must now filter by `product`
+explicitly**, not just `org_id` — a plain `.eq("org_id", orgId).maybeSingle()`
+will error once an org has more than one connected product, since there
+can legitimately be up to 5 rows per org now. Updated:
+- `meta-oauth-callback.ts` — upserts with `onConflict: "org_id,product"`,
+  fetches `existingRow` filtered by both `org_id` AND `product`
+- `meta-connection-status.ts` — returns ALL rows for the org as
+  `{ connections: { whatsapp: {...}, ads: {...} } }`, keyed by product,
+  instead of one shared `{ connection: {...} }` object
+- `meta-disconnect.ts` — `product` is now required (no more "disconnect
+  everything" ambiguity); deletes exactly one `(org_id, product)` row
+- `send-inbox-message.ts` — WhatsApp/Messenger/Instagram send queries
+  filter by `.eq("product", productKey)` instead of checking array
+  membership on a shared row
+- `meta-create-ad-campaign.ts` — filters by `.eq("product", "ads")`
+- `integration-config-drawer.tsx` / `settings.integrations.tsx` —
+  `fetchMetaConnection()` now takes a `productKey` argument and looks it
+  up in the keyed `connections` map from the API response
+
+`meta-webhook.ts`'s lookups by `waba_id`/`page_id` didn't need changes —
+those values are unique enough per-row that filtering by org_id + that
+field alone still resolves to the right row without an explicit `product`
+filter, though a `page_id` collision between `messenger` and `lead_ads`
+pointing at the same Page is theoretically possible and not yet handled.
+
+## Full ad creative (image, ad creative, ad object) — completing the campaign hierarchy
+
+"Create Ad Campaign" originally only created a campaign + ad set (no
+creative, no actual `ad` object) — enough to demonstrate real Marketing
+API usage for App Review, but not a complete, usable ad. Extended to
+create the full hierarchy: campaign → ad set → **ad creative** (image +
+copy) → **ad**. Still always `PAUSED`, still $0 spend — completing the
+hierarchy doesn't change that.
+
+New `tool_definitions.input_schema` fields (see
+`supabase/migrations/007_update_create_ad_campaign_tool.sql`): `image`
+(new field type, see below), `headline`, `primary_text` (textarea),
+`description`, `cta` (select, Meta's CTA enum subset), `destination_url`.
+These are **all-or-nothing**: provide none to get the original
+campaign+ad-set-only behavior, or provide all of them to get a complete ad
+— `meta-create-ad-campaign.ts` validates this explicitly rather than
+allowing a partial/broken ad to be attempted.
+
+### New reusable `image` field type in the AI Tools system
+
+`ToolFieldDef.type` gained `"image"` (in `src/lib/ai-center-store.ts`).
+`FieldRenderer` in `ai-tools-tab.tsx` handles it: click-to-upload, uploads
+directly to the existing `project-photos` Supabase Storage bucket (public
+bucket already used elsewhere for project/site photos — reused rather than
+creating a new bucket), stores the resulting public URL as the field's
+string value (same `Record<string, string>` shape every other field
+type already uses, so no changes needed to the surrounding form-state
+plumbing). Shows a thumbnail preview + remove button once uploaded. This
+is the first file-upload field in the AI Tools system — reusable for any
+future tool needing image input, not specific to ad creation.
+
+**Unverified**: whether the `project-photos` bucket's RLS policy actually
+allows authenticated client-side INSERT (vs. just public read, which is
+confirmed). If uploads fail with a permissions error, check/add an INSERT
+policy for authenticated users on that bucket.
+
+### Meta API specifics for the ad creative
+
+- **Image upload is two-step**: the form uploads to Supabase Storage
+  first (gets a public URL), then `meta-create-ad-campaign.ts` re-fetches
+  that URL server-side and uploads the raw bytes to Meta's
+  `/act_{id}/adimages` endpoint, which returns an image `hash` — Meta's
+  ad creative API requires this Meta-hosted image hash, a public URL
+  alone is not accepted as a creative source.
+- **Requires a connected Facebook Page** (`meta_connections.page_id` from
+  any product — Messenger or Lead Ads, since per-product schema means
+  this could come from either) — Meta's `object_story_spec` for a link ad
+  must be attached to a Page, not just the ad account. If no Page is
+  connected, ad/creative creation fails gracefully (campaign + ad set
+  still succeed) with a clear error telling the user to connect one.
+- **Ad creation failure doesn't fail the whole request** — campaign and
+  ad set creation already succeeded by the time creative/ad creation is
+  attempted, and those are real, useful results on their own. A failed
+  creative/ad step surfaces as `adCreativeError` in the response and is
+  shown in the AI Tools output, rather than discarding the
+  already-successful campaign.
+
 ## Gotchas specific to Meta integrations
 
 | Issue | Fix |

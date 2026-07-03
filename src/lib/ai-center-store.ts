@@ -41,7 +41,7 @@ export type AgentInstance = {
 export type ToolFieldDef = {
   key: string;
   label: string;
-  type: "text" | "number" | "textarea" | "select" | "date";
+  type: "text" | "number" | "textarea" | "select" | "date" | "image";
   placeholder?: string;
   prefix?: string;
   suffix?: string;

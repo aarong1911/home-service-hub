@@ -1,5 +1,5 @@
 // src/components/automation/ai-tools-tab.tsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import {
   ListChecks,
   BarChart3,
   Bot,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -111,6 +112,12 @@ async function runCreateAdCampaign(
       name: values.name.trim(),
       dailyBudgetCents: Math.round(dailyBudgetDollars * 100),
       objective: values.objective || "OUTCOME_TRAFFIC",
+      imageUrl: values.image || undefined,
+      headline: values.headline || undefined,
+      primaryText: values.primary_text || undefined,
+      description: values.description || undefined,
+      cta: values.cta || undefined,
+      destinationUrl: values.destination_url || undefined,
     }),
   });
   const data = await res.json();
@@ -118,9 +125,12 @@ async function runCreateAdCampaign(
 
   return {
     sections: {
-      Result: `Campaign created successfully in PAUSED status — no spend will occur until you activate it.`,
+      Result: data.adId
+        ? "Campaign, ad set, and ad created successfully in PAUSED status — no spend will occur until you activate it."
+        : "Campaign created successfully in PAUSED status — no spend will occur until you activate it.",
       "Campaign ID": data.campaignId,
       "Ad Set ID": data.adSetId ?? "Not created (campaign-only)",
+      "Ad ID": data.adId ?? (data.adCreativeError ? `Not created — ${data.adCreativeError}` : "Not created (no creative provided)"),
       "Ad Account": data.adAccountName ?? "—",
       "Next step": "Open Meta Ads Manager to add creative and activate when ready.",
     },
@@ -442,10 +452,100 @@ function FieldRenderer({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image must be under 8MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { data: profile } = await supabase.from("profiles").select("organization_id").eq("id", user.id).maybeSingle();
+      const orgId = profile?.organization_id;
+      if (!orgId) throw new Error("No organization");
+
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${orgId}/ai-tools/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+      // project-photos is the existing public bucket used for site/project
+      // images elsewhere in the app (see CLAUDE.md storage buckets table)
+      // — reused here rather than creating a new bucket, since ad creative
+      // images are conceptually similar (public, org-scoped media).
+      const { error: uploadErr } = await supabase.storage
+        .from("project-photos")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage.from("project-photos").getPublicUrl(path);
+      onChange(urlData.publicUrl);
+      toast.success("Image uploaded");
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message ?? "unknown error"}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   return (
     <div className="space-y-1">
       <Label className="text-xs">{field.label}</Label>
-      {field.type === "textarea" ? (
+      {field.type === "image" ? (
+        <div className="space-y-2">
+          {value ? (
+            <div className="relative w-full overflow-hidden rounded-md border border-border">
+              <img src={value} alt={field.label} className="h-32 w-full object-cover" />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="absolute right-1.5 top-1.5 h-6 px-2 text-[10px]"
+                onClick={() => onChange("")}
+              >
+                Remove
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-secondary disabled:opacity-50"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading…
+                </>
+              ) : (
+                <>
+                  <ImageIcon className="h-4 w-4" />
+                  Click to upload an image
+                </>
+              )}
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
+        </div>
+      ) : field.type === "textarea" ? (
         <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
