@@ -306,7 +306,7 @@ export const handler: Handler = async (event) => {
                   message: primaryText,
                   name: headline,
                   description: description || undefined,
-                  call_to_action: { type: cta },
+                  call_to_action: { type: cta, value: { link: destinationUrl } },
                 },
               },
             }),
@@ -314,7 +314,8 @@ export const handler: Handler = async (event) => {
         );
         const creativeJson = await creativeRes.json();
         if (!creativeRes.ok) {
-          throw new Error(creativeJson?.error?.message ?? "Ad creative creation failed");
+          console.error("[meta-create-ad-campaign] creative error full:", JSON.stringify(creativeJson?.error));
+          throw new Error(creativeJson?.error?.error_user_msg ?? creativeJson?.error?.message ?? "Ad creative creation failed");
         }
         const creativeId = creativeJson.id;
 
