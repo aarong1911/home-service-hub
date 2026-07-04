@@ -312,12 +312,17 @@ export const handler: Handler = async (event) => {
         // account_status === 1 means ACTIVE — prefer an active account if
         // multiple come back, otherwise fall back to the first one
         const accounts: any[] = adAccounts?.data ?? [];
-        const firstActive = accounts.find((a) => a.account_status === 1) ?? accounts[0];
-        if (firstActive) {
-          // Graph API returns ids prefixed "act_" — store the bare numeric id
-          // and let callers (meta-create-ad-campaign.ts) add the prefix back
-          adAccountId = firstActive.id.startsWith("act_") ? firstActive.id.slice(4) : firstActive.id;
-          adAccountName = firstActive.name;
+        const activeAccounts = accounts.filter((a) => a.account_status === 1);
+        // Prefer a business-owned account (name contains "RenoMeta") over a
+        // personal ad account — personal accounts cannot create ads when the
+        // app is in Development mode, but business-owned accounts can.
+        const preferred =
+          activeAccounts.find((a) => /renometa/i.test(a.name)) ??
+          activeAccounts[0] ??
+          accounts[0];
+        if (preferred) {
+          adAccountId = preferred.id.startsWith("act_") ? preferred.id.slice(4) : preferred.id;
+          adAccountName = preferred.name;
         }
       } catch (e) {
         console.warn("[meta-oauth-callback] ad account discovery failed:", e);
