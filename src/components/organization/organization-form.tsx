@@ -2,6 +2,7 @@
 // CompanyStep + BrandingStep so it can be embedded in either flow.
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +48,8 @@ export type OrganizationFormProps = {
   hideActions?: boolean;
   /** Optional secondary action (e.g. Cancel / Back). */
   secondaryAction?: { label: string; onClick: () => void };
+  /** Defer logo upload until an onboarding organization exists. */
+  onLogoFileChange?: (file: File | null) => void;
 };
 
 export function OrganizationForm({
@@ -57,6 +60,7 @@ export function OrganizationForm({
   saving,
   hideActions,
   secondaryAction,
+  onLogoFileChange,
 }: OrganizationFormProps) {
   const set = <K extends keyof Organization>(k: K, v: Organization[K]) =>
     onChange({ ...value, [k]: v });
@@ -108,15 +112,27 @@ export function OrganizationForm({
         </Field>
 
         <Field label="Primary business address" className="md:col-span-2">
-          <Input
+          <AddressAutocomplete
             value={value.address}
-            onChange={(e) => {
-              const addr = e.target.value;
-              set("address", addr);
-              const tz = guessTimezoneFromAddress(addr);
-              if (tz && tz !== value.timezone) set("timezone", tz);
+            onChange={(address) => {
+              const timezone = guessTimezoneFromAddress(address);
+              onChange({
+                ...value,
+                address,
+                ...(timezone ? { timezone } : {}),
+              });
             }}
-            placeholder="Street, City, State"
+            onSelect={({ street, city, state, zip }) => {
+              const locality = [city, state].filter(Boolean).join(", ");
+              const address = [street, locality, zip].filter(Boolean).join(" ");
+              const timezone = guessTimezoneFromAddress(address);
+              onChange({
+                ...value,
+                address,
+                ...(timezone ? { timezone } : {}),
+              });
+            }}
+            placeholder="Start typing your business address"
           />
         </Field>
 
@@ -149,6 +165,7 @@ export function OrganizationForm({
           <LogoPicker
             value={value.logoUrl}
             onChange={(url) => set("logoUrl", url)}
+            onFileChange={onLogoFileChange}
           />
         </Field>
       </div>
@@ -291,13 +308,22 @@ async function uploadLogoFile(file: File): Promise<string | null> {
 function LogoPicker({
   value,
   onChange,
+  onFileChange,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
+  onFileChange?: (file: File | null) => void;
 }) {
   const [uploading, setUploading] = useState(false);
 
   const handleFile = async (file: File) => {
+    if (onFileChange) {
+      if (value?.startsWith("blob:")) URL.revokeObjectURL(value);
+      onFileChange(file);
+      onChange(URL.createObjectURL(file));
+      return;
+    }
+
     setUploading(true);
     const url = await uploadLogoFile(file);
     setUploading(false);
@@ -308,7 +334,7 @@ function LogoPicker({
     onChange(url);
   };
 
-  const displaySrc = value && !value.startsWith("blob:") ? value : null;
+  const displaySrc = value;
 
   return (
     <div className="flex items-center gap-3">
@@ -340,7 +366,11 @@ function LogoPicker({
           variant="ghost"
           size="sm"
           className="h-8 text-xs text-muted-foreground"
-          onClick={() => onChange(null)}
+          onClick={() => {
+            if (value?.startsWith("blob:")) URL.revokeObjectURL(value);
+            onFileChange?.(null);
+            onChange(null);
+          }}
         >
           <X className="h-3 w-3" />
         </Button>
