@@ -36,7 +36,7 @@ export const Route = createFileRoute("/onboarding")({
 const EMPTY_ORG: Organization = {
   companyName: "",
   primaryPhone: "",
-  website: "",
+  website: "https://",
   industry: undefined,
   address: "",
   logoUrl: null,
@@ -72,7 +72,10 @@ function OnboardingPage() {
       const orgId = await createOrganization({
         name: org.companyName.trim(),
         phone: org.primaryPhone || undefined,
-        website: org.website || undefined,
+        website:
+          org.website.trim() && org.website.trim() !== "https://"
+            ? org.website.trim()
+            : undefined,
         address: org.address || undefined,
         industry: org.industry || undefined,
         timezone: org.timezone || undefined,
@@ -89,6 +92,7 @@ function OnboardingPage() {
             .eq("id", orgId);
         } catch (logoErr) {
           console.error("Logo upload failed:", logoErr);
+          toast.error("Your workspace was created, but the logo upload failed. You can retry from Settings.");
         }
       }
 
@@ -186,7 +190,12 @@ function OnboardingPage() {
                 Used across estimates, invoices, and customer communications.
               </p>
             </header>
-            <OrganizationForm value={org} onChange={setOrg} hideActions />
+            <OrganizationForm
+              value={org}
+              onChange={setOrg}
+              onLogoFileChange={setLogoFile}
+              hideActions
+            />
           </section>
 
           <section
