@@ -202,16 +202,31 @@ function AuthCallback() {
   );
 
   if (stage === "no-account") return (
-    <AuthLayout title="Please sign up first" subtitle="We couldn't find an existing RenoMeta Connect account for this Google account.">
+    <AuthLayout
+      title="Complete your RenoMeta setup"
+      subtitle="Your Google account is connected. Finish setting up your RenoMeta Connect workspace."
+    >
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
-          Continue to finish setting up your organization, or go back if this was a mistake.
+          Tell us about your business to create your workspace and start your free trial.
         </p>
-        <Button type="button" className="h-11 w-full bg-foreground text-background hover:bg-foreground/90"
-          onClick={() => navigate({ to: "/onboarding" })}>Continue to sign up</Button>
-        <Button type="button" variant="outline" className="h-11 w-full"
-          onClick={async () => { await supabase.auth.signOut(); navigate({ to: "/signin" }); }}>
-          Back to sign in
+        <Button
+          type="button"
+          className="h-11 w-full bg-foreground text-background hover:bg-foreground/90"
+          onClick={() => navigate({ to: "/onboarding" })}
+        >
+          Continue setup
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full"
+          onClick={async () => {
+            await supabase.auth.signOut();
+            navigate({ to: "/signin" });
+          }}
+        >
+          Use a different account
         </Button>
       </div>
     </AuthLayout>
