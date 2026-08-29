@@ -1080,25 +1080,13 @@ async function handleEndOfCallReport(
     raw_end_of_call: { message, call, artifact },
   };
 
-  const { data: existing } = await supabase
+  // Persist the report atomically. Vapi retries webhook deliveries, and a
+  // read-then-insert sequence can race when two copies arrive together.
+  // The database migration enforces the matching unique key.
+  const { data: persistedCall, error: persistError } = await supabase
     .from('voice_calls')
-    .select('id')
-    .eq('vapi_call_id', call.id)
-    .maybeSingle();
-
-  let callRowId = existing?.id ?? null;
-
-  if (existing) {
-    const { error } = await supabase
-      .from('voice_calls')
-      .update(updatePayload)
-      .eq('vapi_call_id', call.id);
-
-    if (error) logError('end-of-call-report', 'update', error);
-  } else {
-    const { data: inserted, error } = await supabase
-      .from('voice_calls')
-      .insert({
+    .upsert(
+      {
         vapi_call_id: call.id,
         tenant_id: tenantId,
         agent_id: agentId,
@@ -1106,16 +1094,17 @@ async function handleEndOfCallReport(
         caller_number: call.customer?.number ?? null,
         started_at: call.startedAt ?? null,
         ...updatePayload,
-      })
-      .select('id')
-      .single();
+      },
+      { onConflict: 'vapi_call_id' },
+    )
+    .select('id')
+    .single();
 
-    if (error) {
-      logError('end-of-call-report', 'insert fallback', error);
-    } else {
-      callRowId = inserted?.id ?? null;
-    }
+  if (persistError) {
+    logError('end-of-call-report', 'atomic upsert', persistError);
   }
+
+  let callRowId = persistedCall?.id ?? null;
 
   fireMakeWebhook(process.env.MAKE_CALL_ENDED_WEBHOOK, {
     event: 'call_ended',
