@@ -130,6 +130,18 @@ export function useVoiceConversations(): {
       if (norm) contactByPhone[norm] = entry;
     }
 
+    // Vapi can retry webhook delivery. The database enforces uniqueness, but
+    // dedupe here as a final safety net so historical duplicate rows never
+    // render as repeated call cards. The query is newest-first, so retain the
+    // first row for each stable Vapi call id.
+    const uniqueRows = Array.from(
+      (data as any[]).reduce((rowsByCall, row) => {
+        const key = row.vapi_call_id ? `vapi:${row.vapi_call_id}` : `row:${row.id}`;
+        if (!rowsByCall.has(key)) rowsByCall.set(key, row);
+        return rowsByCall;
+      }, new Map<string, any>()).values(),
+    ) as any[];
+
     // Group call rows by resolved identity: prefer contact_id if the row
     // has one, otherwise match by normalized caller_number against known
     // contacts, otherwise group by the raw normalized number itself (still
@@ -137,7 +149,7 @@ export function useVoiceConversations(): {
     type Group = { groupKey: string; contactId: string; contactName: string; phone: string; rows: any[] };
     const groups = new Map<string, Group>();
 
-    for (const row of data as any[]) {
+    for (const row of uniqueRows) {
       const normNumber = normalizePhone(row.caller_number);
       const matchedContact = row.contact_id
         ? { id: row.contact_id, ...contactById[row.contact_id] }
