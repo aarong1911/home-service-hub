@@ -7,12 +7,12 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-// Env vars are injected by Netlify at runtime.
+// Env vars are injected by Netlify at runtime (Functions scope).
 // For local standalone runs: set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in your shell,
 // or use: dotenv -e .env npx tsx supabase/seed-ai-center.ts
 
 const supabase = createClient(
-  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { autoRefreshToken: false, persistSession: false } },
 );

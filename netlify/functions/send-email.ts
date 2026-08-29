@@ -36,7 +36,9 @@ export const handler: Handler = async (event) => {
   try {
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com", port: 587, secure: false,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      // SMTP_PASSWORD is the canonical name (used by invite-member, portal-invite,
+      // execute-workflow). SMTP_PASS kept as a backwards-compatible fallback.
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD ?? process.env.SMTP_PASS },
     });
 
     await transporter.sendMail({
